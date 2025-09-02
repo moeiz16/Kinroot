@@ -1,0 +1,94 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kinroot"
+version = "0.1.0"
+description = "Customer due diligence and beneficial-ownership platform for AML-regulated professional firms (AU Tranche 2, UK MLR 2017)."
+requires-python = ">=3.13,<3.14"
+license = { text = "MIT" }
+authors = [{ name = "Moeiz Shahzad" }]
+# Exact pins: the resolved set is frozen in requirements.lock (make lock).
+dependencies = [
+  # web + platform
+  "Django==5.2.19",
+  "djangorestframework==3.18.3",
+  "argon2-cffi==25.1.0",
+  "structlog==26.1.0",
+  "prometheus-client==0.26.0",
+  "uvicorn==0.54.0",
+  # embedded property graph (ADR 0001)
+  "ladybug==0.22.3",
+  # entity resolution + screening
+  "rapidfuzz==3.14.6",
+  "jellyfish==1.3.0",
+  # classical ML (ADR 0003, 0004)
+  "numpy==2.5.4",
+  "pandas==3.1.1",
+  "scipy==1.18.1",
+  "scikit-learn==1.9.1",
+  "lightgbm==4.7.0",
+  "shap==0.54.1",
+  "optuna==5.0.0",
+  "mlflow-skinny==3.18.0",
+  "networkx==3.7",
+]
+
+[project.optional-dependencies]
+# Live investigation-assistant answers through free cloud tiers. Not needed offline (LLM_FAKE=true).
+ai = ["litellm==1.106.6"]
+# Optional production graph adapter (GRAPH_BACKEND=neo4j).
+neo4j = ["neo4j==6.4.1"]
+# Optional production database.
+postgres = ["psycopg[binary]==3.3.9"]
+dev = [
+  "pytest==9.2.0",
+  "pytest-django==4.14.0",
+  "pytest-cov==7.1.0",
+  "freezegun==1.5.5",
+  "ruff==0.17.5",
+  "mypy==1.19.1",
+  "django-stubs==5.2.9",
+  "djangorestframework-stubs==3.16.8",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["kinroot*", "api*", "accounts*", "audit*", "clients*", "graph*", "resolution*", "screening*", "risk*",
+           "monitoring*", "cases*", "assistant*", "jobs*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+extend-exclude = ["*/migrations/*"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "DJ", "SIM", "RUF", "PT", "N", "C4"]
+ignore = ["S101", "RUF012", "S105", "S106", "N818"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S", "N802"]
+"**/ml/**" = ["N803", "N806"]
+
+[tool.mypy]
+python_version = "3.13"
+plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+check_untyped_defs = true
+exclude = ["migrations/", "tests/"]
+
+[tool.django-stubs]
+django_settings_module = "kinroot.settings"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "kinroot.settings"
+addopts = "-q --strict-markers"
+testpaths = ["tests"]
+markers = [
+  "slow: model training or large-graph tests (deselect with -m 'not slow')",
+  "graph: tests that open an embedded graph database",
+]
+filterwarnings = ["ignore::DeprecationWarning:mlflow.*", "ignore::FutureWarning:mlflow.*"]
