@@ -1,0 +1,380 @@
+{
+ "note": "Fictional Australian registry entries for the offline ABN Lookup mock (ABN_SOURCE=mock). ACN/ABN check digits are valid; the businesses and people are invented.",
+ "entries": [
+  {
+   "reference": "417535365",
+   "name": "Wattle Creek Constructions Pty Ltd",
+   "kind": "company",
+   "jurisdiction": "AU",
+   "status": "active",
+   "identifiers": {
+    "acn": "417 535 365",
+    "abn": "93 417 535 365"
+   },
+   "address": {
+    "line1": "12 Church St",
+    "locality": "Parramatta",
+    "state": "NSW",
+    "postcode": "2150",
+    "country": "AU"
+   },
+   "officers": [
+    {
+     "name": "Harriet Lowe",
+     "birthDate": "1979-03-14",
+     "role": "director"
+    },
+    {
+     "name": "Felix Brandt",
+     "birthDate": "1975-11-02",
+     "role": "director"
+    }
+   ],
+   "owners": [
+    {
+     "name": "Harriet Lowe",
+     "kind": "person",
+     "pct": 60,
+     "interest": "shares"
+    },
+    {
+     "name": "Felix Brandt",
+     "kind": "person",
+     "pct": 40,
+     "interest": "shares"
+    }
+   ]
+  },
+  {
+   "reference": "291539449",
+   "name": "Banksia Health Partners Pty Ltd",
+   "kind": "company",
+   "jurisdiction": "AU",
+   "status": "active",
+   "identifiers": {
+    "acn": "291 539 449",
+    "abn": "81 291 539 449"
+   },
+   "address": {
+    "line1": "220 Lygon St",
+    "locality": "Carlton",
+    "state": "VIC",
+    "postcode": "3053",
+    "country": "AU"
+   },
+   "officers": [
+    {
+     "name": "Dr Mei Tanaka",
+     "birthDate": "1982-06-30",
+     "role": "director"
+    }
+   ],
+   "owners": [
+    {
+     "name": "Tanaka Family Holdings Pty Ltd",
+     "kind": "company",
+     "pct": 100,
+     "interest": "shares"
+    }
+   ]
+  },
+  {
+   "reference": "106800426",
+   "name": "Ironstone Freight Pty Ltd",
+   "kind": "company",
+   "jurisdiction": "AU",
+   "status": "active",
+   "identifiers": {
+    "acn": "106 800 426",
+    "abn": "41 106 800 426"
+   },
+   "address": {
+    "line1": "5 Lavarack Ave",
+    "locality": "Eagle Farm",
+    "state": "QLD",
+    "postcode": "4009",
+    "country": "AU"
+   },
+   "officers": [
+    {
+     "name": "Connor Walsh",
+     "birthDate": "1968-01-21",
+     "role": "director"
+    },
+    {
+     "name": "Priya Raman",
+     "birthDate": "1986-09-09",
+     "role": "secretary"
+    }
+   ],
+   "owners": [
+    {
+     "name": "Connor Walsh",
+     "kind": "person",
+     "pct": 100,
+     "interest": "shares"
+    }
+   ]
+  },
+  {
+   "reference": "107378290",
+   "name": "Saltbush Agricultural Pty Ltd",
+   "kind": "company",
+   "jurisdiction": "AU",
+   "status": "active",
+   "identifiers": {
+    "acn": "107 378 290",
+    "abn": "12 107 378 290"
+   },
+   "address": {
+    "line1": "88 Commercial St W",
+    "locality": "Mount Gambier",
+    "state": "SA",
+    "postcode": "5290",
+    "country": "AU"
+   },
+   "officers": [
+    {
+     "name": "Glenys Porter",
+     "birthDate": "1958-04-04",
+     "role": "director"
+    }
+   ],
+   "owners": [
+    {
+     "name": "Glenys Porter",
+     "kind": "person",
+     "pct": 50,
+     "interest": "shares"
+    },
+    {
+     "name": "Ross Porter",
+     "kind": "person",
+     "pct": 50,
+     "interest": "shares"
+    }
+   ]
+  },
+  {
+   "reference": "672184477",
+   "name": "Kookaburra Media Pty Ltd",
+   "kind": "company",
+   "jurisdiction": "AU",
+   "status": "active",
+   "identifiers": {
+    "acn": "672 184 477",
+    "abn": "16 672 184 477"
+   },
+   "address": {
+    "line1": "41 Foveaux St",
+    "locality": "Surry Hills",
+    "state": "NSW",
+    "postcode": "2010",
+    "country": "AU"
+   },
+   "officers": [
+    {
+     "name": "Leo Marchetti",
+     "birthDate": "1990-12-12",
+     "role": "director"
+    }
+   ],
+   "owners": [
+    {
+     "name": "Leo Marchetti",
+     "kind": "person",
+     "pct": 30,
+     "interest": "shares"
+    },
+    {
+     "name": "Ana Souza",
+     "kind": "person",
+     "pct": 30,
+     "interest": "shares"
+    },
+    {
+     "name": "Kookaburra Employee Share Trust",
+     "kind": "trust",
+     "pct": 40,
+     "interest": "shares"
+    }
+   ]
+  },
+  {
+   "reference": "629385922",
+   "name": "Granite Peak Mining Services Pty Ltd",
+   "kind": "company",
+   "jurisdiction": "AU",
+   "status": "dormant",
+   "identifiers": {
+    "acn": "629 385 922",
+    "abn": "66 629 385 922"
+   },
+   "address": {
+    "line1": "3 Hannan St",
+    "locality": "Kalgoorlie",
+    "state": "WA",
+    "postcode": "6430",
+    "country": "AU"
+   },
+   "officers": [
+    {
+     "name": "Mark Ellison",
+     "birthDate": "1971-08-18",
+     "role": "director"
+    }
+   ],
+   "owners": [
+    {
+     "name": "Ellison Holdings Pty Ltd",
+     "kind": "company",
+     "pct": 100,
+     "interest": "shares"
+    }
+   ]
+  },
+  {
+   "reference": "100507239",
+   "name": "Jacaranda Dental Pty Ltd",
+   "kind": "company",
+   "jurisdiction": "AU",
+   "status": "active",
+   "identifiers": {
+    "acn": "100 507 239",
+    "abn": "64 100 507 239"
+   },
+   "address": {
+    "line1": "17 Sherwood Rd",
+    "locality": "Toowong",
+    "state": "QLD",
+    "postcode": "4066",
+    "country": "AU"
+   },
+   "officers": [
+    {
+     "name": "Dr Samuel Osei",
+     "birthDate": "1984-02-25",
+     "role": "director"
+    }
+   ],
+   "owners": [
+    {
+     "name": "Samuel Osei",
+     "kind": "person",
+     "pct": 100,
+     "interest": "shares"
+    }
+   ]
+  },
+  {
+   "reference": "211130228",
+   "name": "Harbourline Trustee Services Pty Ltd",
+   "kind": "company",
+   "jurisdiction": "AU",
+   "status": "dissolved",
+   "identifiers": {
+    "acn": "211 130 228",
+    "abn": "90 211 130 228"
+   },
+   "address": {
+    "line1": "1 Bligh St",
+    "locality": "Sydney",
+    "state": "NSW",
+    "postcode": "2000",
+    "country": "AU"
+   },
+   "officers": [
+    {
+     "name": "Imogen Hart",
+     "birthDate": "1977-05-05",
+     "role": "director"
+    }
+   ],
+   "owners": [
+    {
+     "name": "Imogen Hart",
+     "kind": "person",
+     "pct": 100,
+     "interest": "shares"
+    }
+   ]
+  },
+  {
+   "reference": "206317884",
+   "name": "Moreton Bay Marine Pty Ltd",
+   "kind": "company",
+   "jurisdiction": "AU",
+   "status": "active",
+   "identifiers": {
+    "acn": "206 317 884",
+    "abn": "35 206 317 884"
+   },
+   "address": {
+    "line1": "9 Anzac Ave",
+    "locality": "Redcliffe",
+    "state": "QLD",
+    "postcode": "4020",
+    "country": "AU"
+   },
+   "officers": [
+    {
+     "name": "Owen Fraser",
+     "birthDate": "1966-07-07",
+     "role": "director"
+    },
+    {
+     "name": "Tessa Fraser",
+     "birthDate": "1969-10-10",
+     "role": "director"
+    }
+   ],
+   "owners": [
+    {
+     "name": "Owen Fraser",
+     "kind": "person",
+     "pct": 50,
+     "interest": "shares"
+    },
+    {
+     "name": "Tessa Fraser",
+     "kind": "person",
+     "pct": 50,
+     "interest": "shares"
+    }
+   ]
+  },
+  {
+   "reference": "685517873",
+   "name": "Flinders Lane Capital Pty Ltd",
+   "kind": "company",
+   "jurisdiction": "AU",
+   "status": "active",
+   "identifiers": {
+    "acn": "685 517 873",
+    "abn": "97 685 517 873"
+   },
+   "address": {
+    "line1": "100 Flinders Ln",
+    "locality": "Melbourne",
+    "state": "VIC",
+    "postcode": "3000",
+    "country": "AU"
+   },
+   "officers": [
+    {
+     "name": "Rupert Vance",
+     "birthDate": "1973-03-03",
+     "role": "director"
+    }
+   ],
+   "owners": [
+    {
+     "name": "Vance Family Trust",
+     "kind": "trust",
+     "pct": 100,
+     "interest": "shares"
+    }
+   ]
+  }
+ ]
+}

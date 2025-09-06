@@ -1,0 +1,110 @@
+{
+ "note": "Fictional UK company structure in the Companies House PSC shape, used when the downloaded sample is absent.",
+ "entries": [
+  {
+   "reference": "14827360",
+   "name": "Thamesgate Property Holdings Ltd",
+   "kind": "company",
+   "jurisdiction": "GB",
+   "status": "active",
+   "identifiers": {
+    "ukCompanyNumber": "14827360"
+   },
+   "address": {
+    "line1": "4 Bishopsgate Yard",
+    "locality": "London",
+    "postcode": "EC2N 4AJ",
+    "country": "GB"
+   },
+   "officers": [
+    {
+     "name": "Eleanor Whitcombe",
+     "birthDate": "1974-09",
+     "role": "director"
+    },
+    {
+     "name": "James Okonjo",
+     "birthDate": "1981-02",
+     "role": "director"
+    }
+   ],
+   "pscs": [
+    {
+     "name": "Aldgate Nominees Ltd",
+     "kind": "corporate-entity-person-with-significant-control",
+     "registrationNumber": "09215531",
+     "natures": [
+      "ownership-of-shares-75-to-100-percent",
+      "voting-rights-75-to-100-percent"
+     ],
+     "notifiedOn": "2021-06-01",
+     "jurisdiction": "GB"
+    }
+   ],
+   "parents": {
+    "09215531": {
+     "name": "Aldgate Nominees Ltd",
+     "pscs": [
+      {
+       "name": "Eleanor Whitcombe",
+       "kind": "individual-person-with-significant-control",
+       "birthDate": "1974-09",
+       "nationality": "GB",
+       "natures": [
+        "ownership-of-shares-50-to-75-percent"
+       ],
+       "notifiedOn": "2019-03-12"
+      },
+      {
+       "name": "Rafael Montes",
+       "kind": "individual-person-with-significant-control",
+       "birthDate": "1969-04",
+       "nationality": "ES",
+       "natures": [
+        "ownership-of-shares-25-to-50-percent",
+        "significant-influence-or-control"
+       ],
+       "notifiedOn": "2019-03-12"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "reference": "11930477",
+   "name": "Northbank Analytics Ltd",
+   "kind": "company",
+   "jurisdiction": "GB",
+   "status": "active",
+   "identifiers": {
+    "ukCompanyNumber": "11930477"
+   },
+   "address": {
+    "line1": "27 Whitechapel Rd",
+    "locality": "London",
+    "postcode": "E1 1DU",
+    "country": "GB"
+   },
+   "officers": [
+    {
+     "name": "Hannah Greaves",
+     "birthDate": "1988-11",
+     "role": "director"
+    }
+   ],
+   "pscs": [
+    {
+     "name": "Hannah Greaves",
+     "kind": "individual-person-with-significant-control",
+     "birthDate": "1988-11",
+     "nationality": "GB",
+     "natures": [
+      "ownership-of-shares-75-to-100-percent"
+     ],
+     "notifiedOn": "2020-01-20"
+    }
+   ],
+   "parents": {}
+  }
+ ]
+}
