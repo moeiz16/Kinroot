@@ -16,7 +16,9 @@ dist/
 .vite/
 
 # Local data, models and tools (never commit)
-data/
+/data/
+# Small committed fixtures inside backend apps (fictional sample lists, registry mocks)
+!backend/*/data/
 .tools/
 mlruns/
 mlartifacts/

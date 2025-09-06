@@ -1,7 +1,6 @@
-"""Accounts: users, organisations (firms), memberships and invitations. Owner: builder A.
+"""Accounts: users, organisations (firms), memberships, invitations and the AML/CTF training register.
 
-Only the custom user model is defined so far (AUTH_USER_MODEL must exist before the first migration).
-Organisation, Membership and Invitation follow docs/API_CONTRACT.md Part 2.
+Owner: builder A. Shapes follow docs/API_CONTRACT.md Part 2.
 """
 
 from __future__ import annotations
@@ -44,3 +43,87 @@ class User(AbstractBaseUser):
 
     def __str__(self) -> str:
         return self.email
+
+
+class Organisation(models.Model):
+    COUNTRIES = [("AU", "Australia"), ("GB", "United Kingdom")]
+    SECTORS = [
+        ("legal", "Legal"),
+        ("accounting", "Accounting"),
+        ("conveyancing", "Conveyancing"),
+        ("real_estate", "Real estate"),
+        ("dealer", "Precious stones and metals dealer"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=200)
+    slug = models.SlugField(max_length=80, unique=True)
+    country = models.CharField(max_length=2, choices=COUNTRIES, default="AU")
+    abn = models.CharField(max_length=20, blank=True, default="")
+    address = models.CharField(max_length=300, blank=True, default="")
+    sector = models.CharField(max_length=20, choices=SECTORS, default="legal")
+    settings = models.JSONField(default=dict, blank=True)  # OrgSettings overrides; defaults in accounts.services
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class Membership(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    org = models.ForeignKey(Organisation, on_delete=models.CASCADE, related_name="memberships")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="memberships")
+    role = models.CharField(max_length=32)
+    joined_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["org", "user"], name="uniq_membership_org_user")]
+        ordering = ["joined_at"]
+
+
+class Invitation(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    org = models.ForeignKey(Organisation, on_delete=models.CASCADE, related_name="invitations")
+    email = models.EmailField()
+    role = models.CharField(max_length=32)
+    token_hash = models.CharField(max_length=64, unique=True)  # HMAC-SHA256 of the token; the token is shown once
+    expires_at = models.DateTimeField()
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    invited_by = models.ForeignKey(User, null=True, on_delete=models.SET_NULL, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["org", "email"])]
+
+
+class TrainingRecord(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    org = models.ForeignKey(Organisation, on_delete=models.CASCADE, related_name="training_records")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="training_records")
+    course = models.CharField(max_length=200)
+    completed_on = models.DateField()
+    due_on = models.DateField()
+    evidence_note = models.CharField(max_length=500, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["due_on"]
+
+
+class LoginFailure(models.Model):
+    """Failed sign-ins per email (5 in 15 minutes locks that email for 15 minutes)."""
+
+    id = models.BigAutoField(primary_key=True)
+    email = models.CharField(max_length=254, db_index=True)
+    ip = models.CharField(max_length=64, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
