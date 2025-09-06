@@ -22,8 +22,19 @@ PARTY_KINDS = [
     ("partnership", "Partnership"),
     ("other", "Other"),
 ]
-CLIENT_KINDS = [("individual", "Individual"), ("company", "Company"), ("trust", "Trust"), ("partnership", "Partnership")]
-SOURCES = [("manual", "Manual"), ("uk_ch", "Companies House"), ("au_abr", "ABN Lookup"), ("seed", "Sample"), ("import", "Import")]
+CLIENT_KINDS = [
+    ("individual", "Individual"),
+    ("company", "Company"),
+    ("trust", "Trust"),
+    ("partnership", "Partnership"),
+]
+SOURCES = [
+    ("manual", "Manual"),
+    ("uk_ch", "Companies House"),
+    ("au_abr", "ABN Lookup"),
+    ("seed", "Sample"),
+    ("import", "Import"),
+]
 
 
 class Party(models.Model):
@@ -43,7 +54,9 @@ class Party(models.Model):
     dormant = models.BooleanField(default=False)
     source = models.CharField(max_length=10, choices=SOURCES, default="manual")
     source_ref = models.CharField(max_length=200, blank=True, default="")
-    merged_into = models.ForeignKey("self", null=True, blank=True, on_delete=models.SET_NULL, related_name="merged_records")
+    merged_into = models.ForeignKey(
+        "self", null=True, blank=True, on_delete=models.SET_NULL, related_name="merged_records"
+    )
     merge_moves = models.JSONField(default=dict, blank=True)  # rows re-pointed by a merge, so it can be split
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -80,6 +93,9 @@ class Relationship(models.Model):
         ordering = ["valid_from"]
         indexes = [models.Index(fields=["org", "to_party"]), models.Index(fields=["org", "from_party"])]
 
+    def __str__(self) -> str:
+        return f"{self.kind} {self.from_party_id} -> {self.to_party_id}"
+
 
 class Client(models.Model):
     STATUSES = [("onboarding", "Onboarding"), ("active", "Active"), ("blocked", "Blocked"), ("exited", "Exited")]
@@ -97,8 +113,8 @@ class Client(models.Model):
     channel = models.CharField(max_length=14, choices=CHANNELS, default="face_to_face")
     matter_reference = models.CharField(max_length=80, blank=True, default="")
     assigned_to = models.ForeignKey(USER, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
-    rating = models.CharField(max_length=6, choices=RATINGS, null=True, blank=True)
-    rating_source = models.CharField(max_length=10, null=True, blank=True)  # rules | override
+    rating = models.CharField(max_length=6, choices=RATINGS, null=True, blank=True)  # noqa: DJ001
+    rating_source = models.CharField(max_length=10, null=True, blank=True)  # noqa: DJ001 - rules | override
     edd_required = models.BooleanField(default=False)
     onboarded_on = models.DateField(null=True, blank=True)
     last_reviewed_on = models.DateField(null=True, blank=True)
@@ -110,7 +126,7 @@ class Client(models.Model):
     anonymised_at = models.DateTimeField(null=True, blank=True)
     submitted_at = models.DateTimeField(null=True, blank=True)
     ubo_count = models.IntegerField(null=True, blank=True)  # cached from the UBO engine for list views
-    seed_key = models.CharField(max_length=60, null=True, blank=True)  # stable sample-data id (tests, eval)
+    seed_key = models.CharField(max_length=60, null=True, blank=True)  # noqa: DJ001  # stable sample-data id (tests, eval)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -134,6 +150,9 @@ class ClientParty(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["client", "party"], name="uniq_client_party")]
+
+    def __str__(self) -> str:
+        return f"{self.party_id} in {self.client_id}"
 
 
 class Document(models.Model):
@@ -163,6 +182,9 @@ class Document(models.Model):
     class Meta:
         ordering = ["-created_at"]
 
+    def __str__(self) -> str:
+        return f"{self.doc_type} {self.id}"
+
 
 class VerificationCheck(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -180,6 +202,9 @@ class VerificationCheck(models.Model):
     class Meta:
         ordering = ["-checked_at"]
 
+    def __str__(self) -> str:
+        return self.reference
+
 
 class Consent(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -191,6 +216,9 @@ class Consent(models.Model):
     method = models.CharField(max_length=60)
     recorded_by = models.ForeignKey(USER, null=True, on_delete=models.SET_NULL, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:
+        return f"Consent {self.purpose} for {self.party_id}"
 
 
 class EddCase(models.Model):
@@ -212,6 +240,9 @@ class EddCase(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def __str__(self) -> str:
+        return f"EDD for {self.client_id} ({self.status})"
+
 
 class EddMeasure(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -226,6 +257,9 @@ class EddMeasure(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["edd", "key"], name="uniq_edd_measure")]
+
+    def __str__(self) -> str:
+        return f"{self.key}: {self.status}"
 
 
 class SignOff(models.Model):
@@ -242,6 +276,9 @@ class SignOff(models.Model):
     class Meta:
         ordering = ["at"]
 
+    def __str__(self) -> str:
+        return f"{self.stage} {self.decision}"
+
 
 class Communication(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -253,6 +290,9 @@ class Communication(models.Model):
     held_reason_code = models.CharField(max_length=40, blank=True, default="")
     sent_by = models.ForeignKey(USER, null=True, on_delete=models.SET_NULL, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:
+        return f"{self.kind} ({self.status})"
 
 
 class ClientHold(models.Model):
@@ -269,3 +309,6 @@ class ClientHold(models.Model):
     released_at = models.DateTimeField(null=True, blank=True)
     released_by = models.ForeignKey(USER, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
     release_note = models.TextField(blank=True, default="")
+
+    def __str__(self) -> str:
+        return f"Hold {self.id}"

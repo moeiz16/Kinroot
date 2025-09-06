@@ -25,6 +25,9 @@ class Concern(models.Model):
     class Meta:
         ordering = ["-created_at"]
 
+    def __str__(self) -> str:
+        return f"Concern {self.id}"
+
 
 class Case(models.Model):
     STATUSES = [("open", "Open"), ("reported", "Reported"), ("closed_no_report", "Closed, no report")]
@@ -45,6 +48,9 @@ class Case(models.Model):
     class Meta:
         ordering = ["-opened_at"]
 
+    def __str__(self) -> str:
+        return f"Case {self.id}"
+
 
 class CaseAccess(models.Model):
     LEVELS = [("full", "Full"), ("summary", "Summary")]
@@ -59,6 +65,9 @@ class CaseAccess(models.Model):
     class Meta:
         constraints = [models.UniqueConstraint(fields=["case", "user"], name="uniq_case_access")]
 
+    def __str__(self) -> str:
+        return f"{self.user_id} {self.level} on {self.case_id}"
+
 
 class SmrDraft(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -70,3 +79,6 @@ class SmrDraft(models.Model):
     reference = models.CharField(max_length=40, blank=True, default="")
     updated_by = models.ForeignKey(USER, null=True, on_delete=models.SET_NULL, related_name="+")
     updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self) -> str:
+        return f"SMR draft v{self.version} for {self.case_id}"

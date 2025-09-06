@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
+from datetime import UTC, datetime
 from typing import Any
 
 from django.db import transaction
@@ -34,7 +35,7 @@ def _row_payload(entry: Any) -> dict[str, Any]:
         "resourceId": entry.resource_id,
         "metadata": entry.metadata,
         "restricted": entry.restricted,
-        "createdAt": entry.created_at.isoformat(),
+        "createdAt": entry.created_at.astimezone(UTC).isoformat(timespec="microseconds"),
     }
 
 
@@ -51,12 +52,14 @@ def record(
     metadata: dict[str, Any] | None = None,
     restricted: bool = False,
     user_agent: str = "",
+    at: datetime | None = None,
 ) -> int:
     """Append one audit row in the caller's transaction; returns its id.
 
     `restricted=True` rows (SMR/case actions) are only listed to users with `smr:read`; they still take part
     in the org's hash chain, so the chain stays verifiable by auditors without exposing the content.
     Action names: "<area>.<verb>", e.g. "screening.hit_reviewed", "resolution.merged", "risk.overridden".
+    `at` back-dates the row (sample-data history only); rows must still be appended in time order.
     """
     from audit.models import AuditLog
 
@@ -78,7 +81,7 @@ def record(
             user_agent=(user_agent or "")[:300],
             restricted=restricted,
             prev_hash=prev,
-            created_at=timezone.now(),
+            created_at=at or timezone.now(),
         )
         entry.hash = compute_hash(prev, entry)
         entry.save()

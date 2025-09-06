@@ -121,7 +121,7 @@ CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"
 
 # ── Django REST framework ──
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": ["rest_framework.authentication.SessionAuthentication"],
+    "DEFAULT_AUTHENTICATION_CLASSES": ["api.auth.KinrootSessionAuthentication"],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "DEFAULT_RENDERER_CLASSES": ["kinroot.core.camel.CamelCaseJSONRenderer"],
     "DEFAULT_PARSER_CLASSES": [
@@ -188,6 +188,7 @@ KINROOT = {
     "JOBS_LEASE_SECONDS": env_int("JOBS_LEASE_SECONDS", 300),
     "SSE_POLL_SECONDS": float(env_str("SSE_POLL_SECONDS", "1.0")),
     "SSE_HEARTBEAT_SECONDS": env_int("SSE_HEARTBEAT_SECONDS", 15),
+    "SSE_MAX_SECONDS": env_int("SSE_MAX_SECONDS", 300),  # the browser reconnects with Last-Event-ID
     "RETENTION_YEARS_DEFAULT": env_int("RETENTION_YEARS_DEFAULT", 7),
     "DATA_RESIDENCY": env_str("DATA_RESIDENCY", "AU"),
 }

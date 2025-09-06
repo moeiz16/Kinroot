@@ -29,3 +29,6 @@ class AuditLog(models.Model):
             models.Index(fields=["org", "id"]),
             models.Index(fields=["org", "resource_type", "resource_id"]),
         ]
+
+    def __str__(self) -> str:
+        return f"{self.id} {self.action}"

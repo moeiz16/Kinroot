@@ -86,6 +86,9 @@ class Membership(models.Model):
         constraints = [models.UniqueConstraint(fields=["org", "user"], name="uniq_membership_org_user")]
         ordering = ["joined_at"]
 
+    def __str__(self) -> str:
+        return f"{self.user_id} in {self.org_id} as {self.role}"
+
 
 class Invitation(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -104,6 +107,9 @@ class Invitation(models.Model):
         ordering = ["-created_at"]
         indexes = [models.Index(fields=["org", "email"])]
 
+    def __str__(self) -> str:
+        return f"Invitation {self.id} ({self.role})"
+
 
 class TrainingRecord(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -119,6 +125,9 @@ class TrainingRecord(models.Model):
     class Meta:
         ordering = ["due_on"]
 
+    def __str__(self) -> str:
+        return f"{self.course} ({self.user_id})"
+
 
 class LoginFailure(models.Model):
     """Failed sign-ins per email (5 in 15 minutes locks that email for 15 minutes)."""
@@ -127,3 +136,6 @@ class LoginFailure(models.Model):
     email = models.CharField(max_length=254, db_index=True)
     ip = models.CharField(max_length=64, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    def __str__(self) -> str:
+        return f"Failed sign-in {self.id}"

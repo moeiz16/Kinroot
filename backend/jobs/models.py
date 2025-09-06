@@ -22,7 +22,7 @@ class Job(models.Model):
     max_attempts = models.IntegerField(default=3)
     locked_by = models.CharField(max_length=80, blank=True, default="")
     locked_until = models.DateTimeField(null=True, blank=True)
-    dedupe_key = models.CharField(max_length=200, null=True, blank=True)
+    dedupe_key = models.CharField(max_length=200, null=True, blank=True)  # noqa: DJ001
     result = models.JSONField(null=True, blank=True)
     error = models.TextField(blank=True, default="")
     progress = models.IntegerField(default=0)
@@ -36,6 +36,9 @@ class Job(models.Model):
         ordering = ["priority", "run_at"]
         indexes = [models.Index(fields=["status", "run_at"]), models.Index(fields=["dedupe_key", "status"])]
 
+    def __str__(self) -> str:
+        return f"{self.kind} {self.id} ({self.status})"
+
 
 class Event(models.Model):
     """One SSE event. The auto id is the SSE `id:` so clients resume with Last-Event-ID."""
@@ -44,10 +47,13 @@ class Event(models.Model):
     org = models.ForeignKey("accounts.Organisation", on_delete=models.CASCADE, related_name="+")
     name = models.CharField(max_length=60)
     data = models.JSONField(default=dict)
-    permission = models.CharField(max_length=40, null=True, blank=True)
+    permission = models.CharField(max_length=40, null=True, blank=True)  # noqa: DJ001
     user_ids = models.JSONField(null=True, blank=True)  # restricted delivery (case events): list of user id strings
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:
         ordering = ["id"]
         indexes = [models.Index(fields=["org", "id"])]
+
+    def __str__(self) -> str:
+        return f"{self.id} {self.name}"
