@@ -9,8 +9,12 @@ from __future__ import annotations
 
 from typing import Any
 
+import structlog
+
 from clients import services
 from clients.models import Client, ClientParty, Consent, Party, Relationship, VerificationCheck
+
+log = structlog.get_logger(__name__)
 
 PRE_SUBMIT = ("identity_", "consent_", "structure_confirmed", "ubos_identified")
 
@@ -32,17 +36,17 @@ def _ubo_people(client: Client) -> tuple[list[Party], bool]:
             Client.objects.filter(id=client.id).update(ubo_count=len(ids))
             client.ubo_count = len(ids)
         return people, bool(ids)
-    except NotImplementedError:
-        pass
-    except Exception:  # the graph may be rebuilding; fall back to the relational structure
-        pass
+    except Exception as exc:  # the graph may be rebuilding (or not built yet): use the relational structure
+        log.debug("ubo_fallback", client_id=str(client.id), error=type(exc).__name__)
     ids = set(ClientParty.objects.filter(client_id=client.id).values_list("party_id", flat=True))
     rels = Relationship.objects.filter(
         org_id=client.org_id, to_party_id__in=ids | {client.party_id}, valid_to__isnull=True, from_party__kind="person"
     ).select_related("from_party")
     people: dict[Any, Party] = {}
     for rel in rels:
-        if (rel.kind == "ownership" and (rel.pct or 0) >= 25) or (rel.kind == "control" and rel.role in services.UBO_ROLES | {"senior_managing_official"}):
+        if (rel.kind == "ownership" and (rel.pct or 0) >= 25) or (
+            rel.kind == "control" and rel.role in services.UBO_ROLES | {"senior_managing_official"}
+        ):
             people[rel.from_party_id] = rel.from_party
     return list(people.values()), bool(people)
 
@@ -70,11 +74,14 @@ def build_checklist(client: Client) -> dict[str, Any]:
     people, ubos_ok = _ubo_people(client)
     base = f"/board/clients/{client.id}"
     verified = set(
-        VerificationCheck.objects.filter(org_id=client.org_id, party_id__in=[p.id for p in people], result="verified")
-        .values_list("party_id", flat=True)
+        VerificationCheck.objects.filter(
+            org_id=client.org_id, party_id__in=[p.id for p in people], result="verified"
+        ).values_list("party_id", flat=True)
     )
     consented = set(
-        Consent.objects.filter(org_id=client.org_id, party_id__in=[p.id for p in people]).values_list("party_id", flat=True)
+        Consent.objects.filter(org_id=client.org_id, party_id__in=[p.id for p in people]).values_list(
+            "party_id", flat=True
+        )
     )
     for person in people:
         items.append(
@@ -99,8 +106,7 @@ def build_checklist(client: Client) -> dict[str, Any]:
         )
     is_entity = client.kind != "individual"
     has_structure = (
-        not is_entity
-        or Relationship.objects.filter(org_id=client.org_id, to_party_id=client.party_id).exists()
+        not is_entity or Relationship.objects.filter(org_id=client.org_id, to_party_id=client.party_id).exists()
     )
     items.append(
         {

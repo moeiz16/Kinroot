@@ -147,12 +147,17 @@ class _Importer:
         ident = fields.get("identifiers") or {}
         existing = None
         for key, value in ident.items():
-            existing = Party.objects.filter(org_id=self.org_id, merged_into__isnull=True, **{f"identifiers__{key}": value}).first()
+            existing = Party.objects.filter(
+                org_id=self.org_id, merged_into__isnull=True, **{f"identifiers__{key}": value}
+            ).first()
             if existing:
                 break
         if existing is None:
             existing = Party.objects.filter(
-                org_id=self.org_id, merged_into__isnull=True, kind=kind, normalized_name=services.normalize_name(name),
+                org_id=self.org_id,
+                merged_into__isnull=True,
+                kind=kind,
+                normalized_name=services.normalize_name(name),
                 birth_date=fields.get("birth_date"),
             ).first()
         if existing:
@@ -171,15 +176,33 @@ class _Importer:
             **fields,
         )
 
-    def link(self, src: Party, dst: Party, kind: str, *, pct: float | None = None, role: str = "", interest: str = "",
-             valid_from: date | None = None, note: str = "") -> None:
+    def link(
+        self,
+        src: Party,
+        dst: Party,
+        kind: str,
+        *,
+        pct: float | None = None,
+        role: str = "",
+        interest: str = "",
+        valid_from: date | None = None,
+        note: str = "",
+    ) -> None:
         if Relationship.objects.filter(
             org_id=self.org_id, from_party=src, to_party=dst, kind=kind, role=role, valid_to__isnull=True
         ).exists():
             return
         Relationship.objects.create(
-            org_id=self.org_id, from_party=src, to_party=dst, kind=kind, pct=pct, role=role, interest=interest,
-            valid_from=valid_from or self.today, source=self.source, source_ref=f"{self.source}:{self.reference}{note}",
+            org_id=self.org_id,
+            from_party=src,
+            to_party=dst,
+            kind=kind,
+            pct=pct,
+            role=role,
+            interest=interest,
+            valid_from=valid_from or self.today,
+            source=self.source,
+            source_ref=f"{self.source}:{self.reference}{note}",
         )
         self.relationships_created += 1
 
@@ -194,11 +217,20 @@ class _Importer:
                     company.address = entry["address"]
                 company.save()
         else:
-            company = self.party(entry["name"], "company", jurisdiction=entry["jurisdiction"],
-                                 identifiers=entry.get("identifiers", {}), address=entry.get("address") or {})
+            company = self.party(
+                entry["name"],
+                "company",
+                jurisdiction=entry["jurisdiction"],
+                identifiers=entry.get("identifiers", {}),
+                address=entry.get("address") or {},
+            )
         for officer in entry.get("officers", []):
-            person = self.party(officer["name"], "person", birth_date=_birth(officer.get("birthDate")),
-                                jurisdiction=entry["jurisdiction"])
+            person = self.party(
+                officer["name"],
+                "person",
+                birth_date=_birth(officer.get("birthDate")),
+                jurisdiction=entry["jurisdiction"],
+            )
             self.link(person, company, "control", role=officer["role"])
         for owner in entry.get("owners", []):
             kind = owner.get("kind", "person")
@@ -206,7 +238,9 @@ class _Importer:
             self.link(holder, company, "ownership", pct=float(owner["pct"]), interest=owner.get("interest", "shares"))
         self._pscs(company, entry.get("pscs", []), entry.get("parents", {}), entry["jurisdiction"])
 
-    def _pscs(self, company: Party, pscs: list[dict[str, Any]], parents: dict[str, Any], jurisdiction: str, depth: int = 0) -> None:
+    def _pscs(
+        self, company: Party, pscs: list[dict[str, Any]], parents: dict[str, Any], jurisdiction: str, depth: int = 0
+    ) -> None:
         for psc in pscs:
             corporate = psc["kind"].startswith("corporate") or psc["kind"].startswith("legal-person")
             reg = psc.get("registrationNumber")

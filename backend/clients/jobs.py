@@ -13,8 +13,11 @@ def _retention(payload: dict[str, Any]) -> dict[str, Any]:
     from kinroot.contracts import Actor
 
     org_id = uuid.UUID(payload["orgId"])
-    actor = Actor(org_id=org_id, user_id=uuid.UUID(payload["userId"]) if payload.get("userId") else None,
-                  name=payload.get("userName", "System"))
+    actor = Actor(
+        org_id=org_id,
+        user_id=uuid.UUID(payload["userId"]) if payload.get("userId") else None,
+        name=payload.get("userName", "System"),
+    )
     return retention.run(org_id, dry_run=bool(payload.get("dryRun", True)), actor=actor)
 
 

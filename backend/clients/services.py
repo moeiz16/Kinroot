@@ -21,7 +21,9 @@ from django.utils import timezone
 from clients.models import Client, ClientHold, ClientParty, EddCase, EddMeasure, Party, Relationship
 
 HOLD_MESSAGE = "This step needs the compliance officer's go-ahead."
-OFFSHORE = frozenset({"VG", "KY", "SC", "BS", "BM", "PA", "JE", "GG", "IM", "BZ", "MH", "WS", "VU", "LI", "MU", "AE", "CK"})
+OFFSHORE = frozenset(
+    {"VG", "KY", "SC", "BS", "BM", "PA", "JE", "GG", "IM", "BZ", "MH", "WS", "VU", "LI", "MU", "AE", "CK"}
+)
 UBO_ROLES = frozenset({"trustee", "appointor", "protector", "significant_control", "nominee_for"})
 MEASURE_LABELS = {
     "source_of_wealth": "Source of wealth established",
@@ -120,7 +122,10 @@ def rebuild_structure(org_id: uuid.UUID, client_ids: list[uuid.UUID] | None = No
             levels = _upstream(org_id, client.party_id, incoming)
             ClientParty.objects.filter(client_id=client.id).delete()
             ClientParty.objects.bulk_create(
-                [ClientParty(org_id=org_id, client_id=client.id, party_id=pid, level=lvl) for pid, lvl in levels.items()]
+                [
+                    ClientParty(org_id=org_id, client_id=client.id, party_id=pid, level=lvl)
+                    for pid, lvl in levels.items()
+                ]
             )
             written += len(levels)
     return written
@@ -172,9 +177,12 @@ def structure_flags(client: Client) -> list[str]:
         flags.append("offshore")
     if has_cycle(client.org_id, ids):
         flags.append("circular")
-    if parties.filter(is_nominee=True).exists() or Relationship.objects.filter(
-        org_id=client.org_id, to_party_id__in=ids, nominee=True, valid_to__isnull=True
-    ).exists():
+    if (
+        parties.filter(is_nominee=True).exists()
+        or Relationship.objects.filter(
+            org_id=client.org_id, to_party_id__in=ids, nominee=True, valid_to__isnull=True
+        ).exists()
+    ):
         flags.append("nominee")
     if client.next_review_on and client.next_review_on < timezone.localdate() and client.status == "active":
         flags.append("review_overdue")
@@ -202,7 +210,11 @@ def release_holds(client: Client, *, by: Any = None, note: str = "", source_ref:
 # ── EDD workflow ──────────────────────────────────────────────────────────────────────────────────
 def _trigger_dict(trigger: Any) -> dict[str, Any]:
     if isinstance(trigger, dict):
-        return {"code": trigger.get("code"), "message": trigger.get("message", ""), "measures": list(trigger.get("measures", []))}
+        return {
+            "code": trigger.get("code"),
+            "message": trigger.get("message", ""),
+            "measures": list(trigger.get("measures", [])),
+        }
     return {"code": trigger.code, "message": trigger.message, "measures": list(trigger.measures)}
 
 
@@ -242,9 +254,10 @@ def sync_edd(client: Client, triggers: list[Any]) -> EddCase:
 
 
 def needs_senior(edd: EddCase) -> bool:
-    return any(t.get("code") in SENIOR_TRIGGERS for t in edd.triggers or []) or edd.measures.filter(
-        key="senior_approval"
-    ).exists()
+    return (
+        any(t.get("code") in SENIOR_TRIGGERS for t in edd.triggers or [])
+        or edd.measures.filter(key="senior_approval").exists()
+    )
 
 
 def measures_complete(edd: EddCase) -> bool:
@@ -293,4 +306,4 @@ def today() -> date:
 
 
 def q_name(q: str) -> Q:
-    return Q(name__icontains=q) | Q(normalized_name__icontains=normalize_name(q)) | Q(matter_reference__icontains=q)
+    return Q(name__icontains=q) | Q(party__normalized_name__icontains=normalize_name(q)) | Q(matter_reference__icontains=q)

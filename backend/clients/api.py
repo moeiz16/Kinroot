@@ -188,4 +188,6 @@ def block_client(org_id: uuid.UUID, client_id: uuid.UUID, reason_code: str, acto
     client.status = "blocked"
     client.blocked_reason = reason_code[:40]
     client.save(update_fields=["status", "blocked_reason", "updated_at"])
-    audit.record(actor, "client.blocked", resource_type="client", resource_id=client.id, metadata={"reason": reason_code})
+    audit.record(
+        actor, "client.blocked", resource_type="client", resource_id=client.id, metadata={"reason": reason_code}
+    )
