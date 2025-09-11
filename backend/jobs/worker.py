@@ -44,16 +44,15 @@ def claim_next(worker_id: str = WORKER_ID) -> Job | None:
             candidate = qs.only("id", "status", "locked_until").first()
             if candidate is None:
                 return None
-            claimed = (
-                Job.objects.filter(id=candidate.id, status=candidate.status, locked_until=candidate.locked_until)
-                .update(
-                    status="running",
-                    locked_by=worker_id,
-                    locked_until=now + _lease(),
-                    started_at=now,
-                    attempts=F("attempts") + 1,
-                    updated_at=now,
-                )
+            claimed = Job.objects.filter(
+                id=candidate.id, status=candidate.status, locked_until=candidate.locked_until
+            ).update(
+                status="running",
+                locked_by=worker_id,
+                locked_until=now + _lease(),
+                started_at=now,
+                attempts=F("attempts") + 1,
+                updated_at=now,
             )
         if claimed:
             return Job.objects.get(id=candidate.id)

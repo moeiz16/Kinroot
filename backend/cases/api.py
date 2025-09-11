@@ -11,7 +11,9 @@ from audit import api as audit
 from kinroot.contracts import Actor, NotFound
 
 
-def raise_concern(org_id: uuid.UUID, client_id: uuid.UUID | None, summary: str, details: str, actor: Actor) -> uuid.UUID:
+def raise_concern(
+    org_id: uuid.UUID, client_id: uuid.UUID | None, summary: str, details: str, actor: Actor
+) -> uuid.UUID:
     """Record an internal concern for the compliance officer (e.g. an escalated screening hit). Audited as a
     restricted row. Returns the concern id."""
     from cases.models import Concern

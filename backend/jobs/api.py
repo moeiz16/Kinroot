@@ -124,6 +124,11 @@ def _job_event(job: Any, *, progress: int | None = None) -> None:
     publish_event(
         job.org_id,
         "job.updated",
-        {"jobId": str(job.id), "kind": job.kind, "status": job.status, "progress": job.progress if progress is None else progress},
+        {
+            "jobId": str(job.id),
+            "kind": job.kind,
+            "status": job.status,
+            "progress": job.progress if progress is None else progress,
+        },
         user_ids=[job.created_by_id] if job.created_by_id else None,
     )
