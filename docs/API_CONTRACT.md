@@ -28,7 +28,7 @@ Every error is `application/problem+json`:
 ```json
 { "type": "https://kinroot.dev/problems/validation_error", "title": "Validation failed", "status": 422,
   "detail": "One or more fields are invalid.", "code": "validation_error",
-  "errors": [{ "field": "address.postCode", "message": "Enter a 4-digit postcode." }], "requestId": "…" }
+  "errors": [{ "field": "address.postcode", "message": "Enter a 4-digit postcode." }], "requestId": "…" }
 ```
 
 | Status | `code` | When |
@@ -39,9 +39,10 @@ Every error is `application/problem+json`:
 | 403 | `csrf_failed` | unsafe method without a valid `X-CSRFToken` |
 | 404 | `not_found` | unknown id, **other org's id**, or a restricted case the caller may not see |
 | 409 | `already_decided`, `conflict`, `stale_version`, `action_held` | state conflicts (see each endpoint) |
+| 410 | `expired` | invitation link past its expiry |
 | 413 | `payload_too_large` | upload over `MAX_UPLOAD_MB` |
 | 415 | `unsupported_media_type` | upload type not allowed |
-| 422 | `validation_error`, `weak_password`, `invalid_transition` | field errors |
+| 422 | `validation_error`, `weak_password`, `invalid_transition`, `over_allocated` | field errors |
 | 423 | `client_blocked` | work on a client blocked by a confirmed sanctions match |
 | 429 | `rate_limited` | with `Retry-After` seconds |
 | 500 | `internal_error` | logged with the request id |
@@ -50,7 +51,7 @@ Every error is `application/problem+json`:
 ### Pagination
 List endpoints marked *(paged)* accept `?page=1&pageSize=25` (max 200) and return
 `{ "items": [...], "page": 1, "pageSize": 25, "total": 83, "totalPages": 4 }`. Filters are query parameters.
-Default order is stated per endpoint.
+Default order is stated per endpoint. List filters named `status` also accept `all` (no status filter).
 
 ### Rate limits
 Per signed-in user (else per IP), sliding per minute: `api` 300, `auth` 10 (login, signup, refresh, password,
@@ -140,32 +141,38 @@ identical to the wording used for other holds, so the response itself discloses 
 | GET | `/org/members` | any member | `Member[]` |
 | PATCH | `/org/members/{id}` | `members:manage` | `{ role }` (cannot remove the last owner: `409 conflict`) |
 | DELETE | `/org/members/{id}` | `members:manage` | `204` |
-| GET | `/org/invitations` | `members:manage` | `Invitation[]` |
+| GET | `/org/invitations` | `members:manage` | `Invitation[]` (open invitations only) |
 | POST | `/org/invitations` | `members:manage` | `{ email, role }` → `{ invitation, inviteUrl }` (URL shown once; no email sent offline) |
 | DELETE | `/org/invitations/{id}` | `members:manage` | revoke |
 | GET | `/invitations/{token}` | public | `{ orgName, email, role, roleLabel, expiresAt }` |
 | POST | `/invitations/{token}/accept` | public | `{ fullName, password }` (new user) or `{}` (signed in) → `Me` |
 | GET | `/settings` | any member | `OrgSettings` |
 | PATCH | `/settings` | `org:admin` or `retention:manage` (retention keys) or `methodology:manage` (review keys) | partial `OrgSettings` |
-| GET | `/settings/retention/preview` | `retention:manage` | records due for disposal (dry run) |
-| POST | `/settings/retention/run` | `retention:manage` | `{ dryRun: true }` default → `Job` |
-| GET | `/training` | `training:read` | `TrainingRecord[]` (AML/CTF training register) |
-| POST | `/training` | `training:manage` | `{ userId, course, completedOn, evidenceNote? }` |
+| GET | `/settings/retention/preview` | `retention:manage` | `?asOf=` → `RetentionPreview` (records due for disposal, dry run) |
+| POST | `/settings/retention/run` | `retention:manage` | `{ dryRun: true }` default → `202 Job` |
+| GET | `/training` | `training:read` | `TrainingRecord[]` (AML/CTF training register, whole firm, due date ascending) |
+| POST | `/training` | `training:manage` | `{ userId, course, completedOn, evidenceNote? }` → `201 TrainingRecord` (`dueOn` = completedOn + 1 year) |
 
 ```text
-Org          = { id, name, slug, country: "AU"|"GB", abn, address, sector: "legal"|"accounting"|"conveyancing"|"real_estate"|"dealer",
+Org          = { id, name, slug, country: "AU"|"GB", abn, address (one-line string), sector: "legal"|"accounting"|"conveyancing"|"real_estate"|"dealer",
                  regime: { name: "AML/CTF Act 2006 (Cth), Tranche 2" | "UK MLR 2017", commencement: "2026-07-01" | null },
                  dataResidency: "AU"|"UK", createdAt }
-Member       = { id, userId, fullName, email, role, roleLabel, status: "active"|"invited", joinedAt, trainingDueOn }
-Invitation   = { id, email, role, expiresAt, acceptedAt, createdAt }
+Member       = { id, userId, fullName, email, role, roleLabel, status: "active", joinedAt, trainingDueOn }
+               (pending people are listed by /org/invitations, not here)
+Invitation   = { id, email, role, roleLabel, expiresAt, acceptedAt, createdAt }
 OrgSettings  = { retention: { years: 7, trigger: "relationship_end", legalHoldClientIds: string[] },
                  reviews: { highMonths: 12, mediumMonths: 24, lowMonths: 36 },
                  screening: { autoRescreenOnListUpdate: true, fuzzyThreshold: 0.82 },
                  ubo: { thresholdPct: 25 },
-                 resolution: { autoMergeEnabled: true } }
+                 resolution: { autoMergeEnabled: true },
+                 notifications: { criticalAlerts: "immediate"|"daily"|"off", reviewReminderDays: 30,
+                                  signoffRequests: true, weeklyDigest: true, digestDay: "monday".."friday" } }
+               PATCH sections: retention (org:admin or retention:manage); reviews, screening, ubo, resolution,
+               notifications (org:admin or methodology:manage). Unknown sections → 422.
 RetentionPreview = { asOf, dueCount, items: [{ recordType: "client"|"document"|"assessment"|"case", id, label,
                      relationshipEndedOn, disposableFrom, legalHold: boolean }] }
-TrainingRecord   = { id, userId, fullName, course, completedOn, dueOn, status: "current"|"due_soon"|"overdue" }
+TrainingRecord   = { id, userId, fullName, course, completedOn, dueOn, status: "current"|"due_soon"|"overdue", evidenceNote }
+                   (due_soon = due within 30 days)
 ```
 Retention: minimum 7 years from the end of the business relationship for AU firms (AML/CTF Act record keeping),
 5 years for UK firms (MLR 2017 reg 40); the API rejects lower values (`422`). Disposal is never automatic in the
@@ -210,15 +217,20 @@ Examples: "4 clients share a director who holds 41 other appointments", "Onboard
 | PATCH | `/relationships/{id}` | `graph:write` | `{ pct?, role?, validFrom?, validTo?, evidenceNote? }` (ending = set `validTo`) |
 | DELETE | `/relationships/{id}` | `graph:write` | only for data-entry mistakes (`reason` required); otherwise end it |
 | GET | `/registry/search` | `clients:onboard` | `?source=uk_ch\|au_abr&q=` → `RegistryHit[]` |
-| POST | `/clients/{id}/registry-import` | `graph:write` | `{ source, reference }` → `{ partiesCreated, relationshipsCreated, job }` |
+| POST | `/clients/{id}/registry-import` | `graph:write` | `{ source, reference }` → `201 { partiesCreated, relationshipsCreated, job: Job \| null }` (import is synchronous; `job` = duplicate detection) |
 | GET | `/clients/{id}/onboarding` | `clients:read` | `Onboarding` checklist |
-| POST | `/clients/{id}/documents` | `identity:verify` (`upload`) | multipart `file` (pdf/png/jpg ≤ 10 MB), `partyId`, `docType` → `Document` |
+| GET | `/clients/{id}/documents` | `clients:read` | `Document[]` newest first |
+| POST | `/clients/{id}/documents` | `identity:verify` (`upload`) | multipart `file` (pdf/png/jpg ≤ 10 MB, sniffed by content), `partyId`, `docType` → `201 Document` |
 | GET | `/documents/{id}/file` | `clients:read` | the file (`Content-Disposition: attachment`) |
-| POST | `/clients/{id}/verification` | `identity:verify` | `{ partyId, method: "document"\|"electronic", documentIds }` → `VerificationCheck` (safe-harbour style, mocked) |
-| POST | `/clients/{id}/consent` | `clients:onboard` | `{ partyId, purpose: "identity_verification"\|"electronic_check", givenOn, method }` → `Consent` |
-| POST | `/clients/{id}/submit` | `clients:onboard` | onboarding complete → screening + risk jobs; `422 invalid_transition` with the missing checklist items |
-| POST | `/clients/{id}/communications` | `clients:write` | `{ kind: "information_request"\|"exit_notice", message }` → `202` or `409 action_held` |
+| GET | `/clients/{id}/verification` | `clients:read` | `VerificationCheck[]` |
+| POST | `/clients/{id}/verification` | `identity:verify` | `{ partyId, method: "document"\|"electronic", documentIds }` → `201 VerificationCheck` (safe-harbour style, mocked; electronic needs an `electronic_check` consent first) |
+| GET | `/clients/{id}/consent` | `clients:read` | `Consent[]` |
+| POST | `/clients/{id}/consent` | `clients:onboard` | `{ partyId, purpose: "identity_verification"\|"electronic_check", givenOn, method }` → `201 Consent` |
+| POST | `/clients/{id}/submit` | `clients:onboard` | onboarding complete → `202 { client: Client, jobs: Job[] }` (screening + risk jobs); `422 invalid_transition` with the missing checklist items in `errors[].field` (item keys) |
+| POST | `/clients/{id}/communications` | `clients:write` | `{ kind: "information_request"\|"exit_notice", message }` → `202 { id, status: "sent" }` or `409 action_held` |
 | POST | `/clients/{id}/exit` | `clients:write` | `{ reason }` → `Client` or `409 action_held` |
+| POST | `/clients/{id}/holds` | `signoff:compliance` | `{ note }` → `201 { id, active }` (manual hold; same neutral wording as every hold) |
+| POST | `/clients/{id}/holds/release` | `signoff:compliance` | `{ note }` → `{ released }` (releases every active hold on the client, including a case hold) |
 
 ```text
 ClientKind = "individual" | "company" | "trust" | "partnership"
@@ -230,9 +242,11 @@ Service = "conveyancing" | "company_formation" | "trust_formation" | "property_t
 Client  = { id, kind, name, status: "onboarding"|"active"|"blocked"|"exited", jurisdiction, partyId,
             services, channel, matterReference, assignedTo: { id, fullName } | null,
             rating: "low"|"medium"|"high"|null, ratingSource: "rules"|"override"|null, eddRequired: boolean,
-            nextReviewOn, lastReviewedOn, onboardedOn, structure: { parties: number, layers: number, ubos: number },
+            nextReviewOn, lastReviewedOn, onboardedOn, relationshipEndedOn, sample: boolean (seeded sample data),
+            structure: { parties: number, layers: number, ubos: number },
             flags: ("pep"|"sanctions_review"|"offshore"|"circular"|"nominee"|"review_overdue")[],
             createdAt, updatedAt }
+Address = { line1?, locality?, state?, postcode?, country? }      // AU postcodes are 4 digits
 Party   = { id, kind: PartyKind, name, birthDate?, nationality?, jurisdiction?, identifiers: {acn?, abn?, ukCompanyNumber?},
             address?, isNominee: boolean, dormant?: boolean, source: "manual"|"uk_ch"|"au_abr"|"seed"|"import", sourceRef?,
             mergedInto: string | null, createdAt }
@@ -248,7 +262,7 @@ Onboarding = { clientId, status, items: [{ key, label, done: boolean, required: 
 Document = { id, partyId, docType: "passport"|"drivers_licence"|"birth_certificate"|"trust_deed"|"company_extract"|"other",
              fileName, sizeBytes, sha256, uploadedBy, uploadedAt, retainUntil }
 VerificationCheck = { id, partyId, method, result: "verified"|"partial"|"failed", sources: [{ name, matched: string[] }],
-                      reference: "MOCK-DVS-…", checkedAt }       // mocked; labelled as a demo check
+                      reference: "MOCK-DVS-…", checkedAt, demo: true }       // mocked; labelled as a demo check
 Consent  = { id, partyId, purpose, givenOn, method, recordedBy }
 ```
 Validation: ownership into one entity may not exceed 100% for overlapping validity (`422 over_allocated`); a
@@ -376,7 +390,7 @@ Fee earners see hit **status** on their clients but `reviewReason` only once dec
 | GET | `/clients/{id}/edd` | `risk:read` | `Edd` |
 | POST | `/clients/{id}/edd/measures/{key}` | `edd:manage` | `{ status: "done"\|"not_applicable", note, documentIds? }` → `Edd` |
 | POST | `/clients/{id}/signoff` | `signoff:compliance` or `signoff:senior` (per stage) | `{ stage: "compliance"\|"senior", decision: "approve"\|"reject", note }` → `Edd` |
-| GET | `/signoffs?stage=` | `signoff:compliance` or `signoff:senior` | queue: `[{ clientId, clientName, rating, triggers, waitingSince }]` |
+| GET | `/signoffs?stage=` | `signoff:compliance` or `signoff:senior` | queue: `[{ clientId, clientName, stage, rating, triggers, waitingSince, ownClient }]` oldest first |
 
 ```text
 RiskReason   = { code, factor: "customer"|"structure"|"jurisdiction"|"service"|"channel"|"screening", points, message,
@@ -395,7 +409,9 @@ Edd          = { clientId, required, triggers: EddTrigger[], measures: [{ key, l
                  signoffs: [{ stage, decision, note, byName, at }], status: "not_required"|"in_progress"|"awaiting_compliance"|"awaiting_senior"|"approved"|"rejected" }
 ```
 Measure keys: `source_of_wealth`, `source_of_funds`, `senior_approval`, `ubo_verification`, `purpose_of_relationship`,
-`adverse_media_check`, `enhanced_monitoring`. Order: compliance sign-off, then senior (partner) approval when a
+`adverse_media_check`, `enhanced_monitoring`. Measure `status` may be set back to `todo`; `not_applicable` needs a note of
+≥ 10 characters; `senior_approval` is completed only by the senior sign-off (`422` if posted). A rejection needs a note
+≥ 10 characters; changing a measure after a rejection reopens the file (earlier sign-offs are superseded). Order: compliance sign-off, then senior (partner) approval when a
 trigger requires it (PEP, high rating, high-risk jurisdiction). A partner cannot approve their own client's file.
 
 ## 1.11 Ongoing monitoring
@@ -418,16 +434,17 @@ Alert = { id, clientId, clientName, kind: "list_update_hit"|"ownership_change"|"
 
 | Method | Path | Permission | Notes |
 |---|---|---|---|
-| POST | `/concerns` | `concerns:raise` | `{ clientId?, summary, details }` → `{ id, receivedAt, message }` only |
+| POST | `/concerns` | `concerns:raise` | `{ clientId?, summary, details }` → `201 { id, receivedAt, message }` only |
+| GET | `/concerns` | `smr:read` | triage list `[{ id, clientId, clientName, raisedByName, summary, details, status, caseId, receivedAt }]` |
 | GET | `/concerns/mine` | `concerns:raise` | `[{ id, receivedAt, status: "received" }]` (never the outcome) |
-| GET | `/cases` *(paged)* | `smr:read` + access | cases the caller can see |
-| POST | `/cases` | `smr:write` | `{ clientId, title, concernIds?, grounds }` → `Case` |
+| GET | `/cases` *(paged)* | any member | only cases the caller can see (compliance officer: all; others: those on whose access list they are; otherwise an empty page) |
+| POST | `/cases` | `smr:write` | `{ clientId, title, concernIds?, grounds, terrorismFinancing? }` → `201 Case` (places a neutral hold on the client) |
 | GET | `/cases/{id}` | access list | `Case`; `404` without access |
-| PATCH | `/cases/{id}` | `smr:write` + full access | `{ title?, grounds?, status? }` |
+| PATCH | `/cases/{id}` | `smr:write` + full access | `{ title?, grounds?, status?: "open"\|"closed_no_report" }` (closing releases the case hold) |
 | PUT | `/cases/{id}/access` | `smr:write` | `{ entries: [{ userId, level: "full"\|"summary" }] }` |
-| GET | `/cases/{id}/smr` | full access | `SmrDraft` |
+| GET | `/cases/{id}/smr` | access list | `SmrDraft` (version 0 when nothing saved yet; summary access gets the redacted draft) |
 | PUT | `/cases/{id}/smr` | `smr:write` + full | `SmrDraft` fields; `409 stale_version` on `version` mismatch |
-| POST | `/cases/{id}/smr/submit` | `smr:submit` | → `{ reference: "DEMO-SMR-…", submittedAt }` (mock regulator portal) |
+| POST | `/cases/{id}/smr/submit` | `smr:submit` + full | → `{ reference: "DEMO-SMR-…", submittedAt }` (mock regulator portal); `422` until suspicionGrounds, narrative and subjects are filled; `409 conflict` when already submitted |
 | GET | `/cases/{id}/timeline` | access list | `[{ at, actorName, action, label }]` |
 
 ```text
@@ -435,11 +452,16 @@ Case     = { id, clientId, clientName, title, status: "open"|"reported"|"closed_
              accessLevel: "full"|"summary", redactedFields: string[], openedBy, openedAt, deadlineOn, smrStatus: "none"|"draft"|"submitted",
              access: [{ userId, fullName, level }] (full only) }
 SmrDraft = { caseId, version, regime: "AUSTRAC_SMR"|"UK_SAR", suspicionGrounds, subjects: [{ partyId, name, role }],
-             transactions: [{ date, amount, currency, description }], narrative, attachments: string[], updatedBy, updatedAt }
+             transactions: [{ date, amount, currency, description }], narrative, attachments: string[], updatedBy, updatedAt,
+             submittedAt, reference, redactedFields: string[] }
+           PUT body: { version (must equal the current version), suspicionGrounds?, subjects?: [{ partyId, role }],
+                       transactions?, narrative?, attachments? } → the saved draft with version + 1
 ```
 AU SMRs are due within 3 business days (24 hours for terrorism financing) of forming the suspicion: `deadlineOn`.
 Redaction: `summary` access returns the case with `grounds: null`, `narrative` withheld and `redactedFields`
-naming them, so the UI can show redaction bars only to users who already know the case exists.
+naming them, so the UI can show redaction bars only to users who already know the case exists. On the SMR draft,
+summary access nulls `suspicionGrounds` and `narrative` and empties `transactions` (`redactedFields` names them).
+Summary members may read, never write (`403`). The compliance officer always has full access.
 
 ## 1.13 Investigation assistant
 
@@ -464,7 +486,7 @@ Step labels are business language ("Traced the owners of Harbour Quay Developmen
 
 | Method | Path | Permission | Notes |
 |---|---|---|---|
-| GET | `/audit` *(paged)* | `audit:read` | `?action=&actorId=&resourceType=&resourceId=&from=&to=` → `AuditEntry` |
+| GET | `/audit` *(paged)* | `audit:read` | `?action=&actorId=&resourceType=&resourceId=&from=&to=` → `AuditEntry` newest first (`action=screening.` with a trailing dot filters by area) |
 | GET | `/audit/verify` | `audit:read` | `{ valid, checked, brokenAt }` |
 | GET | `/audit/export.csv` | `audit:read` | CSV |
 | GET | `/jobs/{id}` | any member (own org) | `Job` |
@@ -478,7 +500,9 @@ Job        = { id, kind, status: "queued"|"running"|"succeeded"|"failed", progre
 Restricted audit rows (case actions) are listed only to users with `smr:read`; they stay in the hash chain.
 
 ### SSE events
-`GET /api/v1/events/stream` (cookie auth; `Last-Event-ID` or `?lastEventId=` resumes). Each event:
+`GET /api/v1/events/stream` (cookie auth; `Last-Event-ID` or `?lastEventId=` resumes; without either the stream starts
+at the newest event). The server closes the stream every 5 minutes and the browser reconnects with `Last-Event-ID`
+(`retry: 3000`). Each event:
 `id: <monotonic int>` · `event: <name>` · `data: <json>`; a `heartbeat` comment every 15 s. Events are org-scoped
 and filtered by the recipient's permissions; restricted case events go only to users on the case access list.
 
@@ -514,7 +538,7 @@ keys except append-only logs (BigAutoField). `created_at`/`updated_at` on all.
 | audit (A) | `AuditLog` | org, actor, actor_type, action, resource_type, resource_id, metadata, ip, user_agent, restricted, prev_hash, hash |
 | jobs (A) | `Job` | org, kind, payload, status, priority, run_at, attempts, max_attempts, locked_by, locked_until, dedupe_key, result, error, progress, created_by |
 | | `Event` | org, name, data, permission, user_ids (JSON), created_at (BigAutoField id = SSE id) |
-| clients (A) | `Client` | org, kind, name, status, party (FK Party), jurisdiction, services, channel, matter_reference, assigned_to, rating, rating_source, edd_required, onboarded_on, last_reviewed_on, next_review_on, relationship_ended_on, legal_hold |
+| clients (A) | `Client` | org, kind, name, status, party (FK Party), jurisdiction, services, channel, matter_reference, assigned_to, rating, rating_source, edd_required, onboarded_on, last_reviewed_on, next_review_on, relationship_ended_on, legal_hold, submitted_at, ubo_count (cache), blocked_reason, seed_key (stable sample id, unique per org) |
 | | `Party` | org, kind, name, normalized_name, given_names, family_name, birth_date, nationality, jurisdiction, identifiers (JSON), address (JSON), is_nominee, dormant, source, source_ref, merged_into (FK self) |
 | | `ClientParty` | org, client, party (membership of a party in a client's structure; maintained from relationships) |
 | | `Relationship` | org, from_party, to_party, kind, pct, interest, role, nominee, valid_from, valid_to, source, source_ref, evidence_note |
@@ -522,6 +546,7 @@ keys except append-only logs (BigAutoField). `created_at`/`updated_at` on all.
 | | `VerificationCheck`, `Consent` | per §1.6 |
 | | `EddCase`, `EddMeasure`, `SignOff` | per §1.10 (`Edd` shape) |
 | | `Communication` | org, client, kind, message, status (sent/held), held_reason_code |
+| | `ClientHold` | org, client, reason_code (manual/restricted), source_ref, note, placed_by, released_at, released_by |
 | cases (A) | `Concern` | org, client, raised_by, summary, details, status |
 | | `Case` | org, client, title, grounds, status, opened_by, deadline_on |
 | | `CaseAccess` | case, user, level |
@@ -625,13 +650,20 @@ verify_chain(org_id) -> dict
 register(kind, *, max_attempts=3, timeout_s=300)          # decorator for handlers(payload) -> dict | None
 enqueue(kind, payload, *, org_id, run_at=None, dedupe_key=None, priority=100) -> UUID
 publish_event(org_id, event, data, *, permission=None, user_ids=None) -> int
+set_progress(job_id, progress) -> None                   # optional; handlers receive payload["jobId"]
 # clients/api.py
 party_records(org_id, *, party_ids=None, active_only=True) -> list[PartyRecord]
 client_party_ids(org_id, client_id) -> list[UUID]
 merge_parties(org_id, survivor_id, merged_ids, actor) -> None
 split_party(org_id, survivor_id, record_ids, actor) -> list[UUID]
-set_client_rating(org_id, client_id, rating, assessed_on) -> None
+set_client_rating(org_id, client_id, rating, assessed_on, *, source="rules"|"override", edd_triggers=None) -> None
+    # fills next_review_on from the org's review months when empty; edd_triggers aligns the EDD workflow
+set_review_dates(org_id, client_id, *, last_reviewed_on=None, next_review_on=None) -> None
 block_client(org_id, client_id, reason_code, actor) -> None
+# cases/api.py
+raise_concern(org_id, client_id, summary, details, actor) -> UUID   # e.g. screening "escalate"; restricted audit row
+# accounts/services.py
+org_settings(org_id) -> dict                             # OrgSettings, snake_case keys, defaults merged
 # read-only model access: B may query clients.models.Client/Party/Relationship directly (never write them).
 ```
 
