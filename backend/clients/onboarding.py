@@ -63,6 +63,9 @@ def _screening_state(client: Client) -> tuple[bool, bool]:
         return True, pending == 0 and confirmed == 0
     except NotImplementedError:
         return client.submitted_at is not None, client.submitted_at is not None
+    except Exception as exc:  # screening unavailable: the item stays open rather than passing silently
+        log.warning("screening_state_unavailable", client_id=str(client.id), error=type(exc).__name__)
+        return False, False
 
 
 def _risk_assessed(client: Client) -> bool:

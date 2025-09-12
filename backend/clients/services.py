@@ -306,4 +306,8 @@ def today() -> date:
 
 
 def q_name(q: str) -> Q:
-    return Q(name__icontains=q) | Q(party__normalized_name__icontains=normalize_name(q)) | Q(matter_reference__icontains=q)
+    return (
+        Q(name__icontains=q)
+        | Q(party__normalized_name__icontains=normalize_name(q))
+        | Q(matter_reference__icontains=q)
+    )

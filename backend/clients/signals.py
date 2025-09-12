@@ -5,7 +5,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from django.db import transaction
 from django.db.models.signals import post_delete, post_save
 
 from clients import services
@@ -17,7 +16,7 @@ def _resync(org_id: Any, party_ids: list[Any]) -> None:
         return
     client_ids = services.clients_touching(org_id, party_ids)
     if client_ids:
-        transaction.on_commit(lambda: services.rebuild_structure(org_id, client_ids))
+        services.rebuild_structure(org_id, client_ids)
 
 
 def on_relationship_saved(sender: Any, instance: Relationship, **_: Any) -> None:
@@ -30,7 +29,7 @@ def on_relationship_deleted(sender: Any, instance: Relationship, **_: Any) -> No
 
 def on_client_saved(sender: Any, instance: Client, created: bool, **_: Any) -> None:
     if created and services.structure_sync_enabled():
-        transaction.on_commit(lambda: services.rebuild_structure(instance.org_id, [instance.id]))
+        services.rebuild_structure(instance.org_id, [instance.id])
 
 
 def connect() -> None:

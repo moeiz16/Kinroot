@@ -8,6 +8,7 @@ import uuid
 from datetime import date, timedelta
 from typing import Any
 
+import structlog
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.db import transaction
@@ -46,6 +47,8 @@ from jobs import api as jobs_api
 from jobs.models import Job
 from kinroot.core.dates import add_years
 from kinroot.core.errors import AppError, conflict, not_found, validation_error
+
+log = structlog.get_logger(__name__)
 
 SERVICES = [
     "conveyancing",
@@ -102,6 +105,8 @@ def screening_flags(org_id: uuid.UUID, client_ids: list[uuid.UUID] | None = None
                 out.setdefault(str(hit.client_id), set()).add(flag)
     except NotImplementedError:
         pass
+    except Exception as exc:  # flags are auxiliary: a screening outage must not hide the client list
+        log.warning("screening_flags_unavailable", error=type(exc).__name__)
     return out
 
 

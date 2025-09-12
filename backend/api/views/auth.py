@@ -88,8 +88,6 @@ class PublicView(ApiView):
 
 
 class CsrfView(PublicView):
-    throttle_scope = "auth"
-
     def get(self, request: Request) -> Response:
         from django.middleware.csrf import get_token
 
