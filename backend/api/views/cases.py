@@ -51,7 +51,7 @@ def case_wire(case: Case, level: str) -> dict[str, Any]:
         "grounds": case.grounds if full else None,
         "access_level": level,
         "redacted_fields": [] if full else ["grounds", "narrative"],
-        "opened_by": case.opened_by.full_name if case.opened_by_id else None,
+        "opened_by": case.opened_by.full_name if case.opened_by else None,
         "opened_at": case.opened_at.isoformat(),
         "deadline_on": case.deadline_on.isoformat(),
         "smr_status": smr_status,
@@ -76,7 +76,7 @@ def smr_wire(case: Case, smr: SmrDraft | None, level: str) -> dict[str, Any]:
         "transactions": payload.get("transactions", []) if full else [],
         "narrative": payload.get("narrative", "") if full else None,
         "attachments": payload.get("attachments", []),
-        "updated_by": smr.updated_by.full_name if smr and smr.updated_by_id else None,
+        "updated_by": smr.updated_by.full_name if smr and smr.updated_by else None,
         "updated_at": smr.updated_at.isoformat() if smr else None,
         "submitted_at": smr.submitted_at.isoformat() if smr and smr.submitted_at else None,
         "reference": (smr.reference or None) if smr else None,
@@ -91,7 +91,7 @@ class CaseBase(ApiView):
             .filter(org=self.org, id=parse_uuid(case_id, "Case"))
             .first()
         )
-        level = case_services.access_level(case, self.request.user.id, self.perms) if case else None
+        level = case_services.access_level(case, self.user.id, self.perms) if case else None
         if case is None or level is None:
             raise not_found("Case")
         return case, level
@@ -134,8 +134,8 @@ class ConcernsView(CaseBase):
                 {
                     "id": str(c.id),
                     "client_id": str(c.client_id) if c.client_id else None,
-                    "client_name": c.client.name if c.client_id else None,
-                    "raised_by_name": c.raised_by.full_name if c.raised_by_id else "System",
+                    "client_name": c.client.name if c.client else None,
+                    "raised_by_name": c.raised_by.full_name if c.raised_by else "System",
                     "summary": c.summary,
                     "details": c.details,
                     "status": c.status,
@@ -156,7 +156,7 @@ class ConcernsView(CaseBase):
         concern = Concern.objects.create(
             org=self.org,
             client_id=v.get("client_id"),
-            raised_by=request.user,
+            raised_by=self.user,
             summary=v["summary"],
             details=v["details"],
         )
@@ -170,7 +170,7 @@ class MyConcernsView(CaseBase):
     permission = "concerns:raise"
 
     def get(self, request: Request) -> Response:
-        rows = Concern.objects.filter(org=self.org, raised_by=request.user)
+        rows = Concern.objects.filter(org=self.org, raised_by=self.user)
         return Response(
             [{"id": str(c.id), "received_at": c.created_at.isoformat(), "status": "received"} for c in rows]
         )
@@ -187,14 +187,14 @@ class CaseCreateIn(serializers.Serializer):
 
 class CasesView(CaseBase):
     def get(self, request: Request) -> Response:
-        qs = case_services.visible_cases(self.org_id, request.user.id, self.perms)
+        qs = case_services.visible_cases(self.org_id, self.user.id, self.perms)
         status = request.query_params.get("status")
         if status:
             qs = qs.filter(status=status)
         page, size = page_params(request)
         total = qs.count()
         items = [
-            case_wire(c, case_services.access_level(c, request.user.id, self.perms) or "summary")
+            case_wire(c, case_services.access_level(c, self.user.id, self.perms) or "summary")
             for c in qs.order_by("-opened_at")[(page - 1) * size : page * size]
         ]
         return Response(paged(items, total, page, size))
@@ -221,16 +221,16 @@ class CasesView(CaseBase):
                 client=client,
                 title=v["title"],
                 grounds=v["grounds"],
-                opened_by=request.user,
+                opened_by=self.user,
                 opened_at=now,
                 deadline_on=deadline,
             )
-            CaseAccess.objects.create(case=case, user=request.user, level="full", granted_by=request.user)
+            CaseAccess.objects.create(case=case, user=self.user, level="full", granted_by=self.user)
             for concern in concerns:
                 concern.case = case
                 concern.status = "linked"
                 concern.save(update_fields=["case", "status", "updated_at"])
-            client_services.place_hold(client, "restricted", by=request.user, source_ref=str(case.id))
+            client_services.place_hold(client, "restricted", by=self.user, source_ref=str(case.id))
             self.case_audit(case, "case.opened", concerns=len(concerns))
         case = Case.objects.select_related("client", "opened_by").get(id=case.id)
         self.notify(case)
@@ -260,7 +260,7 @@ class CaseView(CaseBase):
                 setattr(case, key, value)
             if v.get("status") == "closed_no_report":
                 case.closed_at = timezone.now()
-                client_services.release_holds(case.client, by=request.user, note="Case closed", source_ref=str(case.id))
+                client_services.release_holds(case.client, by=self.user, note="Case closed", source_ref=str(case.id))
             case.save()
             self.case_audit(
                 case, "case.closed" if v.get("status") == "closed_no_report" else "case.updated", fields=sorted(v)
@@ -289,12 +289,12 @@ class CaseAccessView(CaseBase):
         )
         if members != set(entries):
             raise validation_error("Choose members of this firm.", [{"field": "entries", "message": "Unknown member."}])
-        entries[request.user.id] = "full"  # the officer making the change keeps full access
+        entries[self.user.id] = "full"  # the officer making the change keeps full access
         with transaction.atomic():
             CaseAccess.objects.filter(case=case).exclude(user_id__in=list(entries)).delete()
             for user_id, level in entries.items():
                 CaseAccess.objects.update_or_create(
-                    case=case, user_id=user_id, defaults={"level": level, "granted_by": request.user}
+                    case=case, user_id=user_id, defaults={"level": level, "granted_by": self.user}
                 )
             self.case_audit(case, "case.access_changed", entries=len(entries))
         self.notify(case)
@@ -367,7 +367,7 @@ class SmrView(CaseBase):
                 smr = SmrDraft(case=case, regime="UK_SAR" if self.org.country == "GB" else "AUSTRAC_SMR")
             smr.payload = payload
             smr.version = current + 1
-            smr.updated_by = request.user
+            smr.updated_by = self.user
             smr.save()
             self.case_audit(case, "smr.saved", version=smr.version)
         self.notify(case)

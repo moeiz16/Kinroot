@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from rest_framework import serializers
 from rest_framework.request import Request
@@ -37,7 +37,7 @@ class ScreenClientView(ClientMixin):
             "screening.client",
             {"clientId": str(client.id)},
             org_id=self.org_id,
-            user_id=request.user.id,
+            user_id=self.user.id,
             dedupe_key=f"screening.client:{client.id}",
             priority=50,
         )
@@ -70,9 +70,9 @@ class HitsView(ApiView):
         with domain_errors():
             result = screening_api.list_hits(
                 self.org_id,
-                status=status_arg,
+                status=cast(Any, status_arg),
                 client_id=client_id,
-                list_kind=list_kind,
+                list_kind=cast(Any, list_kind),
                 offset=(page - 1) * size,
                 limit=size,
             )
@@ -133,7 +133,7 @@ class RescreenView(ApiView):
             "screening.rescreen_org",
             {"reason": "manual"},
             org_id=self.org_id,
-            user_id=request.user.id,
+            user_id=self.user.id,
             dedupe_key=f"screening.rescreen_org:{self.org_id}",
         )
         if job_id is None:

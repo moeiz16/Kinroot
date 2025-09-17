@@ -49,7 +49,7 @@ class HistoryView(ApiView):
         raw = request.query_params.get("clientId")
         client_id = parse_uuid(raw, "Client") if raw else None
         with domain_errors():
-            return self.wire(assistant_api.history(self.org_id, request.user.id, client_id=client_id))
+            return self.wire(assistant_api.history(self.org_id, self.user.id, client_id=client_id))
 
 
 class SuggestionsView(ApiView):

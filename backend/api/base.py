@@ -7,13 +7,13 @@ import math
 import uuid
 from collections.abc import Callable, Iterator
 from datetime import date
-from typing import Any
+from typing import Any, cast
 
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.models import Membership, Organisation
+from accounts.models import Membership, Organisation, User
 from accounts.roles import permissions_for
 from api.auth import ORG_KEY
 from kinroot.contracts import Actor, DomainConflict, NotFound, to_wire
@@ -105,7 +105,7 @@ class ApiView(APIView):
     def initial(self, request: Request, *args: Any, **kwargs: Any) -> None:
         super().initial(request, *args, **kwargs)
         self.membership = active_membership(request) if request.user else None
-        self.org: Organisation | None = self.membership.org if self.membership else None
+        self._org: Organisation | None = self.membership.org if self.membership else None
         self.perms: frozenset[str] = permissions_for(self.membership.role) if self.membership else frozenset()
         if self.require_org and self.membership is None:
             raise forbidden("You're not a member of a firm yet.")
@@ -117,13 +117,21 @@ class ApiView(APIView):
 
     # helpers ---------------------------------------------------------------------------------
     @property
+    def org(self) -> Organisation:
+        assert self._org is not None, "view requires an active organisation"
+        return self._org
+
+    @property
     def org_id(self) -> uuid.UUID:
-        assert self.org is not None
         return self.org.id
 
     @property
+    def user(self) -> User:
+        return cast(User, self.request.user)
+
+    @property
     def actor(self) -> Actor:
-        user = self.request.user
+        user = self.user
         return Actor(org_id=self.org_id, user_id=user.id, name=user.full_name, ip=client_ip(self.request))
 
     def has(self, perm: str) -> bool:

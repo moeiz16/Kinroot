@@ -78,9 +78,9 @@ def _start_id(request: HttpRequest, org_id: uuid.UUID) -> int:
 
 async def _stream(org_id: uuid.UUID, user_id: uuid.UUID, perms: frozenset[str], after: int) -> AsyncIterator[str]:
     cfg = settings.KINROOT
-    poll = float(cfg.get("SSE_POLL_SECONDS", 1.0))
-    heartbeat = float(cfg.get("SSE_HEARTBEAT_SECONDS", 15))
-    max_seconds = float(cfg.get("SSE_MAX_SECONDS", 300))
+    poll = float(str(cfg.get("SSE_POLL_SECONDS", 1.0)))
+    heartbeat = float(str(cfg.get("SSE_HEARTBEAT_SECONDS", 15)))
+    max_seconds = float(str(cfg.get("SSE_MAX_SECONDS", 300)))
     started = last_beat = time.monotonic()
     yield "retry: 3000\n\n"
     fetch = sync_to_async(scan, thread_sensitive=True)
@@ -101,7 +101,7 @@ async def events_stream(request: HttpRequest) -> HttpResponse | StreamingHttpRes
     if request.method != "GET":
         return problem_response(405, "Method not allowed", code="method_not_allowed")
     try:
-        request.user = await request.auser()  # type: ignore[attr-defined]
+        request.user = await request.auser()
         org_id, user_id, perms = await sync_to_async(_context, thread_sensitive=True)(request)
         after = await sync_to_async(_start_id, thread_sensitive=True)(request, org_id)
     except AppError as exc:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import random
 from datetime import timedelta
-from typing import Any
+from typing import Any, cast
 
 from django.contrib.auth import authenticate, logout, password_validation, update_session_auth_hash
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -194,7 +194,7 @@ class LogoutView(ApiView):
     def post(self, request: Request) -> Response:
         membership = self.membership
         audit.record(
-            _actor_for(request.user, membership.org_id if membership else None, request),
+            _actor_for(cast(User, request.user), membership.org_id if membership else None, request),
             "auth.logout",
             resource_type="user",
             resource_id=request.user.id,
@@ -229,11 +229,14 @@ class SwitchOrgView(ApiView):
         data = SwitchOrgIn(data=request.data)
         data.is_valid(raise_exception=True)
         org_id = data.validated_data["org_id"]
-        if not Membership.objects.filter(user=request.user, org_id=org_id).exists():
+        if not Membership.objects.filter(user=cast(User, request.user), org_id=org_id).exists():
             raise not_found("Firm")
         request._request.session[ORG_KEY] = str(org_id)
         audit.record(
-            _actor_for(request.user, org_id, request), "auth.switched_org", resource_type="org", resource_id=org_id
+            _actor_for(cast(User, request.user), org_id, request),
+            "auth.switched_org",
+            resource_type="org",
+            resource_id=org_id,
         )
         return Response(me_payload(request._request))
 
@@ -250,7 +253,7 @@ class PasswordView(ApiView):
     def post(self, request: Request) -> Response:
         data = PasswordIn(data=request.data)
         data.is_valid(raise_exception=True)
-        user = request.user
+        user = cast(User, request.user)
         if not user.check_password(data.validated_data["current_password"]):
             raise validation_error(
                 "Your current password is incorrect.", [{"field": "currentPassword", "message": "Incorrect password."}]

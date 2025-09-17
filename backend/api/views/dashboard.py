@@ -106,7 +106,7 @@ class DashboardView(ApiView):
     # ── tray ──────────────────────────────────────────────────────────────────────────────────────
     def file_tray(self, today: date) -> list[dict[str, Any]]:
         tray: list[dict[str, Any]] = []
-        user = self.request.user
+        user = self.user
         stages = [
             (s, st)
             for s, st in (("compliance", "awaiting_compliance"), ("senior", "awaiting_senior"))
@@ -226,7 +226,7 @@ class DashboardView(ApiView):
         if not self.has("smr:read"):
             qs = qs.filter(restricted=False)
         if not self.has("audit:read"):
-            qs = qs.filter(actor_id=self.request.user.id)
+            qs = qs.filter(actor_id=self.user.id)
         rows = list(qs.order_by("-id")[:8])
         ids = {r.resource_id for r in rows if r.resource_type == "client"}
         names = {str(k): v for k, v in Client.objects.filter(org=self.org, id__in=ids).values_list("id", "name")}

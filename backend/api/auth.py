@@ -97,8 +97,8 @@ def enforce_csrf(request: Request) -> None:
 
     from kinroot.core.errors import AppError
 
-    check = CSRFCheck(dummy_get_response)
+    check = CSRFCheck(dummy_get_response)  # type: ignore[arg-type]
     check.process_request(request._request)
-    reason = check.process_view(request._request, None, (), {})
+    reason = check.process_view(request._request, None, (), {})  # type: ignore[arg-type]
     if reason:
         raise AppError(403, "csrf_failed", "Forbidden", "Security token missing or invalid.")

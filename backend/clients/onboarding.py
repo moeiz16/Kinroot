@@ -30,12 +30,12 @@ def _ubo_people(client: Client) -> tuple[list[Party], bool]:
         from graph import api as graph_api
 
         result = graph_api.beneficial_owners(client.org_id, client.id)
-        ids = [o.party_id for o in result.owners if o.is_ubo and o.kind == "person"]
-        people = list(Party.objects.filter(org_id=client.org_id, id__in=ids))
-        if client.ubo_count != len(ids):
-            Client.objects.filter(id=client.id).update(ubo_count=len(ids))
-            client.ubo_count = len(ids)
-        return people, bool(ids)
+        ubo_ids = [o.party_id for o in result.owners if o.is_ubo and o.kind == "person"]
+        found = list(Party.objects.filter(org_id=client.org_id, id__in=ubo_ids))
+        if client.ubo_count != len(ubo_ids):
+            Client.objects.filter(id=client.id).update(ubo_count=len(ubo_ids))
+            client.ubo_count = len(ubo_ids)
+        return found, bool(ubo_ids)
     except Exception as exc:  # the graph may be rebuilding (or not built yet): use the relational structure
         log.debug("ubo_fallback", client_id=str(client.id), error=type(exc).__name__)
     ids = set(ClientParty.objects.filter(client_id=client.id).values_list("party_id", flat=True))

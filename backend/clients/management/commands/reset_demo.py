@@ -38,7 +38,7 @@ class Command(BaseCommand):
         else:
             call_command("flush", "--noinput")
             self.stdout.write("Flushed the database")
-        graph_path = Path(settings.KINROOT["GRAPH_PATH"])
+        graph_path = Path(str(settings.KINROOT["GRAPH_PATH"]))
         for target in (graph_path, graph_path.with_name(graph_path.name + ".wal"), Path(settings.MEDIA_ROOT)):
             if target.is_dir():
                 shutil.rmtree(target)

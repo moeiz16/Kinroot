@@ -188,7 +188,7 @@ class InvitationsView(ApiView):
             role=data.validated_data["role"],
             token_hash=token_hash(token),
             expires_at=timezone.now() + timedelta(days=INVITE_DAYS),
-            invited_by=request.user,
+            invited_by=self.user,
         )
         self.audit("invitation.created", resource_type="invitation", resource_id=inv.id, metadata={"role": inv.role})
         return Response(
@@ -253,10 +253,10 @@ class AcceptInvitationView(ApiView):
         inv = _open_invitation(token)
         data = AcceptIn(data=request.data)
         data.is_valid(raise_exception=True)
-        signed_in = request.user is not None and request.user.is_authenticated
+        signed_in = self.user is not None and self.user.is_authenticated
         with transaction.atomic():
             if signed_in:
-                user = request.user
+                user = self.user
                 if user.email.lower() != inv.email.lower():
                     raise conflict("conflict", "This invitation was sent to a different email address.")
             else:
@@ -418,9 +418,9 @@ class RetentionRunView(ApiView):
         dry = data.validated_data["dry_run"]
         job_id = jobs_api.enqueue(
             "retention.run",
-            {"dryRun": dry, "userId": str(request.user.id), "userName": request.user.full_name},
+            {"dryRun": dry, "userId": str(self.user.id), "userName": self.user.full_name},
             org_id=self.org_id,
-            created_by=request.user.id,
+            created_by=self.user.id,
         )
         self.audit("retention.run_requested", resource_type="job", resource_id=job_id, metadata={"dryRun": dry})
         return Response(job_wire(Job.objects.get(id=job_id)), status=202)

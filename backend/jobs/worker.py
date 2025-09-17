@@ -29,7 +29,7 @@ WORKER_ID = f"{socket.gethostname()}:{os.getpid()}"
 
 
 def _lease() -> timedelta:
-    return timedelta(seconds=int(settings.KINROOT.get("JOBS_LEASE_SECONDS", 300)))
+    return timedelta(seconds=int(str(settings.KINROOT.get("JOBS_LEASE_SECONDS", 300))))
 
 
 def claim_next(worker_id: str = WORKER_ID) -> Job | None:
@@ -151,7 +151,7 @@ def daily_tick(state: dict[str, Any]) -> None:
 
 
 def loop(*, once: bool = False, poll: float | None = None) -> None:
-    interval = poll if poll is not None else float(settings.KINROOT.get("JOBS_POLL_SECONDS", 1.0))
+    interval = poll if poll is not None else float(str(settings.KINROOT.get("JOBS_POLL_SECONDS", 1.0)))
     state: dict[str, Any] = {}
     log.info("worker_started", worker=WORKER_ID, kinds=api.registered_kinds())
     while True:

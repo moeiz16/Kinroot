@@ -1091,7 +1091,7 @@ NORTHGATE_CLIENTS: list[dict[str, Any]] = [
     },
 ]
 
-AURELIAN_CASE = {
+AURELIAN_CASE: dict[str, Any] = {
     "title": "Funds routed through a free-zone parent",
     "grounds": (
         "Aurelian Shipping's sole shareholder, Aurelian Maritime FZE (Dubai), closely matches a sanctioned "

@@ -223,7 +223,7 @@ class MeasureView(ClientMixin):
             measure.status = v["status"]
             measure.note = v["note"]
             measure.document_ids = doc_ids
-            measure.completed_by = request.user if v["status"] != "todo" else None
+            measure.completed_by = self.user if v["status"] != "todo" else None
             measure.completed_at = timezone.now() if v["status"] != "todo" else None
             measure.save()
             if edd.status == "rejected":
@@ -266,7 +266,7 @@ class SignoffView(ClientMixin):
         expected = {"compliance": "awaiting_compliance", "senior": "awaiting_senior"}[stage]
         if edd is None or edd.status != expected:
             raise AppError(422, "invalid_transition", "Validation failed", "This file isn't waiting for that sign-off.")
-        if stage == "senior" and client.assigned_to_id == request.user.id:
+        if stage == "senior" and client.assigned_to_id == self.user.id:
             raise AppError(403, "forbidden", "Forbidden", "A partner can't approve their own client's file.")
         if decision == "reject" and len(note.strip()) < 10:
             raise validation_error(
@@ -274,7 +274,7 @@ class SignoffView(ClientMixin):
             )
         with transaction.atomic():
             SignOff.objects.create(
-                org=self.org, edd=edd, stage=stage, decision=decision, note=note, by=request.user, at=timezone.now()
+                org=self.org, edd=edd, stage=stage, decision=decision, note=note, by=self.user, at=timezone.now()
             )
             if decision == "reject":
                 edd.status = "rejected"
@@ -283,7 +283,7 @@ class SignoffView(ClientMixin):
             else:
                 edd.status = "approved"
                 edd.measures.filter(key="senior_approval").update(
-                    status="done", completed_by=request.user, completed_at=timezone.now(), note=note
+                    status="done", completed_by=self.user, completed_at=timezone.now(), note=note
                 )
             edd.save(update_fields=["status", "updated_at"])
             self.audit(
@@ -315,8 +315,8 @@ class SignoffQueueView(ApiView):
                         "stage": s,
                         "rating": edd.client.rating,
                         "triggers": edd.triggers or [],
-                        "waiting_since": waiting.isoformat(),
-                        "own_client": edd.client.assigned_to_id == request.user.id,
+                        "waiting_since": waiting.isoformat() if waiting else None,
+                        "own_client": edd.client.assigned_to_id == self.user.id,
                     }
                 )
         out.sort(key=lambda r: r["waiting_since"])

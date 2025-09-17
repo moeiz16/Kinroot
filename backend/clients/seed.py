@@ -255,9 +255,11 @@ class Seeder:
         count = 0
         for spec in specs:
             client = clients[spec["key"]]
-            people = list(Party.objects.filter(
+            people = list(
+                Party.objects.filter(
                     id__in=services.structure_party_ids(org.id, client.id), kind="person", merged_into__isnull=True
-                ))
+                )
+            )
             assignee = users[spec["assigned"]]
             base = (spec.get("onboarded") or spec.get("submitted") or -15) - 6
             for person in people:

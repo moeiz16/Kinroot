@@ -18,6 +18,10 @@ from clients.models import (
 _ID_KEYS = {"acn": "acn", "abn": "abn", "uk_company_number": "ukCompanyNumber", "ukCompanyNumber": "ukCompanyNumber"}
 
 
+def _name(user: Any) -> str | None:
+    return user.full_name if user is not None else None
+
+
 def _iso(value: Any) -> str | None:
     return value.isoformat() if value else None
 
@@ -87,9 +91,7 @@ def client_wire(c: Client, *, extra_flags: list[str] | None = None) -> dict[str,
         "services": list(c.services or []),
         "channel": c.channel,
         "matter_reference": c.matter_reference or None,
-        "assigned_to": {"id": str(c.assigned_to_id), "full_name": c.assigned_to.full_name}
-        if c.assigned_to_id
-        else None,
+        "assigned_to": {"id": str(c.assigned_to.id), "full_name": c.assigned_to.full_name} if c.assigned_to else None,
         "rating": c.rating,
         "rating_source": c.rating_source,
         "edd_required": c.edd_required,
@@ -113,7 +115,7 @@ def document_wire(d: Document) -> dict[str, Any]:
         "file_name": d.file_name,
         "size_bytes": d.size,
         "sha256": d.sha256,
-        "uploaded_by": d.uploaded_by.full_name if d.uploaded_by_id else None,
+        "uploaded_by": _name(d.uploaded_by),
         "uploaded_at": _iso(d.created_at),
         "retain_until": _iso(d.retain_until),
     }
@@ -139,7 +141,7 @@ def consent_wire(c: Consent) -> dict[str, Any]:
         "purpose": c.purpose,
         "given_on": _iso(c.given_on),
         "method": c.method,
-        "recorded_by": c.recorded_by.full_name if c.recorded_by_id else None,
+        "recorded_by": _name(c.recorded_by),
     }
 
 
@@ -162,18 +164,18 @@ def edd_wire(edd: EddCase | None, client: Client) -> dict[str, Any]:
                 "status": m.status,
                 "note": m.note or None,
                 "document_ids": list(m.document_ids or []),
-                "completed_by": m.completed_by.full_name if m.completed_by_id else None,
+                "completed_by": _name(m.completed_by),
                 "completed_at": _iso(m.completed_at),
             }
         )
     order = list(services.MEASURE_LABELS)
-    measures.sort(key=lambda m: order.index(m["key"]) if m["key"] in order else 99)
+    measures.sort(key=lambda m: order.index(str(m["key"])) if m["key"] in order else 99)
     signoffs = [
         {
             "stage": s.stage,
             "decision": s.decision,
             "note": s.note or None,
-            "by_name": s.by.full_name if s.by_id else None,
+            "by_name": _name(s.by),
             "at": _iso(s.at),
         }
         for s in edd.signoffs.select_related("by").filter(superseded=False).order_by("at")

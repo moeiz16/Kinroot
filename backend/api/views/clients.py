@@ -6,7 +6,7 @@ import hashlib
 import secrets
 import uuid
 from datetime import date, timedelta
-from typing import Any
+from typing import Any, cast
 
 import structlog
 from django.conf import settings
@@ -100,7 +100,7 @@ def screening_flags(org_id: uuid.UUID, client_ids: list[uuid.UUID] | None = None
         from screening import api as screening_api
 
         for status, list_kind, flag in (("true_match", "pep", "pep"), ("pending", "sanctions", "sanctions_review")):
-            page = screening_api.list_hits(org_id, status=status, list_kind=list_kind, limit=1000)
+            page = screening_api.list_hits(org_id, status=cast(Any, status), list_kind=cast(Any, list_kind), limit=1000)
             for hit in page.items:
                 out.setdefault(str(hit.client_id), set()).add(flag)
     except NotImplementedError:
@@ -240,7 +240,7 @@ class ClientsView(ClientMixin):
         if p.get("reviewDue") == "true":
             qs = qs.filter(next_review_on__isnull=False, next_review_on__lte=timezone.localdate() + timedelta(days=30))
         if p.get("assignedTo") == "me":
-            qs = qs.filter(assigned_to=request.user)
+            qs = qs.filter(assigned_to=self.user)
         page, size = page_params(request)
         total = qs.count()
         flags = screening_flags(self.org_id)
@@ -289,11 +289,11 @@ class ClientsView(ClientMixin):
                 services=v["services"],
                 channel=v["channel"],
                 matter_reference=v.get("matter_reference", ""),
-                assigned_to_id=v.get("assigned_to_id") or request.user.id,
+                assigned_to_id=v.get("assigned_to_id") or self.user.id,
             )
             self.audit("client.created", resource_type="client", resource_id=client.id, metadata={"kind": client.kind})
             enqueue_if_registered(
-                "resolution.find_candidates", {"partyIds": [str(party.id)]}, org_id=self.org_id, user_id=request.user.id
+                "resolution.find_candidates", {"partyIds": [str(party.id)]}, org_id=self.org_id, user_id=self.user.id
             )
         client = self.get_client(str(client.id))
         return Response(wire_client(client, {}), status=201)
@@ -392,7 +392,7 @@ class ClientPartiesView(ClientMixin):
                 metadata={"clientId": str(client.id), "kind": party.kind},
             )
             enqueue_if_registered(
-                "resolution.find_candidates", {"partyIds": [str(party.id)]}, org_id=self.org_id, user_id=request.user.id
+                "resolution.find_candidates", {"partyIds": [str(party.id)]}, org_id=self.org_id, user_id=self.user.id
             )
         return Response(party_wire(party), status=201)
 
@@ -604,7 +604,7 @@ class RegistrySearchView(ClientMixin):
 
 
 class RegistryImportIn(serializers.Serializer):
-    source = serializers.ChoiceField(choices=["uk_ch", "au_abr"])
+    source = serializers.ChoiceField(choices=["uk_ch", "au_abr"])  # type: ignore[assignment]
     reference = serializers.CharField(max_length=40)
 
 
@@ -627,7 +627,7 @@ class RegistryImportView(ClientMixin):
             metadata={"source": data.validated_data["source"], "reference": data.validated_data["reference"], **result},
         )
         job_id = enqueue_if_registered(
-            "resolution.find_candidates", {"clientId": str(client.id)}, org_id=self.org_id, user_id=request.user.id
+            "resolution.find_candidates", {"clientId": str(client.id)}, org_id=self.org_id, user_id=self.user.id
         )
         return Response({**result, "job": job_wire(Job.objects.get(id=job_id)) if job_id else None}, status=201)
 
@@ -696,7 +696,7 @@ class DocumentsView(ClientMixin):
             content_type=CONTENT_TYPES[ext],
             sha256=digest,
             size=len(content),
-            uploaded_by=request.user,
+            uploaded_by=self.user,
         )
         doc.file.save(f"{uuid.uuid4().hex}.{ext}", ContentFile(content), save=False)
         doc.save()
@@ -786,7 +786,7 @@ class VerificationView(ClientMixin):
             sources=sources,
             document_ids=[str(d) for d in v["document_ids"]],
             reference=f"MOCK-DVS-{secrets.token_hex(4).upper()}",
-            checked_by=request.user,
+            checked_by=self.user,
             checked_at=timezone.now(),
         )
         self.audit(
@@ -838,7 +838,7 @@ class ConsentView(ClientMixin):
             purpose=v["purpose"],
             given_on=v["given_on"],
             method=v["method"],
-            recorded_by=request.user,
+            recorded_by=self.user,
         )
         self.audit(
             "consent.recorded",
@@ -877,7 +877,7 @@ class SubmitView(ClientMixin):
                     "screening.client",
                     {"clientId": str(client.id)},
                     org_id=self.org_id,
-                    user_id=request.user.id,
+                    user_id=self.user.id,
                     dedupe_key=f"screening.client:{client.id}",
                     priority=50,
                 ),
@@ -885,7 +885,7 @@ class SubmitView(ClientMixin):
                     "risk.assess_client",
                     {"clientId": str(client.id)},
                     org_id=self.org_id,
-                    user_id=request.user.id,
+                    user_id=self.user.id,
                     dedupe_key=f"risk.assess_client:{client.id}",
                     priority=60,
                 ),
@@ -920,7 +920,7 @@ class CommunicationsView(ClientMixin):
             message=data.validated_data["message"],
             status="held" if hold else "sent",
             held_reason_code=hold.reason_code if hold else "",
-            sent_by=request.user,
+            sent_by=self.user,
         )
         self.audit(
             "communication.held" if hold else "communication.sent",
@@ -975,7 +975,7 @@ class HoldsView(ClientMixin):
         client = self.get_client(client_id)
         data = HoldIn(data=request.data)
         data.is_valid(raise_exception=True)
-        hold = services.place_hold(client, "manual", by=request.user, note=data.validated_data["note"])
+        hold = services.place_hold(client, "manual", by=self.user, note=data.validated_data["note"])
         self.audit("hold.placed", resource_type="client", resource_id=client.id, restricted=True)
         return Response({"id": str(hold.id), "active": True}, status=201)
 
@@ -987,7 +987,7 @@ class HoldReleaseView(ClientMixin):
         client = self.get_client(client_id)
         data = HoldIn(data=request.data)
         data.is_valid(raise_exception=True)
-        released = services.release_holds(client, by=request.user, note=data.validated_data["note"])
+        released = services.release_holds(client, by=self.user, note=data.validated_data["note"])
         self.audit(
             "hold.released",
             resource_type="client",
