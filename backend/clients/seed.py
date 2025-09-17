@@ -384,6 +384,7 @@ class Seeder:
         system = Actor(org_id=org.id, user_id=None)
         self.out(f"{label}: domain pipeline")
         self.step("graph projection", lambda: graph_api.rebuild_org(org.id))
+        self.step("beneficial owners", lambda: self.ubo_counts(org))
         self.step("duplicate detection", lambda: resolution_api.find_candidates(org.id))
         services.rebuild_structure(org.id)
         self.step("screening lists", lambda: screening_api.load_lists())
@@ -393,6 +394,21 @@ class Seeder:
             self.step("risk methodology", lambda: seed_methods(org.id))
         self.step("risk assessment", lambda: risk_api.assess_org(org.id, system))
         self.step("daily monitoring", lambda: monitoring_api.run_daily(org.id))
+
+    def ubo_counts(self, org: Organisation) -> int:
+        """Cache the number of beneficial owners per client for list views."""
+        from graph import api as graph_api
+
+        n = 0
+        for client in Client.objects.filter(org=org):
+            if client.kind == "individual":
+                count = 1
+            else:
+                result = graph_api.beneficial_owners(org.id, client.id)
+                count = sum(1 for o in result.owners if o.is_ubo)
+            Client.objects.filter(id=client.id).update(ubo_count=count)
+            n += 1
+        return n
 
     # ── human decisions after the pipeline ────────────────────────────────────────────────────────
     def decisions(self, org: Organisation, clients: dict[str, Client], users: dict[str, User]) -> None:
