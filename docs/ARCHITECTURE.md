@@ -108,3 +108,33 @@ assistant answers). Structured logs carry the request id.
 ## Runtime footprint
 API (uvicorn) + worker + Vite dev server; SQLite and the graph file in `data/`; Python venv about 620 MB;
 LightGBM needs the OpenMP runtime on macOS (`brew install libomp`). Training runs one job at a time on CPU.
+
+## Platform details
+- **Sessions**: server-side sessions in the database. Sign-in records a 12-hour absolute and a 30-minute idle
+  deadline in the session; `/auth/refresh` rotates the session key and moves the idle deadline. Past either the
+  API answers `401 session_expired` (distinct from `not_authenticated`). Changing a password invalidates every
+  other session through Django's session auth hash. Five failed sign-ins for one email in 15 minutes lock it for
+  15 minutes; failures are generic and audited.
+- **Tenancy**: the active organisation comes from the session and the user's membership, never from the URL or
+  body. Every lookup filters by it; ids from another firm raise the same 404 body as unknown ids (tested per
+  resource). Domain calls receive only the active org id.
+- **Permissions**: views declare one permission (or an any-of tuple) from `accounts/roles.py`; the base view
+  resolves membership and permissions once per request. Error bodies never echo restricted content.
+- **Tipping-off**: `cases.services.access_level` is the single gate: the compliance officer has full access,
+  others need an access-list entry, everyone else gets 404. Case actions are restricted audit rows (still in the
+  hash chain), case events carry named recipients, dashboard counts omit case numbers without `smr:read`, the
+  assistant receives the caller's permissions minus every `smr:*`, and every hold, whatever its cause, answers
+  `409 action_held` with one sentence.
+- **Jobs and events**: `jobs.Job` rows are claimed by compare-and-set (`SKIP LOCKED` on Postgres), leased for
+  `JOBS_LEASE_SECONDS`, retried with exponential backoff and recovered when a lease expires. The same worker loop
+  drains the graph outbox when it is the single writer and enqueues `monitoring.daily` once per org per day.
+  `jobs.Event` rows feed the SSE stream, which filters per recipient by permission and named users and resumes
+  from `Last-Event-ID`; the stream closes every five minutes and the browser reconnects.
+- **Audit**: one SHA-256 chain per organisation over a canonical JSON of each row (UTC timestamps, sorted keys);
+  `verify_chain` reports the first broken row. Sample-data history is written in time order so the seeded chain
+  verifies like any other.
+- **Uploads**: identity documents are size-limited, sniffed by content (PDF, PNG, JPEG), stored under random
+  names outside any served path, hashed (SHA-256) and returned only as attachments.
+- **Retention**: preview lists exited clients and their documents with the date each becomes disposable (7 years
+  AU, at least 5 UK) and any legal hold; a confirmed run anonymises personal fields of people no other client
+  references and deletes stored files, leaving the audit chain intact.
