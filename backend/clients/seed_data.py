@@ -729,7 +729,7 @@ CLIENTS: list[dict[str, Any]] = [
         "kind": "company",
         "rating": "medium",
         "services": ["property_transaction"],
-        "channel": "intermediary",
+        "channel": "face_to_face",
         "assigned": "tom",
         "onboarded": -290,
         "review": 440,

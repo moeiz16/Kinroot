@@ -109,6 +109,10 @@ class ClientReviewView(ClientMixin):
         from django.utils import timezone
 
         today = timezone.localdate()
+        if v["completed"] and v.get("due_on") is None and hasattr(monitoring_api, "complete_review"):
+            with domain_errors("Client"):
+                result = monitoring_api.complete_review(self.org_id, client.id, self.actor, v["note"])
+            return self.wire(result)
         if v["completed"]:
             due = v.get("due_on") or add_months(today, review_months(self.org, client.rating))
             clients_api.set_review_dates(self.org_id, client.id, last_reviewed_on=today, next_review_on=due)

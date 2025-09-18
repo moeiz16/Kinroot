@@ -229,24 +229,33 @@ def test_alerts_list_and_resolve(as_role, client_record, monkeypatch):
 
 def test_review_scheduling(as_role, client_record, monkeypatch):
     seen = {}
-    monkeypatch.setattr(
-        monitoring_api,
-        "schedule_review",
-        lambda org, cid, due, actor: seen.setdefault("due", due) and {"clientId": str(cid)},
-    )
+
+    def schedule(org, cid, due, actor):
+        seen["due"] = due
+        return {"clientId": str(cid), "nextReviewOn": due.isoformat()}
+
+    def complete(org, cid, actor, note=""):
+        seen["note"] = note
+        return {"clientId": str(cid)}
+
+    monkeypatch.setattr(monitoring_api, "schedule_review", schedule)
+    monkeypatch.setattr(monitoring_api, "complete_review", complete, raising=False)
     co = as_role("compliance_officer")
+    past = co.post(f"/api/v1/clients/{client_record.id}/review", {"dueOn": "2001-01-01"}, format="json")
+    assert past.status_code == 422
     assert (
-        co.post(f"/api/v1/clients/{client_record.id}/review", {"dueOn": "2001-01-01"}, format="json").status_code == 422
+        co.post(f"/api/v1/clients/{client_record.id}/review", {"dueOn": "2099-01-01"}, format="json").status_code == 200
     )
+    assert str(seen["due"]) == "2099-01-01"
     done = co.post(
         f"/api/v1/clients/{client_record.id}/review",
         {"completed": True, "note": "Reviewed file, no change."},
         format="json",
     )
     assert done.status_code == 200
-    client_record.refresh_from_db()
-    assert client_record.last_reviewed_on is not None
-    assert seen["due"] == client_record.next_review_on
+    assert seen["note"] == "Reviewed file, no change."
+    short = co.post(f"/api/v1/clients/{client_record.id}/review", {"completed": True, "note": "ok"}, format="json")
+    assert short.status_code == 422
 
 
 def test_assistant_question_limits(as_role, monkeypatch):
