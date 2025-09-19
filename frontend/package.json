@@ -8,27 +8,46 @@
   },
   "scripts": {
     "dev": "vite --port 3020 --strictPort",
+    "dev:mock": "VITE_API_MOCK=1 vite --port 3020 --strictPort",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --port 3020 --strictPort",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
   },
   "dependencies": {
+    "@fontsource/hanken-grotesk": "5.2.5",
+    "@fontsource/red-hat-mono": "5.2.5",
+    "@fontsource/spectral": "5.2.5",
     "@tanstack/react-query": "5.90.21",
     "graphology": "0.26.0",
     "graphology-layout-forceatlas2": "0.10.1",
+    "lucide-react": "0.525.0",
+    "motion": "12.23.12",
     "react": "19.1.10",
     "react-dom": "19.1.10",
     "react-router": "7.9.6",
     "sigma": "3.0.3"
   },
   "devDependencies": {
+    "@eslint/js": "9.17.0",
     "@tailwindcss/vite": "4.1.18",
+    "@testing-library/dom": "10.4.0",
+    "@testing-library/jest-dom": "6.6.3",
+    "@testing-library/react": "16.3.0",
+    "@testing-library/user-event": "14.6.1",
     "@types/react": "19.1.17",
     "@types/react-dom": "19.1.11",
     "@vitejs/plugin-react": "4.3.4",
+    "eslint": "9.17.0",
+    "eslint-plugin-react-hooks": "5.1.0",
+    "globals": "15.14.0",
     "graphology-types": "0.24.8",
+    "jsdom": "25.0.1",
     "tailwindcss": "4.1.18",
     "typescript": "5.9.3",
-    "vite": "5.4.21"
+    "typescript-eslint": "8.46.2",
+    "vite": "5.4.21",
+    "vitest": "2.1.9"
   }
 }
