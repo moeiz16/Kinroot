@@ -104,7 +104,7 @@ class Seeder:
                 fields["birth_date"] = date.fromisoformat(fields["birth_date"])
             given, family = services.split_person_name(name) if kind == "person" else ("", "")
             rows[key] = Party(
-                id=uuid.uuid5(uuid.NAMESPACE_URL, f"kinroot:{org.slug}:{key}"),
+                id=uuid.uuid5(uuid.NAMESPACE_URL, f"kinroot:{org.id}:{key}"),
                 org=org,
                 kind=kind,
                 name=name,
@@ -161,7 +161,7 @@ class Seeder:
         for i, word in enumerate(D.DORMANT_WORDS):
             name = f"{word} Trading Ltd"
             p = Party(
-                id=uuid.uuid5(uuid.NAMESPACE_URL, f"kinroot:{org.slug}:dormant:{i}"),
+                id=uuid.uuid5(uuid.NAMESPACE_URL, f"kinroot:{org.id}:dormant:{i}"),
                 org=org,
                 kind="company",
                 name=name,
