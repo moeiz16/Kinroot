@@ -53,7 +53,7 @@ export function constellationScene(payload: GraphPayload, clients: Client[], clu
       id: key,
       kind: a.kind === "address" ? "address" : (a.kind as BKind),
       label: a.label,
-      sub: lens === "shared" && cl ? cl.label : undefined,
+      sub: undefined,
       glyph: "",
       level: 1,
       pin: true,
