@@ -4,4 +4,10 @@ from django.apps import AppConfig
 class GraphConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "graph"
-    verbose_name = "Graph"
+    verbose_name = "Ownership graph"
+
+    def ready(self) -> None:
+        from . import jobs, sync
+
+        sync.connect()
+        jobs.register_all()
