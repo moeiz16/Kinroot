@@ -1,0 +1,198 @@
+{
+ "data": {
+  "folds": {
+   "calib": {
+    "blocking_recall": 0.9812,
+    "entities": 1812,
+    "pairs": 18590,
+    "records": 4894,
+    "true_pairs": 4622
+   },
+   "test": {
+    "blocking_recall": 0.9822,
+    "entities": 2670,
+    "pairs": 39142,
+    "records": 7217,
+    "true_pairs": 6810
+   },
+   "train": {
+    "blocking_recall": 0.9795,
+    "entities": 11093,
+    "pairs": 520215,
+    "records": 29980,
+    "true_pairs": 28337
+   },
+   "valid": {
+    "blocking_recall": 0.9839,
+    "entities": 2891,
+    "pairs": 44188,
+    "records": 7828,
+    "true_pairs": 7402
+   }
+  },
+  "label_counts": {
+   "0": 575871,
+   "1": 46264
+  },
+  "origins": {
+   "anglo": 59728,
+   "arabic": 5201,
+   "au_company": 422823,
+   "chinese": 13040,
+   "korean_japanese": 6168,
+   "mediterranean": 9906,
+   "south_asian": 13898,
+   "uk_register": 80129,
+   "uk_register_company": 1668,
+   "vietnamese": 9574
+  },
+  "source": "Companies House PSC individuals (perturbed) + synthetic AU people and companies",
+  "train_pairs_after_negative_sampling": 194299
+ },
+ "fairness_by_name_origin": {
+  "anglo": {
+   "auto_merge_precision": 1.0,
+   "pairs": 3920,
+   "recall_at_review": 1.0,
+   "review_rate": 0.0612
+  },
+  "arabic": {
+   "auto_merge_precision": 1.0,
+   "pairs": 234,
+   "recall_at_review": 1.0,
+   "review_rate": 0.0641
+  },
+  "chinese": {
+   "auto_merge_precision": 1.0,
+   "pairs": 721,
+   "recall_at_review": 1.0,
+   "review_rate": 0.061
+  },
+  "korean_japanese": {
+   "auto_merge_precision": 1.0,
+   "pairs": 564,
+   "recall_at_review": 1.0,
+   "review_rate": 0.0248
+  },
+  "mediterranean": {
+   "auto_merge_precision": 1.0,
+   "pairs": 701,
+   "recall_at_review": 1.0,
+   "review_rate": 0.0399
+  },
+  "south_asian": {
+   "auto_merge_precision": 1.0,
+   "pairs": 958,
+   "recall_at_review": 1.0,
+   "review_rate": 0.0553
+  },
+  "uk_register": {
+   "auto_merge_precision": 0.9857,
+   "pairs": 7113,
+   "recall_at_review": 0.9982,
+   "review_rate": 0.0952
+  },
+  "vietnamese": {
+   "auto_merge_precision": 1.0,
+   "pairs": 952,
+   "recall_at_review": 1.0,
+   "review_rate": 0.0473
+  }
+ },
+ "fs_threshold": 0.9789,
+ "global_importance_mean_abs_shap": {
+  "address_token_overlap": 1.559,
+  "dob_exact": 1.2396,
+  "dob_partial": 2.8438,
+  "dob_transposed": 0.1519,
+  "dob_year_diff": 2.4463,
+  "given_name_agree": 0.3607,
+  "id_agree": 2.2597,
+  "jurisdiction_agree": 0.254,
+  "kind_agree": 0.0,
+  "name_jaro_winkler": 0.774,
+  "name_phonetic_agree": 0.2248,
+  "name_token_set": 1.9984,
+  "nationality_agree": 0.2807,
+  "postcode_agree": 0.1887,
+  "surname_jaro_winkler": 0.0274
+ },
+ "metrics_test": {
+  "fellegi_sunter": {
+   "average_precision": 0.9546,
+   "brier": 0.0401,
+   "ece": 0.0408,
+   "f1": 0.9042,
+   "precision": 0.8861,
+   "recall": 0.9232,
+   "roc_auc": 0.9905,
+   "threshold": 0.9789
+  },
+  "lightgbm": {
+   "auto_merge_precision": 0.9914,
+   "auto_merge_share_of_matches": 0.8125,
+   "average_precision": 0.9985,
+   "brier": 0.0044,
+   "ece": 0.0013,
+   "f1": 0.9829,
+   "false_merges": 47,
+   "precision": 0.9732,
+   "recall": 0.9928,
+   "recall_at_review": 0.9973,
+   "review_rate": 0.0368,
+   "roc_auc": 0.9998,
+   "threshold": 0.5
+  },
+  "lightgbm_uncalibrated": {
+   "brier": 0.0043,
+   "ece": 0.0011
+  },
+  "logistic_regression": {
+   "auto_merge_precision": 0.9998,
+   "auto_merge_share_of_matches": 0.7393,
+   "average_precision": 0.9973,
+   "brier": 0.0055,
+   "ece": 0.0012,
+   "f1": 0.9799,
+   "false_merges": 1,
+   "precision": 0.9782,
+   "recall": 0.9816,
+   "recall_at_review": 0.9936,
+   "review_rate": 0.0527,
+   "roc_auc": 0.9996,
+   "threshold": 0.4916
+  },
+  "random_forest": {
+   "average_precision": 0.9986,
+   "brier": 0.0044,
+   "ece": 0.0035,
+   "f1": 0.9853,
+   "precision": 0.9823,
+   "recall": 0.9883,
+   "roc_auc": 0.9997,
+   "threshold": 0.4412
+  }
+ },
+ "seed": 20251006,
+ "thresholds": {
+  "auto_merge": 0.8478,
+  "chosen_by": "precision >= 0.99 at auto-merge; recall >= 0.995 at review (validation PR curve, calibrated)",
+  "expected_review_rate": 0.0312,
+  "model_version": "er-1.0",
+  "review": 0.3902
+ },
+ "tuning": {
+  "best_params": {
+   "bagging_fraction": 0.8749,
+   "feature_fraction": 0.6913,
+   "lambda_l2": 0.0458,
+   "learning_rate": 0.0388,
+   "min_child_samples": 11,
+   "num_leaves": 14
+  },
+  "best_valid_average_precision": 0.9989,
+  "rounds": 353,
+  "trials": 40
+ },
+ "version": "er-1.0"
+}

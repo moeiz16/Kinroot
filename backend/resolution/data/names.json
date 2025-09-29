@@ -1,0 +1,47 @@
+{
+  "origins": {
+    "anglo": {
+      "given_f": ["Olivia", "Charlotte", "Amelia", "Isla", "Mia", "Grace", "Sophie", "Emily", "Hannah", "Lucy", "Chloe", "Ruby", "Sarah", "Jessica", "Rebecca", "Elizabeth", "Margaret", "Katherine", "Abigail", "Penelope", "Susan", "Jennifer", "Patricia", "Deborah"],
+      "given_m": ["Jack", "William", "Oliver", "Thomas", "James", "Benjamin", "Samuel", "Daniel", "Michael", "Robert", "Andrew", "Matthew", "Christopher", "Joseph", "Edward", "Richard", "Stephen", "Anthony", "Nicholas", "Gregory", "Timothy", "Patrick", "Henry", "Frederick"],
+      "surname": ["Smith", "Jones", "Williams", "Brown", "Wilson", "Taylor", "Johnson", "White", "Martin", "Anderson", "Thompson", "Walker", "Harris", "Ryan", "Robinson", "Kelly", "King", "Campbell", "Mitchell", "Clarke", "Hughes", "Edwards", "Turner", "Parker", "Collins", "Stewart", "Morris", "Murphy", "Cook", "Rogers", "O'Connor", "McDonald", "Fitzgerald", "Whitfield", "Ellison", "Hale", "Grant", "Cooper"]
+    },
+    "chinese": {
+      "given_f": ["Mei", "Li Na", "Xiu Ying", "Jing", "Yan", "Hui", "Ling", "Fang", "Wen", "Xin"],
+      "given_m": ["Wei", "Jun", "Hao", "Lei", "Ming", "Jian", "Tao", "Bo", "Qiang", "Zhi Hao"],
+      "surname": ["Wang", "Li", "Zhang", "Liu", "Chen", "Yang", "Huang", "Zhao", "Wu", "Zhou", "Xu", "Sun", "Lin", "Cheng", "Tan", "Lim", "Ng", "Wong"]
+    },
+    "vietnamese": {
+      "given_f": ["Linh", "Mai", "Lan", "Huong", "Thu", "Ngoc", "Trang", "Thao"],
+      "given_m": ["Minh", "Duc", "Tuan", "Hung", "Quang", "Thanh", "Long", "Nam"],
+      "surname": ["Nguyen", "Tran", "Le", "Pham", "Hoang", "Phan", "Vu", "Dang", "Bui", "Do"]
+    },
+    "south_asian": {
+      "given_f": ["Priya", "Anjali", "Riya", "Kavya", "Sunita", "Aisha", "Fatima", "Neha", "Pooja", "Divya"],
+      "given_m": ["Arjun", "Rahul", "Vikram", "Sanjay", "Amit", "Rohan", "Imran", "Mohammed", "Ravi", "Karan"],
+      "surname": ["Patel", "Sharma", "Singh", "Kumar", "Gupta", "Khan", "Shah", "Reddy", "Iyer", "Chowdhury", "Malik", "Hussain", "Nair", "Rao"]
+    },
+    "mediterranean": {
+      "given_f": ["Sofia", "Giulia", "Maria", "Eleni", "Katerina", "Francesca", "Chiara", "Despina"],
+      "given_m": ["Giorgos", "Nikolaos", "Marco", "Luca", "Giuseppe", "Dimitri", "Antonio", "Konstantinos"],
+      "surname": ["Papadopoulos", "Rossi", "Russo", "Ferrari", "Esposito", "Romano", "Georgiou", "Nikolaidis", "Costa", "Marino", "Ricci", "Kostas"]
+    },
+    "arabic": {
+      "given_f": ["Layla", "Noor", "Yasmin", "Mariam", "Huda", "Rania", "Leila", "Samira"],
+      "given_m": ["Ahmed", "Omar", "Khalid", "Youssef", "Hassan", "Ali", "Tariq", "Karim"],
+      "surname": ["Haddad", "Khoury", "Nasser", "Saleh", "Mansour", "Hamdan", "Rahman", "Aziz", "Farouk", "Abboud"]
+    },
+    "korean_japanese": {
+      "given_f": ["Ji-woo", "Seo-yeon", "Min-ji", "Yuki", "Haruka", "Aiko", "Sakura", "Hana"],
+      "given_m": ["Min-jun", "Ji-ho", "Hyun-woo", "Kenji", "Hiroshi", "Takeshi", "Daichi", "Ren"],
+      "surname": ["Kim", "Lee", "Park", "Choi", "Jung", "Sato", "Suzuki", "Takahashi", "Tanaka", "Watanabe", "Yamamoto", "Nakamura"]
+    }
+  },
+  "origin_weights": {"anglo": 0.5, "chinese": 0.12, "vietnamese": 0.08, "south_asian": 0.12, "mediterranean": 0.08, "arabic": 0.05, "korean_japanese": 0.05},
+  "streets": ["George", "Pitt", "Victoria", "Macquarie", "Elizabeth", "Collins", "Bourke", "Queen", "King", "Market", "Harbour", "Church", "Station", "Park", "High", "Ocean", "Railway", "Bridge", "Hill", "Albert"],
+  "street_types": ["Street", "Road", "Avenue", "Parade", "Lane", "Drive", "Place", "Crescent"],
+  "localities": [["Sydney", "NSW", "2000"], ["Parramatta", "NSW", "2150"], ["Chatswood", "NSW", "2067"], ["Bondi", "NSW", "2026"], ["Newcastle", "NSW", "2300"], ["Melbourne", "VIC", "3000"], ["Richmond", "VIC", "3121"], ["Box Hill", "VIC", "3128"], ["Brisbane", "QLD", "4000"], ["Southport", "QLD", "4215"], ["Perth", "WA", "6000"], ["Fremantle", "WA", "6160"], ["Adelaide", "SA", "5000"], ["Hobart", "TAS", "7000"], ["Canberra", "ACT", "2600"], ["Darwin", "NT", "0800"]],
+  "company_words": ["Harbour", "Quay", "Coastal", "Southern", "Pacific", "Summit", "Ironbark", "Wattle", "Tasman", "Banksia", "Meridian", "Granite", "Silverbirch", "Bluegum", "Kestrel", "Orchard", "Westerly", "Northgate", "Lumen", "Coralline", "Aurelian", "Marlowe", "Brightwater", "Greenfield", "Riverside", "Sterling", "Beacon", "Horizon", "Redgum", "Jarrah"],
+  "company_kinds": ["Holdings", "Developments", "Investments", "Capital", "Logistics", "Imports", "Trading", "Property Group", "Consulting", "Services", "Ventures", "Partners", "Construction", "Mining Services", "Realty"],
+  "nickname_of": {"benjamin": "Ben", "william": "Bill", "robert": "Bob", "james": "Jim", "michael": "Mike", "thomas": "Tom", "daniel": "Dan", "christopher": "Chris", "katherine": "Kate", "elizabeth": "Liz", "margaret": "Maggie", "jennifer": "Jen", "anthony": "Tony", "nicholas": "Nick", "gregory": "Greg", "edward": "Ed", "richard": "Rick", "stephen": "Steve", "matthew": "Matt", "andrew": "Andy", "samuel": "Sam", "joseph": "Joe", "patrick": "Pat", "timothy": "Tim", "susan": "Sue", "deborah": "Debbie", "rebecca": "Becky", "abigail": "Abby", "penelope": "Penny", "patricia": "Trish", "frederick": "Fred", "henry": "Harry", "alexander": "Alex", "david": "Dave", "john": "Jack", "charlotte": "Charlie", "jessica": "Jess", "sarah": "Sally"},
+  "diacritics": {"e": "é", "a": "á", "o": "ö", "u": "ü", "c": "ç", "n": "ñ", "i": "í"}
+}

@@ -1,0 +1,7 @@
+{
+ "auto_merge": 0.899,
+ "chosen_by": "precision >= 0.99 at auto-merge; recall >= 0.995 at review (validation PR curve, calibrated)",
+ "expected_review_rate": 0.0256,
+ "model_version": "er-1.0-logreg",
+ "review": 0.2852
+}

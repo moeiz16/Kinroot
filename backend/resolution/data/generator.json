@@ -1,0 +1,11 @@
+{
+  "seed": 20251006,
+  "splits": {"train": 0.6, "valid": 0.15, "calib": 0.1, "test": 0.15},
+  "entities": {"uk_register_people": 9000, "synthetic_people": 3600, "synthetic_companies": 2400, "uk_register_companies": 600},
+  "variants_per_entity": {"1": 0.45, "2": 0.4, "3": 0.15},
+  "namesake_share": 0.12,
+  "relative_share": 0.08,
+  "sibling_company_share": 0.2,
+  "perturbations_per_variant": {"1": 0.45, "2": 0.35, "3": 0.2},
+  "negatives_per_positive_train": 6
+}

@@ -1,0 +1,80 @@
+{
+ "champion": "er-1.0",
+ "features": [
+  "name_jaro_winkler",
+  "name_token_set",
+  "name_phonetic_agree",
+  "surname_jaro_winkler",
+  "given_name_agree",
+  "dob_exact",
+  "dob_partial",
+  "dob_transposed",
+  "dob_year_diff",
+  "id_agree",
+  "address_token_overlap",
+  "postcode_agree",
+  "nationality_agree",
+  "jurisdiction_agree",
+  "kind_agree"
+ ],
+ "fellegi_sunter": "fellegi_sunter.json",
+ "files": {
+  "calibrator.json": "7f8de2882e96219249b8e28f69bb0cdd256c2fc04eb97270bc70a942f11c3d7e",
+  "fellegi_sunter.json": "a38795ebccfa43b1efdf8f61b5fef18f284f1b46bd748479d537575385b780bb",
+  "lightgbm.txt": "8e275ab0469083ee41e63971a898f04dfd497589ec81f3ff654eb5ac48ba22f4",
+  "logreg.json": "cc68ebc6f2d676fe5939aeca260862d81545768301fccf9b08a859cbe74c3bb1",
+  "logreg_calibrator.json": "d6f1a2533e47318f8623e103c2a0294b5fb57b9969bebe9f3d43e75e7c26b074",
+  "metrics.json": "521f2c39bb49a86bb5e8052d218330e8f0ab4928f1c21660e451e06b48a3c825",
+  "thresholds.json": "7a2b3b9b6851ba9b71631ad9667e8406d3aab8944f11dc745fea62227a74dda0",
+  "thresholds_logreg.json": "b3a3104ccbe2a274079b7603ab61118cf5ed003200d9723aad2aaab1db4d3e65"
+ },
+ "name": "er-matcher",
+ "versions": {
+  "er-1.0": {
+   "calibrator": "calibrator.json",
+   "card": "model_card.md",
+   "kind": "lightgbm",
+   "metrics": {
+    "auto_merge_precision": 0.9914,
+    "auto_merge_share_of_matches": 0.8125,
+    "average_precision": 0.9985,
+    "brier": 0.0044,
+    "ece": 0.0013,
+    "f1": 0.9829,
+    "false_merges": 47,
+    "precision": 0.9732,
+    "recall": 0.9928,
+    "recall_at_review": 0.9973,
+    "review_rate": 0.0368,
+    "roc_auc": 0.9998,
+    "threshold": 0.5
+   },
+   "model": "lightgbm.txt",
+   "stage": "champion",
+   "thresholds": "thresholds.json"
+  },
+  "er-1.0-logreg": {
+   "calibrator": "logreg_calibrator.json",
+   "card": "model_card.md",
+   "kind": "logreg",
+   "metrics": {
+    "auto_merge_precision": 0.9998,
+    "auto_merge_share_of_matches": 0.7393,
+    "average_precision": 0.9973,
+    "brier": 0.0055,
+    "ece": 0.0012,
+    "f1": 0.9799,
+    "false_merges": 1,
+    "precision": 0.9782,
+    "recall": 0.9816,
+    "recall_at_review": 0.9936,
+    "review_rate": 0.0527,
+    "roc_auc": 0.9996,
+    "threshold": 0.4916
+   },
+   "model": "logreg.json",
+   "stage": "challenger",
+   "thresholds": "thresholds_logreg.json"
+  }
+ }
+}
