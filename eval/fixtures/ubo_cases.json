@@ -1,0 +1,334 @@
+{
+  "description": "Crafted ownership structures with hand-computed expected beneficial owners. Fictional names. Shared by backend/tests/graph and eval/run.py.",
+  "cases": [
+    {
+      "name": "trust_over_company_over_offshore",
+      "focus": "hq",
+      "asOf": "2025-10-01",
+      "parties": [
+        {"key": "ava", "kind": "person", "name": "Ava Calder"},
+        {"key": "ben", "kind": "person", "name": "Ben Okafor"},
+        {"key": "trust", "kind": "trust", "name": "Calder Family Trust", "jurisdiction": "AU"},
+        {"key": "tco", "kind": "company", "name": "Calder Trustee Co Pty Ltd", "jurisdiction": "AU"},
+        {"key": "bell", "kind": "company", "name": "Bellmere Holdings Pty Ltd", "jurisdiction": "AU"},
+        {"key": "kes", "kind": "company", "name": "Kestrel Ventures Ltd", "jurisdiction": "VG"},
+        {"key": "nom", "kind": "person", "name": "Gregory Pell", "jurisdiction": "SC", "isNominee": true},
+        {"key": "hq", "kind": "company", "name": "Harbour Quay Developments Pty Ltd", "jurisdiction": "AU"}
+      ],
+      "edges": [
+        {"id": "o1", "from": "ava", "to": "trust", "kind": "ownership", "pct": 100, "interest": "trust_entitlement"},
+        {"id": "o2", "from": "trust", "to": "bell", "kind": "ownership", "pct": 62},
+        {"id": "o3", "from": "ben", "to": "bell", "kind": "ownership", "pct": 38},
+        {"id": "o4", "from": "bell", "to": "kes", "kind": "ownership", "pct": 80},
+        {"id": "o5", "from": "kes", "to": "hq", "kind": "ownership", "pct": 100},
+        {"id": "c1", "from": "ava", "to": "trust", "kind": "control", "role": "appointor"},
+        {"id": "c2", "from": "tco", "to": "trust", "kind": "control", "role": "trustee"},
+        {"id": "c3", "from": "ava", "to": "tco", "kind": "control", "role": "director"},
+        {"id": "c4", "from": "nom", "to": "kes", "kind": "control", "role": "director", "nominee": true}
+      ],
+      "expect": {"owners": {"ava": 49.6, "ben": 30.4}, "ubos": ["ava", "ben"], "controlUbos": ["ava"], "notUbos": ["nom"],
+                 "unexplainedPct": 20.0, "cycles": 0, "warnings": ["unknown_owner", "nominee_in_chain"], "layers": 4}
+    },
+    {
+      "name": "simple_two_owners",
+      "focus": "co",
+      "asOf": "2025-10-01",
+      "parties": [
+        {"key": "a", "kind": "person", "name": "Priya Raman"},
+        {"key": "b", "kind": "person", "name": "Daniel Moss"},
+        {"key": "co", "kind": "company", "name": "Northshore Dental Group Pty Ltd"}
+      ],
+      "edges": [
+        {"id": "e1", "from": "a", "to": "co", "kind": "ownership", "pct": 60},
+        {"id": "e2", "from": "b", "to": "co", "kind": "ownership", "pct": 40}
+      ],
+      "expect": {"owners": {"a": 60.0, "b": 40.0}, "ubos": ["a", "b"], "unexplainedPct": 0.0, "cycles": 0, "warnings": [], "layers": 1}
+    },
+    {
+      "name": "below_and_above_threshold",
+      "focus": "co",
+      "asOf": "2025-10-01",
+      "parties": [
+        {"key": "a", "kind": "person", "name": "Anna Bell"},
+        {"key": "b", "kind": "person", "name": "Brook Hart"},
+        {"key": "c", "kind": "person", "name": "Cara Lowe"},
+        {"key": "d", "kind": "person", "name": "Dev Shah"},
+        {"key": "co", "kind": "company", "name": "Quarter Shares Pty Ltd"}
+      ],
+      "edges": [
+        {"id": "e1", "from": "a", "to": "co", "kind": "ownership", "pct": 24},
+        {"id": "e2", "from": "b", "to": "co", "kind": "ownership", "pct": 24},
+        {"id": "e3", "from": "c", "to": "co", "kind": "ownership", "pct": 26},
+        {"id": "e4", "from": "d", "to": "co", "kind": "ownership", "pct": 26}
+      ],
+      "expect": {"owners": {"a": 24.0, "b": 24.0, "c": 26.0, "d": 26.0}, "ubos": ["c", "d"], "notUbos": ["a", "b"], "unexplainedPct": 0.0, "cycles": 0, "warnings": []}
+    },
+    {
+      "name": "exactly_at_threshold",
+      "focus": "co",
+      "asOf": "2025-10-01",
+      "parties": [
+        {"key": "a", "kind": "person", "name": "Ella Fox"},
+        {"key": "h", "kind": "company", "name": "Fox Holdings Pty Ltd"},
+        {"key": "x", "kind": "person", "name": "Max Reid"},
+        {"key": "co", "kind": "company", "name": "Threshold Pty Ltd"}
+      ],
+      "edges": [
+        {"id": "e1", "from": "a", "to": "h", "kind": "ownership", "pct": 50},
+        {"id": "e2", "from": "x", "to": "h", "kind": "ownership", "pct": 50},
+        {"id": "e3", "from": "h", "to": "co", "kind": "ownership", "pct": 50},
+        {"id": "e4", "from": "x", "to": "co", "kind": "ownership", "pct": 50}
+      ],
+      "expect": {"owners": {"a": 25.0, "x": 75.0}, "ubos": ["a", "x"], "unexplainedPct": 0.0, "cycles": 0, "warnings": [], "layers": 2}
+    },
+    {
+      "name": "circular_three_company_cycle",
+      "focus": "tr",
+      "asOf": "2025-10-01",
+      "parties": [
+        {"key": "marcus", "kind": "person", "name": "Marcus Hale"},
+        {"key": "tr", "kind": "company", "name": "Tasman Ridge Pty Ltd"},
+        {"key": "ol", "kind": "company", "name": "Orchard Lane Investments Pty Ltd"},
+        {"key": "wc", "kind": "company", "name": "Westerly Capital Ltd", "jurisdiction": "NZ"}
+      ],
+      "edges": [
+        {"id": "e1", "from": "marcus", "to": "tr", "kind": "ownership", "pct": 50},
+        {"id": "e2", "from": "tr", "to": "ol", "kind": "ownership", "pct": 60},
+        {"id": "e3", "from": "ol", "to": "wc", "kind": "ownership", "pct": 70},
+        {"id": "e4", "from": "wc", "to": "tr", "kind": "ownership", "pct": 50}
+      ],
+      "expect": {"owners": {"marcus": 50.0}, "ubos": ["marcus"], "unexplainedPct": 50.0, "cycles": 1, "cycleMembers": ["tr", "ol", "wc"], "warnings": ["circular_ownership", "unknown_owner"]}
+    },
+    {
+      "name": "person_entering_cycle_upstream",
+      "focus": "client",
+      "asOf": "2025-10-01",
+      "parties": [
+        {"key": "ava", "kind": "person", "name": "Ava Lindqvist"},
+        {"key": "x", "kind": "company", "name": "Circle X Pty Ltd"},
+        {"key": "y", "kind": "company", "name": "Circle Y Pty Ltd"},
+        {"key": "z", "kind": "company", "name": "Circle Z Ltd", "jurisdiction": "NZ"},
+        {"key": "client", "kind": "company", "name": "Below The Circle Pty Ltd"}
+      ],
+      "edges": [
+        {"id": "e1", "from": "x", "to": "y", "kind": "ownership", "pct": 60},
+        {"id": "e2", "from": "y", "to": "z", "kind": "ownership", "pct": 70},
+        {"id": "e3", "from": "z", "to": "x", "kind": "ownership", "pct": 50},
+        {"id": "e4", "from": "ava", "to": "x", "kind": "ownership", "pct": 50},
+        {"id": "e5", "from": "y", "to": "client", "kind": "ownership", "pct": 100}
+      ],
+      "expect": {"owners": {"ava": 30.0}, "ubos": ["ava"], "unexplainedPct": 70.0, "cycles": 1, "warnings": ["circular_ownership", "unknown_owner"]}
+    },
+    {
+      "name": "mutual_cross_holding",
+      "focus": "a",
+      "asOf": "2025-10-01",
+      "parties": [
+        {"key": "p", "kind": "person", "name": "Paul Grant"},
+        {"key": "q", "kind": "person", "name": "Quinn Adams"},
+        {"key": "a", "kind": "company", "name": "Alpha Mutual Pty Ltd"},
+        {"key": "b", "kind": "company", "name": "Beta Mutual Pty Ltd"}
+      ],
+      "edges": [
+        {"id": "e1", "from": "p", "to": "a", "kind": "ownership", "pct": 50},
+        {"id": "e2", "from": "b", "to": "a", "kind": "ownership", "pct": 50},
+        {"id": "e3", "from": "q", "to": "b", "kind": "ownership", "pct": 50},
+        {"id": "e4", "from": "a", "to": "b", "kind": "ownership", "pct": 50}
+      ],
+      "expect": {"owners": {"p": 50.0, "q": 25.0}, "ubos": ["p", "q"], "unexplainedPct": 25.0, "cycles": 1, "warnings": ["circular_ownership"]}
+    },
+    {
+      "name": "two_chains_sum_over_threshold",
+      "focus": "co",
+      "asOf": "2025-10-01",
+      "parties": [
+        {"key": "p", "kind": "person", "name": "Grace Whitlock"},
+        {"key": "o", "kind": "person", "name": "Oscar Lane"},
+        {"key": "a", "kind": "company", "name": "Whitlock East Pty Ltd"},
+        {"key": "b", "kind": "company", "name": "Whitlock West Pty Ltd"},
+        {"key": "co", "kind": "company", "name": "Diamond Point Pty Ltd"}
+      ],
+      "edges": [
+        {"id": "e1", "from": "p", "to": "a", "kind": "ownership", "pct": 50},
+        {"id": "e2", "from": "p", "to": "b", "kind": "ownership", "pct": 50},
+        {"id": "e3", "from": "o", "to": "a", "kind": "ownership", "pct": 50},
+        {"id": "e4", "from": "o", "to": "b", "kind": "ownership", "pct": 50},
+        {"id": "e5", "from": "a", "to": "co", "kind": "ownership", "pct": 30},
+        {"id": "e6", "from": "b", "to": "co", "kind": "ownership", "pct": 30},
+        {"id": "e7", "from": "o", "to": "co", "kind": "ownership", "pct": 40}
+      ],
+      "expect": {"owners": {"p": 30.0, "o": 70.0}, "ubos": ["p", "o"], "unexplainedPct": 0.0, "cycles": 0, "warnings": [], "pathCounts": {"p": 2, "o": 3}}
+    },
+    {
+      "name": "unknown_bearer_holder",
+      "focus": "sb",
+      "asOf": "2025-10-01",
+      "parties": [
+        {"key": "p", "kind": "person", "name": "Helen Southwood"},
+        {"key": "u", "kind": "other", "name": "Undisclosed bearer shareholder"},
+        {"key": "sb", "kind": "company", "name": "Southbank Holdings Pty Ltd"}
+      ],
+      "edges": [
+        {"id": "e1", "from": "p", "to": "sb", "kind": "ownership", "pct": 70},
+        {"id": "e2", "from": "u", "to": "sb", "kind": "ownership", "pct": 30}
+      ],
+      "expect": {"owners": {"p": 70.0}, "ubos": ["p"], "unexplainedPct": 30.0, "cycles": 0, "warnings": ["unknown_owner"], "unknownOwners": ["u"]}
+    },
+    {
+      "name": "nominee_shareholder_with_disclosed_principal",
+      "focus": "co",
+      "asOf": "2025-10-01",
+      "parties": [
+        {"key": "principal", "kind": "person", "name": "Victor Lam"},
+        {"key": "nominee", "kind": "person", "name": "Sandra Kole", "isNominee": true},
+        {"key": "other", "kind": "person", "name": "Ruth Mercer"},
+        {"key": "co", "kind": "company", "name": "Lantern Quay Pty Ltd"}
+      ],
+      "edges": [
+        {"id": "e1", "from": "nominee", "to": "co", "kind": "ownership", "pct": 40, "nominee": true},
+        {"id": "e2", "from": "other", "to": "co", "kind": "ownership", "pct": 60},
+        {"id": "e3", "from": "principal", "to": "nominee", "kind": "control", "role": "nominee_for"}
+      ],
+      "expect": {"owners": {"principal": 40.0, "other": 60.0}, "ubos": ["principal", "other"], "notUbos": ["nominee"], "unexplainedPct": 0.0, "cycles": 0, "warnings": ["nominee_in_chain"]}
+    },
+    {
+      "name": "guarantee_company_senior_managing_official",
+      "focus": "bg",
+      "asOf": "2025-10-01",
+      "parties": [
+        {"key": "ceo", "kind": "person", "name": "Mei Tan"},
+        {"key": "chair", "kind": "person", "name": "Ross Ward"},
+        {"key": "bg", "kind": "company", "name": "Blue Gum Childcare Ltd"}
+      ],
+      "edges": [
+        {"id": "e1", "from": "ceo", "to": "bg", "kind": "control", "role": "senior_managing_official"},
+        {"id": "e2", "from": "chair", "to": "bg", "kind": "control", "role": "director"}
+      ],
+      "expect": {"owners": {}, "ubos": ["ceo"], "controlUbos": ["ceo"], "notUbos": ["chair"], "unexplainedPct": 0.0, "cycles": 0, "warnings": []}
+    },
+    {
+      "name": "point_in_time_before_change",
+      "focus": "iv",
+      "asOf": "2024-12-31",
+      "parties": [
+        {"key": "old", "kind": "person", "name": "Liam Barker"},
+        {"key": "keep", "kind": "person", "name": "Nina Shore"},
+        {"key": "ky", "kind": "company", "name": "Caymen Bay Holdings Ltd", "jurisdiction": "KY"},
+        {"key": "new", "kind": "person", "name": "Arturo Vance"},
+        {"key": "iv", "kind": "company", "name": "Ironbark Ventures Pty Ltd"}
+      ],
+      "edges": [
+        {"id": "e1", "from": "old", "to": "iv", "kind": "ownership", "pct": 40, "validFrom": "2018-01-01", "validTo": "2025-09-01"},
+        {"id": "e2", "from": "keep", "to": "iv", "kind": "ownership", "pct": 60, "validFrom": "2018-01-01"},
+        {"id": "e3", "from": "ky", "to": "iv", "kind": "ownership", "pct": 40, "validFrom": "2025-09-01"},
+        {"id": "e4", "from": "new", "to": "ky", "kind": "ownership", "pct": 100, "validFrom": "2020-01-01"}
+      ],
+      "expect": {"owners": {"old": 40.0, "keep": 60.0}, "ubos": ["old", "keep"], "notUbos": ["new"], "unexplainedPct": 0.0, "cycles": 0, "warnings": []}
+    },
+    {
+      "name": "point_in_time_after_change",
+      "focus": "iv",
+      "asOf": "2025-10-01",
+      "sameAs": "point_in_time_before_change",
+      "expect": {"owners": {"new": 40.0, "keep": 60.0}, "ubos": ["new", "keep"], "notUbos": ["old"], "unexplainedPct": 0.0, "cycles": 0, "warnings": [], "layers": 2}
+    },
+    {
+      "name": "unit_trust_three_holders",
+      "focus": "ut",
+      "asOf": "2025-10-01",
+      "parties": [
+        {"key": "a", "kind": "person", "name": "Leon Delacroix"},
+        {"key": "b", "kind": "person", "name": "Marie Delacroix"},
+        {"key": "c", "kind": "person", "name": "Paul Delacroix"},
+        {"key": "ut", "kind": "trust", "name": "Delacroix Unit Trust"}
+      ],
+      "edges": [
+        {"id": "e1", "from": "a", "to": "ut", "kind": "ownership", "pct": 34, "interest": "units"},
+        {"id": "e2", "from": "b", "to": "ut", "kind": "ownership", "pct": 33, "interest": "units"},
+        {"id": "e3", "from": "c", "to": "ut", "kind": "ownership", "pct": 33, "interest": "units"}
+      ],
+      "expect": {"owners": {"a": 34.0, "b": 33.0, "c": 33.0}, "ubos": ["a", "b", "c"], "unexplainedPct": 0.0, "cycles": 0, "warnings": []}
+    },
+    {
+      "name": "over_allocated_is_flagged_and_scaled",
+      "focus": "co",
+      "asOf": "2025-10-01",
+      "parties": [
+        {"key": "a", "kind": "person", "name": "Ivy North"},
+        {"key": "b", "kind": "person", "name": "Jude South"},
+        {"key": "co", "kind": "company", "name": "Double Count Pty Ltd"}
+      ],
+      "edges": [
+        {"id": "e1", "from": "a", "to": "co", "kind": "ownership", "pct": 60},
+        {"id": "e2", "from": "b", "to": "co", "kind": "ownership", "pct": 60}
+      ],
+      "expect": {"owners": {"a": 50.0, "b": 50.0}, "ubos": ["a", "b"], "unexplainedPct": 0.0, "cycles": 0, "warnings": ["over_allocated"]}
+    },
+    {
+      "name": "corporate_trustee_directors_control",
+      "focus": "t",
+      "asOf": "2025-10-01",
+      "parties": [
+        {"key": "b1", "kind": "person", "name": "Ken Lim"},
+        {"key": "b2", "kind": "person", "name": "Sue Lim"},
+        {"key": "dir", "kind": "person", "name": "Alan Lim"},
+        {"key": "tc", "kind": "company", "name": "Lim Trustee Pty Ltd"},
+        {"key": "t", "kind": "trust", "name": "Lim Family Trust"}
+      ],
+      "edges": [
+        {"id": "e1", "from": "b1", "to": "t", "kind": "ownership", "pct": 50, "interest": "trust_entitlement"},
+        {"id": "e2", "from": "b2", "to": "t", "kind": "ownership", "pct": 50, "interest": "trust_entitlement"},
+        {"id": "e3", "from": "tc", "to": "t", "kind": "control", "role": "trustee"},
+        {"id": "e4", "from": "dir", "to": "tc", "kind": "control", "role": "director"}
+      ],
+      "expect": {"owners": {"b1": 50.0, "b2": 50.0}, "ubos": ["b1", "b2", "dir"], "controlUbos": ["dir"], "unexplainedPct": 0.0, "cycles": 0, "warnings": []}
+    },
+    {
+      "name": "deep_chain_six_layers",
+      "focus": "l0",
+      "asOf": "2025-10-01",
+      "parties": [
+        {"key": "p", "kind": "person", "name": "Olive Stack"},
+        {"key": "l5", "kind": "company", "name": "Layer Five Ltd", "jurisdiction": "KY"},
+        {"key": "l4", "kind": "company", "name": "Layer Four Ltd", "jurisdiction": "VG"},
+        {"key": "l3", "kind": "company", "name": "Layer Three Ltd", "jurisdiction": "SC"},
+        {"key": "l2", "kind": "company", "name": "Layer Two Pty Ltd"},
+        {"key": "l1", "kind": "company", "name": "Layer One Pty Ltd"},
+        {"key": "l0", "kind": "company", "name": "Layer Zero Pty Ltd"}
+      ],
+      "edges": [
+        {"id": "e1", "from": "p", "to": "l5", "kind": "ownership", "pct": 100},
+        {"id": "e2", "from": "l5", "to": "l4", "kind": "ownership", "pct": 100},
+        {"id": "e3", "from": "l4", "to": "l3", "kind": "ownership", "pct": 100},
+        {"id": "e4", "from": "l3", "to": "l2", "kind": "ownership", "pct": 100},
+        {"id": "e5", "from": "l2", "to": "l1", "kind": "ownership", "pct": 100},
+        {"id": "e6", "from": "l1", "to": "l0", "kind": "ownership", "pct": 100}
+      ],
+      "expect": {"owners": {"p": 100.0}, "ubos": ["p"], "unexplainedPct": 0.0, "cycles": 0, "warnings": [], "layers": 6}
+    },
+    {
+      "name": "depth_limit_reported",
+      "focus": "d0",
+      "asOf": "2025-10-01",
+      "maxDepth": 4,
+      "parties": [
+        {"key": "p", "kind": "person", "name": "Far Away"},
+        {"key": "d5", "kind": "company", "name": "D5 Ltd"},
+        {"key": "d4", "kind": "company", "name": "D4 Ltd"},
+        {"key": "d3", "kind": "company", "name": "D3 Ltd"},
+        {"key": "d2", "kind": "company", "name": "D2 Ltd"},
+        {"key": "d1", "kind": "company", "name": "D1 Ltd"},
+        {"key": "d0", "kind": "company", "name": "D0 Pty Ltd"}
+      ],
+      "edges": [
+        {"id": "e1", "from": "p", "to": "d5", "kind": "ownership", "pct": 100},
+        {"id": "e2", "from": "d5", "to": "d4", "kind": "ownership", "pct": 100},
+        {"id": "e3", "from": "d4", "to": "d3", "kind": "ownership", "pct": 100},
+        {"id": "e4", "from": "d3", "to": "d2", "kind": "ownership", "pct": 100},
+        {"id": "e5", "from": "d2", "to": "d1", "kind": "ownership", "pct": 100},
+        {"id": "e6", "from": "d1", "to": "d0", "kind": "ownership", "pct": 100}
+      ],
+      "expect": {"owners": {}, "ubos": [], "unexplainedPct": 100.0, "cycles": 0, "warningsInclude": ["depth_limit"]}
+    }
+  ]
+}
