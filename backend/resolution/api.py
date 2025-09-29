@@ -23,10 +23,12 @@ from kinroot.contracts import (
     Thresholds,
 )
 
+from . import service
+
 
 def score_pair(left: PartyRecord, right: PartyRecord) -> MatchScore:
     """Pure function: same inputs + same model version -> identical score."""
-    raise NotImplementedError
+    return service.score_pair(left, right)
 
 
 def find_candidates(org_id: uuid.UUID, *, party_ids: list[uuid.UUID] | None = None) -> int:
@@ -35,7 +37,7 @@ def find_candidates(org_id: uuid.UUID, *, party_ids: list[uuid.UUID] | None = No
     Pairs in the auto-merge band are merged immediately (status "auto_merged", audited as the system).
     Returns the number of new or updated candidates.
     """
-    raise NotImplementedError
+    return service.find_candidates(org_id, party_ids=party_ids)
 
 
 def list_candidates(
@@ -48,11 +50,11 @@ def list_candidates(
     limit: int = 25,
 ) -> Page[MatchCandidateView]:
     """Review queue, highest probability first."""
-    raise NotImplementedError
+    return service.list_candidates(org_id, status=status, band=band, client_id=client_id, offset=offset, limit=limit)
 
 
 def get_candidate(org_id: uuid.UUID, candidate_id: uuid.UUID) -> MatchCandidateView:
-    raise NotImplementedError
+    return service.get_candidate(org_id, candidate_id)
 
 
 def decide(
@@ -64,23 +66,23 @@ def decide(
 ) -> MergeOutcome:
     """Record the officer's decision; on "merge" calls clients.api.merge_parties. Raises DomainConflict
     ("already_decided") when the candidate is no longer pending. Decisions become labelled training pairs."""
-    raise NotImplementedError
+    return service.decide(org_id, candidate_id, decision, actor, note)
 
 
 def propose_merge(org_id: uuid.UUID, left_id: uuid.UUID, right_id: uuid.UUID, actor: Actor) -> MatchCandidateView:
     """Manual "fuse" (drag one node onto another): scores the pair and opens a pending candidate."""
-    raise NotImplementedError
+    return service.propose_merge(org_id, left_id, right_id, actor)
 
 
 def split(org_id: uuid.UUID, party_id: uuid.UUID, record_ids: list[uuid.UUID], actor: Actor, note: str) -> MergeOutcome:
     """Undo a merge for the given source records (calls clients.api.split_party)."""
-    raise NotImplementedError
+    return service.split(org_id, party_id, record_ids, actor, note)
 
 
 def thresholds() -> Thresholds:
-    raise NotImplementedError
+    return service.thresholds()
 
 
 def queue_stats(org_id: uuid.UUID) -> dict[str, int | float]:
     """{"pending": n, "autoMergedLast30d": n, "decidedLast30d": n, "reviewRate": 0.07}"""
-    raise NotImplementedError
+    return service.queue_stats(org_id)
