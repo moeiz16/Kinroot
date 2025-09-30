@@ -1,0 +1,1704 @@
+{
+ "version": "2025.10",
+ "source": "bundled-sample",
+ "note": "Fictional entries for offline demos and tests. Not real sanctions or PEP data.",
+ "entities": [
+  {
+   "id": "SAMPLE-SAN-0001",
+   "schema": "Company",
+   "properties": {
+    "name": [
+     "Volkhov Shipping Group LLC"
+    ],
+    "alias": [
+     "Volkhov Shipping"
+    ],
+    "country": [
+     "RU"
+    ],
+    "topics": [
+     "sanction"
+    ],
+    "program": [
+     "Fictional autonomous sanctions (sample)"
+    ]
+   },
+   "datasets": [
+    "bundled_sanctions"
+   ]
+  },
+  {
+   "id": "SAMPLE-SAN-0002",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Dmitri Arkadyevich Sorokin"
+    ],
+    "alias": [
+     "Dmitry Sorokin",
+     "D. A. Sorokin"
+    ],
+    "nationality": [
+     "RU"
+    ],
+    "country": [
+     "RU"
+    ],
+    "topics": [
+     "sanction"
+    ],
+    "birthDate": [
+     "1961-03-14"
+    ],
+    "program": [
+     "Fictional autonomous sanctions (sample)"
+    ]
+   },
+   "datasets": [
+    "bundled_sanctions"
+   ]
+  },
+  {
+   "id": "SAMPLE-SAN-0003",
+   "schema": "Company",
+   "properties": {
+    "name": [
+     "Northern Lantern Trading Co"
+    ],
+    "alias": [
+     "Severny Fonar Trading"
+    ],
+    "country": [
+     "KP"
+    ],
+    "topics": [
+     "sanction"
+    ],
+    "program": [
+     "Fictional UN-style regime (sample)"
+    ]
+   },
+   "datasets": [
+    "bundled_sanctions"
+   ]
+  },
+  {
+   "id": "SAMPLE-SAN-0004",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Hamid Reza Karimi"
+    ],
+    "alias": [
+     "Hamid Karimi"
+    ],
+    "nationality": [
+     "IR"
+    ],
+    "country": [
+     "IR"
+    ],
+    "topics": [
+     "sanction"
+    ],
+    "birthDate": [
+     "1970-07-02"
+    ],
+    "program": [
+     "Fictional proliferation financing (sample)"
+    ]
+   },
+   "datasets": [
+    "bundled_sanctions"
+   ]
+  },
+  {
+   "id": "SAMPLE-SAN-0005",
+   "schema": "Company",
+   "properties": {
+    "name": [
+     "Caspian Bridge Holdings Ltd"
+    ],
+    "alias": [
+     "Kaspiy Most Holdings"
+    ],
+    "country": [
+     "CY",
+     "RU"
+    ],
+    "topics": [
+     "sanction"
+    ],
+    "program": [
+     "Fictional autonomous sanctions (sample)"
+    ]
+   },
+   "datasets": [
+    "bundled_sanctions"
+   ]
+  },
+  {
+   "id": "SAMPLE-SAN-0006",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Tatiana Viktorovna Belova"
+    ],
+    "alias": [
+     "Tatyana Belova"
+    ],
+    "nationality": [
+     "RU"
+    ],
+    "country": [
+     "RU"
+    ],
+    "topics": [
+     "sanction"
+    ],
+    "birthDate": [
+     "1975-11-23"
+    ],
+    "program": [
+     "Fictional autonomous sanctions (sample)"
+    ]
+   },
+   "datasets": [
+    "bundled_sanctions"
+   ]
+  },
+  {
+   "id": "SAMPLE-SAN-0007",
+   "schema": "Company",
+   "properties": {
+    "name": [
+     "Aurelian Maritime FZCO"
+    ],
+    "alias": [
+     "Aurelian Marine FZCO",
+     "Aurelian Maritime Free Zone Company"
+    ],
+    "country": [
+     "AE"
+    ],
+    "topics": [
+     "sanction"
+    ],
+    "program": [
+     "Fictional maritime sanctions evasion (sample)",
+     "Registered office: Jebel Ali Free Zone, Dubai (fictional)",
+     "Director on file: K. Haddad (fictional)"
+    ],
+    "registrationNumber": [
+     "FZCO-55821"
+    ],
+    "address": [
+     "Jebel Ali Free Zone, Dubai, United Arab Emirates"
+    ]
+   },
+   "datasets": [
+    "bundled_sanctions"
+   ]
+  },
+  {
+   "id": "SAMPLE-SAN-0008",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Kwon Chol-Jin"
+    ],
+    "alias": [
+     "Chol Jin Kwon"
+    ],
+    "nationality": [
+     "KP"
+    ],
+    "country": [
+     "KP"
+    ],
+    "topics": [
+     "sanction"
+    ],
+    "birthDate": [
+     "1968"
+    ],
+    "program": [
+     "Fictional UN-style regime (sample)"
+    ]
+   },
+   "datasets": [
+    "bundled_sanctions"
+   ]
+  },
+  {
+   "id": "SAMPLE-SAN-0009",
+   "schema": "Company",
+   "properties": {
+    "name": [
+     "Golden Steppe Metals JSC"
+    ],
+    "alias": [
+     "Zolotaya Step Metals"
+    ],
+    "country": [
+     "RU",
+     "KZ"
+    ],
+    "topics": [
+     "sanction"
+    ],
+    "program": [
+     "Fictional autonomous sanctions (sample)"
+    ]
+   },
+   "datasets": [
+    "bundled_sanctions"
+   ]
+  },
+  {
+   "id": "SAMPLE-SAN-0010",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Omar Al-Rashidi"
+    ],
+    "alias": [
+     "Omar Rashidi",
+     "Abu Khalid"
+    ],
+    "nationality": [
+     "SY"
+    ],
+    "country": [
+     "SY"
+    ],
+    "topics": [
+     "sanction"
+    ],
+    "birthDate": [
+     "1979-05-30"
+    ],
+    "program": [
+     "Fictional counter-terrorism listing (sample)"
+    ]
+   },
+   "datasets": [
+    "bundled_sanctions"
+   ]
+  },
+  {
+   "id": "SAMPLE-SAN-0011",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Viktor Pavlovich Antonov"
+    ],
+    "alias": [
+     "Victor Antonov"
+    ],
+    "nationality": [
+     "BY"
+    ],
+    "country": [
+     "BY"
+    ],
+    "topics": [
+     "sanction"
+    ],
+    "birthDate": [
+     "1958-02-09"
+    ],
+    "program": [
+     "Fictional autonomous sanctions (sample)"
+    ]
+   },
+   "datasets": [
+    "bundled_sanctions"
+   ]
+  },
+  {
+   "id": "SAMPLE-SAN-0012",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Aleksei Petrov"
+    ],
+    "alias": [
+     "Alexei Petrov",
+     "Aleksey Petrov"
+    ],
+    "nationality": [
+     "RU"
+    ],
+    "country": [
+     "RU"
+    ],
+    "topics": [
+     "sanction"
+    ],
+    "birthDate": [
+     "1968"
+    ],
+    "program": [
+     "Fictional autonomous sanctions (sample)"
+    ]
+   },
+   "datasets": [
+    "bundled_sanctions"
+   ]
+  },
+  {
+   "id": "SAMPLE-SAN-0013",
+   "schema": "Company",
+   "properties": {
+    "name": [
+     "Meridian Dual-Use Supplies Pte Ltd"
+    ],
+    "alias": [
+     "Meridian DU Supplies"
+    ],
+    "country": [
+     "SG"
+    ],
+    "topics": [
+     "sanction"
+    ],
+    "program": [
+     "Fictional export-control listing (sample)"
+    ]
+   },
+   "datasets": [
+    "bundled_sanctions"
+   ]
+  },
+  {
+   "id": "SAMPLE-SAN-0014",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Yevgenia Orlova"
+    ],
+    "alias": [
+     "Evgenia Orlova",
+     "Eugenia Orlova"
+    ],
+    "nationality": [
+     "RU"
+    ],
+    "country": [
+     "RU"
+    ],
+    "topics": [
+     "sanction"
+    ],
+    "birthDate": [
+     "1983-08-19"
+    ],
+    "program": [
+     "Fictional autonomous sanctions (sample)"
+    ]
+   },
+   "datasets": [
+    "bundled_sanctions"
+   ]
+  },
+  {
+   "id": "SAMPLE-SAN-0015",
+   "schema": "Company",
+   "properties": {
+    "name": [
+     "Red Crescent Logistics FZE"
+    ],
+    "alias": [
+     "RC Logistics FZE"
+    ],
+    "country": [
+     "AE",
+     "IR"
+    ],
+    "topics": [
+     "sanction"
+    ],
+    "program": [
+     "Fictional proliferation financing (sample)"
+    ]
+   },
+   "datasets": [
+    "bundled_sanctions"
+   ]
+  },
+  {
+   "id": "SAMPLE-SAN-0016",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Ri Myong-Su"
+    ],
+    "alias": [
+     "Myong Su Ri"
+    ],
+    "nationality": [
+     "KP"
+    ],
+    "country": [
+     "KP"
+    ],
+    "topics": [
+     "sanction"
+    ],
+    "birthDate": [
+     "1972"
+    ],
+    "program": [
+     "Fictional UN-style regime (sample)"
+    ]
+   },
+   "datasets": [
+    "bundled_sanctions"
+   ]
+  },
+  {
+   "id": "SAMPLE-SAN-0017",
+   "schema": "Company",
+   "properties": {
+    "name": [
+     "Baltic Amber Finance AS"
+    ],
+    "alias": [
+     "Baltijas Dzintars Finanses"
+    ],
+    "country": [
+     "LV"
+    ],
+    "topics": [
+     "sanction"
+    ],
+    "program": [
+     "Fictional autonomous sanctions (sample)"
+    ]
+   },
+   "datasets": [
+    "bundled_sanctions"
+   ]
+  },
+  {
+   "id": "SAMPLE-SAN-0018",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Sergei Volkov"
+    ],
+    "alias": [
+     "Sergey Volkov"
+    ],
+    "nationality": [
+     "RU"
+    ],
+    "country": [
+     "RU"
+    ],
+    "topics": [
+     "sanction"
+    ],
+    "birthDate": [
+     "1966-12-01"
+    ],
+    "program": [
+     "Fictional autonomous sanctions (sample)"
+    ]
+   },
+   "datasets": [
+    "bundled_sanctions"
+   ]
+  },
+  {
+   "id": "SAMPLE-SAN-0019",
+   "schema": "Company",
+   "properties": {
+    "name": [
+     "Tigris Petrochem Trading LLC"
+    ],
+    "alias": [
+     "Tigris Petrochemical"
+    ],
+    "country": [
+     "IQ",
+     "AE"
+    ],
+    "topics": [
+     "sanction"
+    ],
+    "program": [
+     "Fictional counter-terrorism listing (sample)"
+    ]
+   },
+   "datasets": [
+    "bundled_sanctions"
+   ]
+  },
+  {
+   "id": "SAMPLE-SAN-0020",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Nadia Haddad"
+    ],
+    "alias": [
+     "Nadiya Haddad"
+    ],
+    "nationality": [
+     "LB"
+    ],
+    "country": [
+     "LB"
+    ],
+    "topics": [
+     "sanction"
+    ],
+    "birthDate": [
+     "1985-04-17"
+    ],
+    "program": [
+     "Fictional counter-terrorism listing (sample)"
+    ]
+   },
+   "datasets": [
+    "bundled_sanctions"
+   ]
+  },
+  {
+   "id": "SAMPLE-SAN-0021",
+   "schema": "Company",
+   "properties": {
+    "name": [
+     "Kestrel Aviation Leasing Ltd"
+    ],
+    "alias": [],
+    "country": [
+     "IR"
+    ],
+    "topics": [
+     "sanction"
+    ],
+    "program": [
+     "Fictional proliferation financing (sample)"
+    ]
+   },
+   "datasets": [
+    "bundled_sanctions"
+   ]
+  },
+  {
+   "id": "SAMPLE-SAN-0022",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Ivan Mikhailovich Gusev"
+    ],
+    "alias": [
+     "Ivan Gusev"
+    ],
+    "nationality": [
+     "RU"
+    ],
+    "country": [
+     "RU"
+    ],
+    "topics": [
+     "sanction"
+    ],
+    "birthDate": [
+     "1955-06-06"
+    ],
+    "program": [
+     "Fictional autonomous sanctions (sample)"
+    ]
+   },
+   "datasets": [
+    "bundled_sanctions"
+   ]
+  },
+  {
+   "id": "SAMPLE-SAN-0023",
+   "schema": "Company",
+   "properties": {
+    "name": [
+     "Silk Road Precious Stones LLC"
+    ],
+    "alias": [
+     "Silk Road Gems"
+    ],
+    "country": [
+     "AF",
+     "AE"
+    ],
+    "topics": [
+     "sanction"
+    ],
+    "program": [
+     "Fictional illicit-finance listing (sample)"
+    ]
+   },
+   "datasets": [
+    "bundled_sanctions"
+   ]
+  },
+  {
+   "id": "SAMPLE-SAN-0024",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Arman Bekov"
+    ],
+    "alias": [
+     "Armand Bekov"
+    ],
+    "nationality": [
+     "KZ"
+    ],
+    "country": [
+     "KZ"
+    ],
+    "topics": [
+     "sanction"
+    ],
+    "birthDate": [
+     "1977-09-12"
+    ],
+    "program": [
+     "Fictional autonomous sanctions (sample)"
+    ]
+   },
+   "datasets": [
+    "bundled_sanctions"
+   ]
+  },
+  {
+   "id": "SAMPLE-SAN-0025",
+   "schema": "Company",
+   "properties": {
+    "name": [
+     "Harbour Light Remittance Ltd"
+    ],
+    "alias": [
+     "Harbor Light Remittance"
+    ],
+    "country": [
+     "SO"
+    ],
+    "topics": [
+     "sanction"
+    ],
+    "program": [
+     "Fictional counter-terrorism listing (sample)"
+    ]
+   },
+   "datasets": [
+    "bundled_sanctions"
+   ]
+  },
+  {
+   "id": "SAMPLE-SAN-0026",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Lucia Marquez Ortega"
+    ],
+    "alias": [
+     "Lucia Ortega"
+    ],
+    "nationality": [
+     "VE"
+    ],
+    "country": [
+     "VE"
+    ],
+    "topics": [
+     "sanction"
+    ],
+    "birthDate": [
+     "1974-10-03"
+    ],
+    "program": [
+     "Fictional autonomous sanctions (sample)"
+    ]
+   },
+   "datasets": [
+    "bundled_sanctions"
+   ]
+  },
+  {
+   "id": "SAMPLE-SAN-0027",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Grigor Sargsyan"
+    ],
+    "alias": [],
+    "nationality": [
+     "AM"
+    ],
+    "country": [
+     "AM"
+    ],
+    "topics": [
+     "sanction"
+    ],
+    "birthDate": [
+     "1969-01-21"
+    ],
+    "program": [
+     "Fictional autonomous sanctions (sample)"
+    ]
+   },
+   "datasets": [
+    "bundled_sanctions"
+   ]
+  },
+  {
+   "id": "SAMPLE-SAN-0028",
+   "schema": "Company",
+   "properties": {
+    "name": [
+     "Obsidian Commodities Trading SA"
+    ],
+    "alias": [],
+    "country": [
+     "PA"
+    ],
+    "topics": [
+     "sanction"
+    ],
+    "program": [
+     "Fictional autonomous sanctions (sample)"
+    ]
+   },
+   "datasets": [
+    "bundled_sanctions"
+   ]
+  },
+  {
+   "id": "SAMPLE-SAN-0029",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Faisal bin Tariq Al-Mansour"
+    ],
+    "alias": [
+     "Faisal Mansour"
+    ],
+    "nationality": [
+     "YE"
+    ],
+    "country": [
+     "YE"
+    ],
+    "topics": [
+     "sanction"
+    ],
+    "birthDate": [
+     "1981-03-03"
+    ],
+    "program": [
+     "Fictional counter-terrorism listing (sample)"
+    ]
+   },
+   "datasets": [
+    "bundled_sanctions"
+   ]
+  },
+  {
+   "id": "SAMPLE-SAN-0030",
+   "schema": "Company",
+   "properties": {
+    "name": [
+     "Polar Star Fisheries LLC"
+    ],
+    "alias": [
+     "Polyarnaya Zvezda Fisheries"
+    ],
+    "country": [
+     "RU"
+    ],
+    "topics": [
+     "sanction"
+    ],
+    "program": [
+     "Fictional autonomous sanctions (sample)"
+    ]
+   },
+   "datasets": [
+    "bundled_sanctions"
+   ]
+  },
+  {
+   "id": "SAMPLE-PEP-0001",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Hon. Margaret Ellison"
+    ],
+    "alias": [],
+    "nationality": [
+     "AU"
+    ],
+    "country": [
+     "AU"
+    ],
+    "topics": [
+     "role.pep"
+    ],
+    "birthDate": [
+     "1957-05-11"
+    ],
+    "position": [
+     "Member of the Legislative Assembly (fictional, NSW)"
+    ]
+   },
+   "datasets": [
+    "bundled_pep"
+   ]
+  },
+  {
+   "id": "SAMPLE-PEP-0002",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Robert Hanley"
+    ],
+    "alias": [
+     "Rob Hanley"
+    ],
+    "nationality": [
+     "AU"
+    ],
+    "country": [
+     "AU"
+    ],
+    "topics": [
+     "role.pep"
+    ],
+    "birthDate": [
+     "1964-09-30"
+    ],
+    "position": [
+     "Federal Senator (fictional)"
+    ]
+   },
+   "datasets": [
+    "bundled_pep"
+   ]
+  },
+  {
+   "id": "SAMPLE-PEP-0003",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Hon. Julian Whitfield"
+    ],
+    "alias": [
+     "Julian Whitfield",
+     "Julian Charles Whitfield"
+    ],
+    "nationality": [
+     "AU"
+    ],
+    "country": [
+     "AU"
+    ],
+    "topics": [
+     "role.pep"
+    ],
+    "birthDate": [
+     "1962"
+    ],
+    "position": [
+     "Member of the Legislative Council (fictional, NSW)"
+    ]
+   },
+   "datasets": [
+    "bundled_pep"
+   ]
+  },
+  {
+   "id": "SAMPLE-PEP-0004",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Councillor Grace Ng"
+    ],
+    "alias": [
+     "Grace Ng"
+    ],
+    "nationality": [
+     "AU"
+    ],
+    "country": [
+     "AU"
+    ],
+    "topics": [
+     "role.pep"
+    ],
+    "birthDate": [
+     "1971-02-14"
+    ],
+    "position": [
+     "Lord Mayor (fictional municipality)"
+    ]
+   },
+   "datasets": [
+    "bundled_pep"
+   ]
+  },
+  {
+   "id": "SAMPLE-PEP-0005",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Peter Kostas"
+    ],
+    "alias": [],
+    "nationality": [
+     "AU"
+    ],
+    "country": [
+     "AU"
+    ],
+    "topics": [
+     "role.pep"
+    ],
+    "birthDate": [
+     "1959-12-08"
+    ],
+    "position": [
+     "Deputy Secretary, state treasury (fictional)"
+    ]
+   },
+   "datasets": [
+    "bundled_pep"
+   ]
+  },
+  {
+   "id": "SAMPLE-PEP-0006",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Dame Helen Ashworth"
+    ],
+    "alias": [
+     "Helen Ashworth"
+    ],
+    "nationality": [
+     "GB"
+    ],
+    "country": [
+     "GB"
+    ],
+    "topics": [
+     "role.pep"
+    ],
+    "birthDate": [
+     "1950-03-22"
+    ],
+    "position": [
+     "Member of the House of Lords (fictional)"
+    ]
+   },
+   "datasets": [
+    "bundled_pep"
+   ]
+  },
+  {
+   "id": "SAMPLE-PEP-0007",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Simon Achebe MP"
+    ],
+    "alias": [
+     "Simon Achebe"
+    ],
+    "nationality": [
+     "GB"
+    ],
+    "country": [
+     "GB"
+    ],
+    "topics": [
+     "role.pep"
+    ],
+    "birthDate": [
+     "1968-07-07"
+    ],
+    "position": [
+     "Member of Parliament (fictional)"
+    ]
+   },
+   "datasets": [
+    "bundled_pep"
+   ]
+  },
+  {
+   "id": "SAMPLE-PEP-0008",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Priya Raghavan"
+    ],
+    "alias": [],
+    "nationality": [
+     "AU"
+    ],
+    "country": [
+     "AU"
+    ],
+    "topics": [
+     "role.pep"
+    ],
+    "birthDate": [
+     "1975-01-19"
+    ],
+    "position": [
+     "Ambassador (fictional)"
+    ]
+   },
+   "datasets": [
+    "bundled_pep"
+   ]
+  },
+  {
+   "id": "SAMPLE-PEP-0009",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "General Martin Cole (retd)"
+    ],
+    "alias": [
+     "Martin Cole"
+    ],
+    "nationality": [
+     "AU"
+    ],
+    "country": [
+     "AU"
+    ],
+    "topics": [
+     "role.pep"
+    ],
+    "birthDate": [
+     "1952-11-30"
+    ],
+    "position": [
+     "Former Chief of Army (fictional)"
+    ]
+   },
+   "datasets": [
+    "bundled_pep"
+   ]
+  },
+  {
+   "id": "SAMPLE-PEP-0010",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Hon. Daniel Fairbairn"
+    ],
+    "alias": [
+     "Daniel Fairbairn"
+    ],
+    "nationality": [
+     "AU"
+    ],
+    "country": [
+     "AU"
+    ],
+    "topics": [
+     "role.pep"
+    ],
+    "birthDate": [
+     "1966-04-04"
+    ],
+    "position": [
+     "State Minister for Planning (fictional)"
+    ]
+   },
+   "datasets": [
+    "bundled_pep"
+   ]
+  },
+  {
+   "id": "SAMPLE-PEP-0011",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Sophia Laurent"
+    ],
+    "alias": [],
+    "nationality": [
+     "FR"
+    ],
+    "country": [
+     "FR"
+    ],
+    "topics": [
+     "role.pep"
+    ],
+    "birthDate": [
+     "1979-08-08"
+    ],
+    "position": [
+     "Member of the European Parliament (fictional)"
+    ]
+   },
+   "datasets": [
+    "bundled_pep"
+   ]
+  },
+  {
+   "id": "SAMPLE-PEP-0012",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Thomas Mbeki-Shaw"
+    ],
+    "alias": [
+     "Thomas Shaw"
+    ],
+    "nationality": [
+     "ZA"
+    ],
+    "country": [
+     "ZA"
+    ],
+    "topics": [
+     "role.pep"
+    ],
+    "birthDate": [
+     "1961-10-10"
+    ],
+    "position": [
+     "Central bank board member (fictional)"
+    ]
+   },
+   "datasets": [
+    "bundled_pep"
+   ]
+  },
+  {
+   "id": "SAMPLE-PEP-0013",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Mohammed Al-Farsi"
+    ],
+    "alias": [
+     "Mohamed Al Farsi"
+    ],
+    "nationality": [
+     "AE"
+    ],
+    "country": [
+     "AE"
+    ],
+    "topics": [
+     "role.pep"
+    ],
+    "birthDate": [
+     "1970-06-15"
+    ],
+    "position": [
+     "Government minister (fictional)"
+    ]
+   },
+   "datasets": [
+    "bundled_pep"
+   ]
+  },
+  {
+   "id": "SAMPLE-PEP-0014",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Linda Okonkwo"
+    ],
+    "alias": [],
+    "nationality": [
+     "NG"
+    ],
+    "country": [
+     "NG"
+    ],
+    "topics": [
+     "role.pep"
+    ],
+    "birthDate": [
+     "1963-03-03"
+    ],
+    "position": [
+     "State governor (fictional)"
+    ]
+   },
+   "datasets": [
+    "bundled_pep"
+   ]
+  },
+  {
+   "id": "SAMPLE-PEP-0015",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Hon. Andrew Pearce"
+    ],
+    "alias": [
+     "Andrew Pearce"
+    ],
+    "nationality": [
+     "AU"
+    ],
+    "country": [
+     "AU"
+    ],
+    "topics": [
+     "role.pep"
+    ],
+    "birthDate": [
+     "1958-09-09"
+    ],
+    "position": [
+     "Supreme Court judge (fictional)"
+    ]
+   },
+   "datasets": [
+    "bundled_pep"
+   ]
+  },
+  {
+   "id": "SAMPLE-PEP-0016",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Catherine Wills"
+    ],
+    "alias": [
+     "Cathy Wills"
+    ],
+    "nationality": [
+     "GB"
+    ],
+    "country": [
+     "GB"
+    ],
+    "topics": [
+     "role.pep"
+    ],
+    "birthDate": [
+     "1972-12-12"
+    ],
+    "position": [
+     "Senior civil servant (fictional)"
+    ]
+   },
+   "datasets": [
+    "bundled_pep"
+   ]
+  },
+  {
+   "id": "SAMPLE-PEP-0017",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Rajesh Iyer"
+    ],
+    "alias": [],
+    "nationality": [
+     "IN"
+    ],
+    "country": [
+     "IN"
+    ],
+    "topics": [
+     "role.pep"
+    ],
+    "birthDate": [
+     "1965-05-05"
+    ],
+    "position": [
+     "Member of Parliament (fictional)"
+    ]
+   },
+   "datasets": [
+    "bundled_pep"
+   ]
+  },
+  {
+   "id": "SAMPLE-PEP-0018",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Elena Vasquez"
+    ],
+    "alias": [],
+    "nationality": [
+     "MX"
+    ],
+    "country": [
+     "MX"
+    ],
+    "topics": [
+     "role.pep"
+    ],
+    "birthDate": [
+     "1969-02-28"
+    ],
+    "position": [
+     "Senator (fictional)"
+    ]
+   },
+   "datasets": [
+    "bundled_pep"
+   ]
+  },
+  {
+   "id": "SAMPLE-PEP-0019",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Hon. Kevin Duong"
+    ],
+    "alias": [
+     "Kevin Duong"
+    ],
+    "nationality": [
+     "AU"
+    ],
+    "country": [
+     "AU"
+    ],
+    "topics": [
+     "role.pep"
+    ],
+    "birthDate": [
+     "1974-04-21"
+    ],
+    "position": [
+     "Member of the Legislative Assembly (fictional, VIC)"
+    ]
+   },
+   "datasets": [
+    "bundled_pep"
+   ]
+  },
+  {
+   "id": "SAMPLE-PEP-0020",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Fiona MacLeod"
+    ],
+    "alias": [],
+    "nationality": [
+     "GB"
+    ],
+    "country": [
+     "GB"
+    ],
+    "topics": [
+     "role.pep"
+    ],
+    "birthDate": [
+     "1960-08-16"
+    ],
+    "position": [
+     "Member of the Scottish Parliament (fictional)"
+    ]
+   },
+   "datasets": [
+    "bundled_pep"
+   ]
+  },
+  {
+   "id": "SAMPLE-PEP-0021",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Hiroshi Tanabe"
+    ],
+    "alias": [],
+    "nationality": [
+     "JP"
+    ],
+    "country": [
+     "JP"
+    ],
+    "topics": [
+     "role.pep"
+    ],
+    "birthDate": [
+     "1955-11-11"
+    ],
+    "position": [
+     "Prefectural governor (fictional)"
+    ]
+   },
+   "datasets": [
+    "bundled_pep"
+   ]
+  },
+  {
+   "id": "SAMPLE-PEP-0022",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Annabel Ryder"
+    ],
+    "alias": [],
+    "nationality": [
+     "AU"
+    ],
+    "country": [
+     "AU"
+    ],
+    "topics": [
+     "role.pep"
+    ],
+    "birthDate": [
+     "1980-01-01"
+    ],
+    "position": [
+     "Chief of staff to a minister (fictional)"
+    ]
+   },
+   "datasets": [
+    "bundled_pep"
+   ]
+  },
+  {
+   "id": "SAMPLE-PEP-0023",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Callum Pryor-Bennett"
+    ],
+    "alias": [],
+    "nationality": [
+     "NZ"
+    ],
+    "country": [
+     "NZ"
+    ],
+    "topics": [
+     "role.pep"
+    ],
+    "birthDate": [
+     "1967-06-06"
+    ],
+    "position": [
+     "Member of Parliament (fictional)"
+    ]
+   },
+   "datasets": [
+    "bundled_pep"
+   ]
+  },
+  {
+   "id": "SAMPLE-PEP-0024",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Olusegun Adeyemi"
+    ],
+    "alias": [],
+    "nationality": [
+     "NG"
+    ],
+    "country": [
+     "NG"
+    ],
+    "topics": [
+     "role.pep"
+    ],
+    "birthDate": [
+     "1962-09-19"
+    ],
+    "position": [
+     "Senator (fictional)"
+    ]
+   },
+   "datasets": [
+    "bundled_pep"
+   ]
+  },
+  {
+   "id": "SAMPLE-PEP-0025",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Isabelle Fontaine"
+    ],
+    "alias": [],
+    "nationality": [
+     "CA"
+    ],
+    "country": [
+     "CA"
+    ],
+    "topics": [
+     "role.pep"
+    ],
+    "birthDate": [
+     "1976-07-14"
+    ],
+    "position": [
+     "Provincial minister (fictional)"
+    ]
+   },
+   "datasets": [
+    "bundled_pep"
+   ]
+  },
+  {
+   "id": "SAMPLE-PEP-0026",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Hon. Leanne Brooks"
+    ],
+    "alias": [
+     "Leanne Brooks"
+    ],
+    "nationality": [
+     "AU"
+    ],
+    "country": [
+     "AU"
+    ],
+    "topics": [
+     "role.pep"
+    ],
+    "birthDate": [
+     "1969-10-25"
+    ],
+    "position": [
+     "Member of the House of Representatives (fictional)"
+    ]
+   },
+   "datasets": [
+    "bundled_pep"
+   ]
+  },
+  {
+   "id": "SAMPLE-PEP-0027",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Viktor Hansen"
+    ],
+    "alias": [],
+    "nationality": [
+     "NO"
+    ],
+    "country": [
+     "NO"
+    ],
+    "topics": [
+     "role.pep"
+    ],
+    "birthDate": [
+     "1971-03-30"
+    ],
+    "position": [
+     "State-owned enterprise CEO (fictional)"
+    ]
+   },
+   "datasets": [
+    "bundled_pep"
+   ]
+  },
+  {
+   "id": "SAMPLE-PEP-0028",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Zhang Wei Ming"
+    ],
+    "alias": [
+     "Wei Ming Zhang"
+    ],
+    "nationality": [
+     "CN"
+    ],
+    "country": [
+     "CN"
+    ],
+    "topics": [
+     "role.pep"
+    ],
+    "birthDate": [
+     "1964-12-24"
+    ],
+    "position": [
+     "Provincial party official (fictional)"
+    ]
+   },
+   "datasets": [
+    "bundled_pep"
+   ]
+  },
+  {
+   "id": "SAMPLE-PEP-0029",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "Sarah Whitlock"
+    ],
+    "alias": [],
+    "nationality": [
+     "AU"
+    ],
+    "country": [
+     "AU"
+    ],
+    "topics": [
+     "role.pep"
+    ],
+    "birthDate": [
+     "1973-05-02"
+    ],
+    "position": [
+     "Deputy Commissioner (fictional)"
+    ]
+   },
+   "datasets": [
+    "bundled_pep"
+   ]
+  },
+  {
+   "id": "SAMPLE-PEP-0030",
+   "schema": "Person",
+   "properties": {
+    "name": [
+     "George Papadakis"
+    ],
+    "alias": [],
+    "nationality": [
+     "GR"
+    ],
+    "country": [
+     "GR"
+    ],
+    "topics": [
+     "role.pep"
+    ],
+    "birthDate": [
+     "1958-01-17"
+    ],
+    "position": [
+     "Mayor (fictional)"
+    ]
+   },
+   "datasets": [
+    "bundled_pep"
+   ]
+  }
+ ]
+}
