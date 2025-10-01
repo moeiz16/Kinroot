@@ -1,0 +1,79 @@
+{
+ "champion": "rc-1.0",
+ "features": [
+  "kind_individual",
+  "kind_company",
+  "kind_trust",
+  "kind_partnership",
+  "foreign_client",
+  "service_formation",
+  "service_client_funds",
+  "service_property",
+  "n_services",
+  "channel_remote",
+  "channel_intermediary",
+  "n_layers_to_ubo",
+  "n_ubos",
+  "unexplained_pct",
+  "has_cycle",
+  "n_offshore_entities",
+  "n_high_risk_jurisdictions",
+  "trust_in_chain",
+  "nominee_indicators",
+  "max_officer_appointments",
+  "dormant_linked_companies",
+  "shared_officer_cluster_size",
+  "shared_address_cluster_size",
+  "pep_client",
+  "pep_in_structure",
+  "sanctions_possible",
+  "sanctions_confirmed",
+  "recent_ownership_changes_12m"
+ ],
+ "files": {
+  "calibrator.json": "ae8cdc6acf8b776d7e8532642eac5e99279d44f06adacd26e65520d4567be000",
+  "drift_reference.json": "06567ad7285f37b342716d28ac76e036a4ec801e46bf388516a1daa5832bf98e",
+  "lightgbm.txt": "479660a7e348a5765213abc623ff0fde05f3bb17d8cb6a366901139d51207837",
+  "logreg.json": "3b0bb57de9a7faccf9fcf05d697ad69451fee56a95bcffd22692545407dca1f4",
+  "logreg_calibrator.json": "11c79159724226455871390bd1ec5c98e2d3f3b1ccc2fd76dbd8cc1f7eb6547c",
+  "metrics.json": "14f74ad3bb488f82e06a67706e9aa0959b1fa604316992c386765c67d636afcc",
+  "policy.json": "58fdfc52635fb967b1e315abd5d7101a2fa08da9a5d91bd9186c4bd9028e5b08"
+ },
+ "name": "risk-challenger",
+ "versions": {
+  "rc-1.0": {
+   "calibrator": "calibrator.json",
+   "card": "model_card.md",
+   "kind": "lightgbm",
+   "metrics": {
+    "average_precision": 0.6694,
+    "brier": 0.0499,
+    "ece": 0.0106,
+    "f1": 0.6257,
+    "precision": 0.7887,
+    "recall": 0.5186,
+    "roc_auc": 0.8754,
+    "threshold": 0.5
+   },
+   "model": "lightgbm.txt",
+   "stage": "champion"
+  },
+  "rc-1.0-logreg": {
+   "calibrator": "logreg_calibrator.json",
+   "card": "model_card.md",
+   "kind": "logreg",
+   "metrics": {
+    "average_precision": 0.6363,
+    "brier": 0.0526,
+    "ece": 0.0079,
+    "f1": 0.6299,
+    "precision": 0.6595,
+    "recall": 0.6027,
+    "roc_auc": 0.8713,
+    "threshold": 0.3227
+   },
+   "model": "logreg.json",
+   "stage": "challenger"
+  }
+ }
+}

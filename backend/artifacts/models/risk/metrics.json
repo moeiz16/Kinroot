@@ -1,0 +1,189 @@
+{
+ "data": {
+  "base_rate": 0.1019,
+  "clients": 30000,
+  "folds": {
+   "calib": {
+    "base_rate": 0.1029,
+    "n": 3314
+   },
+   "test": {
+    "base_rate": 0.0997,
+    "n": 5126
+   },
+   "train": {
+    "base_rate": 0.1029,
+    "n": 17435
+   },
+   "valid": {
+    "base_rate": 0.0999,
+    "n": 4125
+   }
+  },
+  "split": "time-ordered by onboarding month"
+ },
+ "fairness": {
+  "age_band": {
+   "flag_rate_ratio_min_max": 0.0,
+   "groups": {
+    "18-34": {
+     "high_flag_rate": 0.0015,
+     "n": 664,
+     "outcome_rate": 0.0482,
+     "true_positive_rate": 0.0312
+    },
+    "35-54": {
+     "high_flag_rate": 0.0,
+     "n": 932,
+     "outcome_rate": 0.0365,
+     "true_positive_rate": 0.0
+    },
+    "55+": {
+     "high_flag_rate": 0.0,
+     "n": 655,
+     "outcome_rate": 0.0366,
+     "true_positive_rate": 0.0
+    },
+    "entity": {
+     "high_flag_rate": 0.1165,
+     "n": 2875,
+     "outcome_rate": 0.1464,
+     "true_positive_rate": 0.6271
+    }
+   }
+  },
+  "nationality_group": {
+   "flag_rate_ratio_min_max": 0.8132,
+   "groups": {
+    "born_in_country": {
+     "high_flag_rate": 0.0696,
+     "n": 3535,
+     "outcome_rate": 0.105,
+     "true_positive_rate": 0.5418
+    },
+    "born_overseas": {
+     "high_flag_rate": 0.0566,
+     "n": 1591,
+     "outcome_rate": 0.088,
+     "true_positive_rate": 0.4571
+    }
+   }
+  }
+ },
+ "global_importance_mean_abs_shap": {
+  "channel_intermediary": 0.044,
+  "channel_remote": 0.0308,
+  "dormant_linked_companies": 0.0868,
+  "foreign_client": 0.0154,
+  "has_cycle": 0.0012,
+  "kind_company": 0.0031,
+  "kind_individual": 0.0,
+  "kind_partnership": 0.0092,
+  "kind_trust": 0.0,
+  "max_officer_appointments": 0.1105,
+  "n_high_risk_jurisdictions": 0.1638,
+  "n_layers_to_ubo": 0.026,
+  "n_offshore_entities": 0.3322,
+  "n_services": 0.0257,
+  "n_ubos": 0.0345,
+  "nominee_indicators": 0.165,
+  "pep_client": 0.0255,
+  "pep_in_structure": 0.0491,
+  "recent_ownership_changes_12m": 0.0075,
+  "sanctions_confirmed": 0.0131,
+  "sanctions_possible": 0.0399,
+  "service_client_funds": 0.0177,
+  "service_formation": 0.0214,
+  "service_property": 0.0045,
+  "shared_address_cluster_size": 0.0055,
+  "shared_officer_cluster_size": 0.1225,
+  "trust_in_chain": 0.0364,
+  "unexplained_pct": 0.2372
+ },
+ "metrics_test": {
+  "agreement_with_rules": 0.768,
+  "disagreement": {
+   "challenger_higher": 68,
+   "challenger_lower": 170,
+   "outcome_rate_overall": 0.0997,
+   "outcome_rate_when_challenger_higher": 0.6471,
+   "outcome_rate_when_challenger_lower": 0.2235,
+   "rate": 0.0464
+  },
+  "lightgbm": {
+   "average_precision": 0.6694,
+   "brier": 0.0499,
+   "ece": 0.0106,
+   "f1": 0.6257,
+   "precision": 0.7887,
+   "recall": 0.5186,
+   "roc_auc": 0.8754,
+   "threshold": 0.5
+  },
+  "lightgbm_uncalibrated": {
+   "brier": 0.0497,
+   "ece": 0.0072
+  },
+  "logistic_regression": {
+   "average_precision": 0.6363,
+   "brier": 0.0526,
+   "ece": 0.0079,
+   "f1": 0.6299,
+   "precision": 0.6595,
+   "recall": 0.6027,
+   "roc_auc": 0.8713,
+   "threshold": 0.3227
+  },
+  "random_forest": {
+   "average_precision": 0.6702,
+   "brier": 0.0516,
+   "ece": 0.0078,
+   "f1": 0.5884,
+   "precision": 0.7714,
+   "recall": 0.4755,
+   "roc_auc": 0.8703,
+   "threshold": 0.5
+  },
+  "rating_mix_challenger": {
+   "high": 336,
+   "low": 4495,
+   "medium": 295
+  },
+  "rating_mix_rules": {
+   "high": 500,
+   "low": 3575,
+   "medium": 1051
+  },
+  "rules_scorecard": {
+   "average_precision": 0.5555,
+   "roc_auc": 0.8544
+  }
+ },
+ "policy": {
+  "disagreement_margin": 0.15,
+  "rating_thresholds": {
+   "high": 0.5,
+   "medium": 0.2
+  }
+ },
+ "seed": 20251013,
+ "stability": {
+  "mean_abs_change_irrelevant_perturbation": 0.0014,
+  "rating_flip_rate_irrelevant_perturbation": 0.0012,
+  "repeat_identical": true
+ },
+ "tuning": {
+  "best_params": {
+   "bagging_fraction": 0.7885,
+   "feature_fraction": 0.9529,
+   "lambda_l2": 1.6231,
+   "learning_rate": 0.1393,
+   "min_child_samples": 32,
+   "num_leaves": 6
+  },
+  "best_valid_auc": 0.902,
+  "rounds": 71,
+  "trials": 40
+ },
+ "version": "rc-1.0"
+}

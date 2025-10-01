@@ -1,0 +1,17 @@
+{
+  "seed": 20251013,
+  "clients": 30000,
+  "intercept": -3.9,
+  "month_cuts": {
+    "calib": 21,
+    "valid": 25,
+    "test": 30
+  },
+  "rating_thresholds": {
+    "high": 0.5,
+    "medium": 0.2
+  },
+  "disagreement_margin": 0.15,
+  "signal": 1.6,
+  "noise": 0.35
+}

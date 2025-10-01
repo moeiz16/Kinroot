@@ -1,0 +1,8 @@
+{
+ "disagreement_margin": 0.15,
+ "outcome": "enhanced action needed within 24 months",
+ "rating_thresholds": {
+  "high": 0.5,
+  "medium": 0.2
+ }
+}
