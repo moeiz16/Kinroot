@@ -15,6 +15,8 @@ from datetime import date
 
 from kinroot.contracts import Actor, AssistantAnswer
 
+from . import service
+
 
 def ask(
     org_id: uuid.UUID,
@@ -26,14 +28,14 @@ def ask(
     as_of: date | None = None,
 ) -> AssistantAnswer:
     """Answer one question (max 500 chars). Persists the Q&A for the audit trail."""
-    raise NotImplementedError
+    return service.ask(org_id, question, actor, permissions=permissions, client_id=client_id, as_of=as_of)
 
 
 def history(
     org_id: uuid.UUID, user_id: uuid.UUID, *, client_id: uuid.UUID | None = None, limit: int = 20
 ) -> list[AssistantAnswer]:
-    raise NotImplementedError
+    return service.history(org_id, user_id, client_id=client_id, limit=limit)
 
 
 def suggested_questions(org_id: uuid.UUID, client_id: uuid.UUID | None = None) -> list[str]:
-    raise NotImplementedError
+    return service.suggested_questions(org_id, client_id)
