@@ -1,0 +1,22 @@
+{
+  "description": "Evaluation gates. eval/run.py exits non-zero (failing CI) when any gate fails.",
+  "gates": [
+    {"metric": "er.lightgbm.f1", "op": ">=", "relative_to": "er.fellegi_sunter.f1", "margin": 0.03, "why": "the learned matcher must clearly beat the Fellegi-Sunter baseline"},
+    {"metric": "er.lightgbm.auto_merge_precision", "op": ">=", "value": 0.99, "why": "false merges corrupt the ownership record"},
+    {"metric": "er.lightgbm.recall_at_review", "op": ">=", "value": 0.97, "why": "true duplicates must reach a human or merge"},
+    {"metric": "er.lightgbm.review_rate", "op": "<=", "value": 0.08, "why": "review-queue workload"},
+    {"metric": "er.lightgbm.ece", "op": "<=", "value": 0.03, "why": "probabilities shown to officers must be calibrated"},
+    {"metric": "er.blocking_recall", "op": ">=", "value": 0.95, "why": "blocking must not hide true matches"},
+    {"metric": "er.recall_gap_across_origins", "op": "<=", "value": 0.05, "why": "comparable recall across naming conventions"},
+    {"metric": "ubo.accuracy", "op": "==", "value": 1.0, "why": "every crafted structure, including cycles, trusts and nominees"},
+    {"metric": "screening.precision", "op": ">=", "value": 0.9, "why": "near-miss false alerts"},
+    {"metric": "screening.recall", "op": ">=", "value": 0.95, "why": "missed sanctions matches are the worst error"},
+    {"metric": "risk.lightgbm.roc_auc", "op": ">=", "relative_to": "risk.rules_scorecard.roc_auc", "margin": 0.0, "why": "a challenger must add signal over the rules"},
+    {"metric": "risk.lightgbm.ece", "op": "<=", "value": 0.03, "why": "calibrated second opinion"},
+    {"metric": "risk.agreement_with_rules", "op": ">=", "value": 0.75, "why": "the disagreement queue stays reviewable"},
+    {"metric": "risk.flag_rate_ratio", "op": ">=", "value": 0.6, "why": "no large disparity across nationality groups"},
+    {"metric": "risk.stability.rules_monotonicity_violations", "op": "==", "value": 0, "why": "adding a risk factor never lowers the score"},
+    {"metric": "risk.stability.challenger_rating_flip_rate_irrelevant", "op": "<=", "value": 0.02, "why": "stable under irrelevant changes"},
+    {"metric": "assistant.citation_accuracy", "op": "==", "value": 1.0, "why": "every answer is grounded in cited graph edges or withheld"}
+  ]
+}

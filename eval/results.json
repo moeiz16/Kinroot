@@ -1,0 +1,323 @@
+{
+ "assistant": {
+  "citation_accuracy": 1.0,
+  "correct": 8,
+  "failures": [],
+  "questions": 8
+ },
+ "er": {
+  "blocking_recall": 0.9822,
+  "fellegi_sunter": {
+   "average_precision": 0.9546,
+   "brier": 0.0401,
+   "ece": 0.0408,
+   "f1": 0.9042,
+   "precision": 0.8861,
+   "recall": 0.9232,
+   "roc_auc": 0.9905,
+   "threshold": 0.9789
+  },
+  "lightgbm": {
+   "auto_merge_precision": 0.9914,
+   "auto_merge_share_of_matches": 0.8125,
+   "average_precision": 0.9985,
+   "brier": 0.0044,
+   "ece": 0.0013,
+   "f1": 0.9829,
+   "false_merges": 47,
+   "precision": 0.9732,
+   "recall": 0.9928,
+   "recall_at_review": 0.9973,
+   "review_rate": 0.0368,
+   "roc_auc": 0.9998,
+   "threshold": 0.5
+  },
+  "logistic_regression": {
+   "auto_merge_precision": 0.9998,
+   "auto_merge_share_of_matches": 0.7393,
+   "average_precision": 0.9973,
+   "brier": 0.0055,
+   "ece": 0.0013,
+   "f1": 0.9799,
+   "false_merges": 1,
+   "precision": 0.9782,
+   "recall": 0.9816,
+   "recall_at_review": 0.9955,
+   "review_rate": 0.0532,
+   "roc_auc": 0.9996,
+   "threshold": 0.5
+  },
+  "matches": 6689,
+  "model_version": "er-1.0",
+  "random_forest": {
+   "average_precision": 0.9986,
+   "brier": 0.0044,
+   "ece": 0.0035,
+   "f1": 0.9853,
+   "precision": 0.9823,
+   "recall": 0.9883,
+   "roc_auc": 0.9997,
+   "threshold": 0.4412
+  },
+  "recall_at_review_by_name_origin": {
+   "anglo": 1.0,
+   "arabic": 1.0,
+   "chinese": 1.0,
+   "korean_japanese": 1.0,
+   "mediterranean": 1.0,
+   "south_asian": 1.0,
+   "uk_register": 0.9982,
+   "vietnamese": 1.0
+  },
+  "recall_gap_across_origins": 0.0018,
+  "test_pairs": 39142,
+  "thresholds": {
+   "auto_merge": 0.8478,
+   "expected_review_rate": 0.0312,
+   "review": 0.3902
+  }
+ },
+ "gates": [
+  {
+   "actual": 0.9829,
+   "margin": 0.03,
+   "metric": "er.lightgbm.f1",
+   "op": ">=",
+   "passed": true,
+   "relative_to": "er.fellegi_sunter.f1",
+   "threshold": 0.9342,
+   "why": "the learned matcher must clearly beat the Fellegi-Sunter baseline"
+  },
+  {
+   "actual": 0.9914,
+   "metric": "er.lightgbm.auto_merge_precision",
+   "op": ">=",
+   "passed": true,
+   "threshold": 0.99,
+   "value": 0.99,
+   "why": "false merges corrupt the ownership record"
+  },
+  {
+   "actual": 0.9973,
+   "metric": "er.lightgbm.recall_at_review",
+   "op": ">=",
+   "passed": true,
+   "threshold": 0.97,
+   "value": 0.97,
+   "why": "true duplicates must reach a human or merge"
+  },
+  {
+   "actual": 0.0368,
+   "metric": "er.lightgbm.review_rate",
+   "op": "<=",
+   "passed": true,
+   "threshold": 0.08,
+   "value": 0.08,
+   "why": "review-queue workload"
+  },
+  {
+   "actual": 0.0013,
+   "metric": "er.lightgbm.ece",
+   "op": "<=",
+   "passed": true,
+   "threshold": 0.03,
+   "value": 0.03,
+   "why": "probabilities shown to officers must be calibrated"
+  },
+  {
+   "actual": 0.9822,
+   "metric": "er.blocking_recall",
+   "op": ">=",
+   "passed": true,
+   "threshold": 0.95,
+   "value": 0.95,
+   "why": "blocking must not hide true matches"
+  },
+  {
+   "actual": 0.0018,
+   "metric": "er.recall_gap_across_origins",
+   "op": "<=",
+   "passed": true,
+   "threshold": 0.05,
+   "value": 0.05,
+   "why": "comparable recall across naming conventions"
+  },
+  {
+   "actual": 1.0,
+   "metric": "ubo.accuracy",
+   "op": "==",
+   "passed": true,
+   "threshold": 1.0,
+   "value": 1.0,
+   "why": "every crafted structure, including cycles, trusts and nominees"
+  },
+  {
+   "actual": 0.9118,
+   "metric": "screening.precision",
+   "op": ">=",
+   "passed": true,
+   "threshold": 0.9,
+   "value": 0.9,
+   "why": "near-miss false alerts"
+  },
+  {
+   "actual": 1.0,
+   "metric": "screening.recall",
+   "op": ">=",
+   "passed": true,
+   "threshold": 0.95,
+   "value": 0.95,
+   "why": "missed sanctions matches are the worst error"
+  },
+  {
+   "actual": 0.8754,
+   "margin": 0.0,
+   "metric": "risk.lightgbm.roc_auc",
+   "op": ">=",
+   "passed": true,
+   "relative_to": "risk.rules_scorecard.roc_auc",
+   "threshold": 0.8544,
+   "why": "a challenger must add signal over the rules"
+  },
+  {
+   "actual": 0.0106,
+   "metric": "risk.lightgbm.ece",
+   "op": "<=",
+   "passed": true,
+   "threshold": 0.03,
+   "value": 0.03,
+   "why": "calibrated second opinion"
+  },
+  {
+   "actual": 0.768,
+   "metric": "risk.agreement_with_rules",
+   "op": ">=",
+   "passed": true,
+   "threshold": 0.75,
+   "value": 0.75,
+   "why": "the disagreement queue stays reviewable"
+  },
+  {
+   "actual": 0.8132,
+   "metric": "risk.flag_rate_ratio",
+   "op": ">=",
+   "passed": true,
+   "threshold": 0.6,
+   "value": 0.6,
+   "why": "no large disparity across nationality groups"
+  },
+  {
+   "actual": 0,
+   "metric": "risk.stability.rules_monotonicity_violations",
+   "op": "==",
+   "passed": true,
+   "threshold": 0,
+   "value": 0,
+   "why": "adding a risk factor never lowers the score"
+  },
+  {
+   "actual": 0.0029,
+   "metric": "risk.stability.challenger_rating_flip_rate_irrelevant",
+   "op": "<=",
+   "passed": true,
+   "threshold": 0.02,
+   "value": 0.02,
+   "why": "stable under irrelevant changes"
+  },
+  {
+   "actual": 1.0,
+   "metric": "assistant.citation_accuracy",
+   "op": "==",
+   "passed": true,
+   "threshold": 1.0,
+   "value": 1.0,
+   "why": "every answer is grounded in cited graph edges or withheld"
+  }
+ ],
+ "risk": {
+  "agreement_with_rules": 0.768,
+  "base_rate": 0.0997,
+  "clients": 5126,
+  "disagreement_rate": 0.0464,
+  "flag_rate_ratio": 0.8132,
+  "high_flag_rate_by_nationality_group": {
+   "born_in_country": 0.0696,
+   "born_overseas": 0.0566
+  },
+  "lightgbm": {
+   "average_precision": 0.6694,
+   "brier": 0.0499,
+   "ece": 0.0106,
+   "f1": 0.6257,
+   "precision": 0.7887,
+   "recall": 0.5186,
+   "roc_auc": 0.8754,
+   "threshold": 0.5
+  },
+  "logistic_regression": {
+   "average_precision": 0.6363,
+   "brier": 0.0526,
+   "ece": 0.0079,
+   "f1": 0.5986,
+   "precision": 0.735,
+   "recall": 0.5049,
+   "roc_auc": 0.8713,
+   "threshold": 0.5
+  },
+  "model_version": "rc-1.0",
+  "outcome_rate_where_challenger_higher": 0.6471,
+  "rules_scorecard": {
+   "average_precision": 0.5555,
+   "roc_auc": 0.8544
+  },
+  "stability": {
+   "challenger_mean_abs_change_irrelevant": 0.004,
+   "challenger_rating_flip_rate_irrelevant": 0.0029,
+   "challenger_repeat_identical": true,
+   "rules_identical_inputs_identical_score": true,
+   "rules_ignore_irrelevant_fields": true,
+   "rules_monotonicity_checks": 8000,
+   "rules_monotonicity_violations": 0
+  }
+ },
+ "screening": {
+  "cases": 50,
+  "correctly_silent": 16,
+  "false_alerts": 3,
+  "missed": 0,
+  "notes": [
+   "false alert: similar to Sarah Whitlock -> ['SAMPLE-PEP-0029']",
+   "false alert: subset of a listed name -> ['SAMPLE-SAN-0013']",
+   "false alert: similar to Simon Achebe -> ['SAMPLE-PEP-0007']"
+  ],
+  "precision": 0.9118,
+  "recall": 1.0,
+  "threshold": 0.82,
+  "true_alerts": 31
+ },
+ "ubo": {
+  "accuracy": 1.0,
+  "cases": 18,
+  "correct": 18,
+  "covers": [
+   "below",
+   "circular",
+   "corporate",
+   "deep",
+   "depth",
+   "exactly",
+   "guarantee",
+   "mutual",
+   "nominee",
+   "over",
+   "person",
+   "point",
+   "simple",
+   "trust",
+   "two",
+   "unit",
+   "unknown"
+  ],
+  "failures": []
+ }
+}

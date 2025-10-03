@@ -1,0 +1,452 @@
+{
+ "description": "Labelled screening near-misses against the bundled fictional lists. expect = entry id that should alert, or null for no alert.",
+ "threshold": 0.82,
+ "cases": [
+  {
+   "record": {
+    "kind": "person",
+    "name": "Aleksei Petrov",
+    "birth_date": "1968",
+    "nationality": "RU"
+   },
+   "expect": "SAMPLE-SAN-0012",
+   "note": "exact name, same year"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Alexey Petrov"
+   },
+   "expect": "SAMPLE-SAN-0012",
+   "note": "transliteration, no DOB"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Dmitry Sorokin",
+    "birth_date": "1961-03-14",
+    "nationality": "RU"
+   },
+   "expect": "SAMPLE-SAN-0002",
+   "note": "alias with full DOB"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "D. A. Sorokin"
+   },
+   "expect": "SAMPLE-SAN-0002",
+   "note": "initials"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Sorokin Dmitri Arkadyevich"
+   },
+   "expect": "SAMPLE-SAN-0002",
+   "note": "family name first"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Chol Jin Kwon",
+    "birth_date": "1968"
+   },
+   "expect": "SAMPLE-SAN-0008",
+   "note": "reordered Korean name"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Hamid Karimi",
+    "birth_date": "1970-07-02",
+    "nationality": "IR"
+   },
+   "expect": "SAMPLE-SAN-0004",
+   "note": "alias"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Tatyana Belova",
+    "birth_date": "1975-11-23"
+   },
+   "expect": "SAMPLE-SAN-0006",
+   "note": "alias transliteration"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Evgenia Orlova",
+    "nationality": "RU"
+   },
+   "expect": "SAMPLE-SAN-0014",
+   "note": "alias"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Omar Rashidi"
+   },
+   "expect": "SAMPLE-SAN-0010",
+   "note": "alias without prefix"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Viktor Antonov",
+    "birth_date": "1958-02-09"
+   },
+   "expect": "SAMPLE-SAN-0011",
+   "note": "middle name missing"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Sergey Volkov",
+    "birth_date": "1966-12-01"
+   },
+   "expect": "SAMPLE-SAN-0018",
+   "note": "transliteration"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Ivan Gusev",
+    "nationality": "RU"
+   },
+   "expect": "SAMPLE-SAN-0022",
+   "note": "short form"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Lucia Ortega",
+    "birth_date": "1974-10-03",
+    "nationality": "VE"
+   },
+   "expect": "SAMPLE-SAN-0026",
+   "note": "alias"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Grigor Sargsian"
+   },
+   "expect": "SAMPLE-SAN-0027",
+   "note": "one-letter variant"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Nadiya Haddad",
+    "birth_date": "1985-04-17"
+   },
+   "expect": "SAMPLE-SAN-0020",
+   "note": "alias"
+  },
+  {
+   "record": {
+    "kind": "company",
+    "name": "Aurelian Maritime FZE",
+    "jurisdiction": "AE"
+   },
+   "expect": "SAMPLE-SAN-0007",
+   "note": "different free-zone legal form"
+  },
+  {
+   "record": {
+    "kind": "company",
+    "name": "Volkhov Shipping Group",
+    "jurisdiction": "RU"
+   },
+   "expect": "SAMPLE-SAN-0001",
+   "note": "legal form dropped"
+  },
+  {
+   "record": {
+    "kind": "company",
+    "name": "Golden Steppe Metals"
+   },
+   "expect": "SAMPLE-SAN-0009",
+   "note": "legal form dropped"
+  },
+  {
+   "record": {
+    "kind": "company",
+    "name": "Polar Star Fisheries Limited"
+   },
+   "expect": "SAMPLE-SAN-0030",
+   "note": "different legal form"
+  },
+  {
+   "record": {
+    "kind": "company",
+    "name": "Obsidian Commodities Trading S.A."
+   },
+   "expect": "SAMPLE-SAN-0028",
+   "note": "punctuated legal form"
+  },
+  {
+   "record": {
+    "kind": "company",
+    "name": "Red Crescent Logistics"
+   },
+   "expect": "SAMPLE-SAN-0015",
+   "note": "no legal form"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Julian Whitfield",
+    "birth_date": "1962",
+    "nationality": "AU"
+   },
+   "expect": "SAMPLE-PEP-0003",
+   "note": "PEP without honorific"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Margaret Ellison",
+    "birth_date": "1957-05-11"
+   },
+   "expect": "SAMPLE-PEP-0001",
+   "note": "PEP exact"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Rob Hanley",
+    "nationality": "AU"
+   },
+   "expect": "SAMPLE-PEP-0002",
+   "note": "PEP alias"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Grace Ng"
+   },
+   "expect": "SAMPLE-PEP-0004",
+   "note": "PEP alias without title"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Helen Ashworth",
+    "birth_date": "1950-03-22",
+    "nationality": "GB"
+   },
+   "expect": "SAMPLE-PEP-0006",
+   "note": "PEP alias"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Kevin Duong",
+    "nationality": "AU"
+   },
+   "expect": "SAMPLE-PEP-0019",
+   "note": "PEP alias"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Mohamed Al Farsi"
+   },
+   "expect": "SAMPLE-PEP-0013",
+   "note": "PEP transliteration"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Wei Ming Zhang",
+    "birth_date": "1964-12-24"
+   },
+   "expect": "SAMPLE-PEP-0028",
+   "note": "PEP reordered"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Dmitry Sorokin",
+    "birth_date": "1990-07-01",
+    "nationality": "AU"
+   },
+   "expect": null,
+   "note": "namesake: full DOB and country differ"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Sergei Volkov",
+    "birth_date": "1988-02-11",
+    "nationality": "AU"
+   },
+   "expect": null,
+   "note": "namesake: full DOB differs"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Margaret Ellison",
+    "birth_date": "1991-06-30",
+    "nationality": "GB"
+   },
+   "expect": null,
+   "note": "PEP namesake: full DOB and country differ"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Karim Haddad",
+    "birth_date": "1969-07-07",
+    "nationality": "LB"
+   },
+   "expect": null,
+   "note": "shared surname, different given name"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Claire Hanley",
+    "birth_date": "1990-01-01"
+   },
+   "expect": null,
+   "note": "shared surname, different given name"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Peter Kostopoulos"
+   },
+   "expect": null,
+   "note": "similar surname, different person"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Ivana Petrova",
+    "birth_date": "1990-02-02",
+    "nationality": "AU"
+   },
+   "expect": null,
+   "note": "gendered surname, different person"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Andrew Pierce",
+    "birth_date": "1990-09-09"
+   },
+   "expect": null,
+   "note": "similar to Andrew Pearce, full DOB differs"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Petrov"
+   },
+   "expect": null,
+   "note": "single surname only"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Sarah Whitlow"
+   },
+   "expect": null,
+   "note": "similar to Sarah Whitlock"
+  },
+  {
+   "record": {
+    "kind": "company",
+    "name": "Cayman Ridge Holdings Ltd",
+    "jurisdiction": "KY"
+   },
+   "expect": null,
+   "note": "generic words only in common"
+  },
+  {
+   "record": {
+    "kind": "company",
+    "name": "Caspian Shipping Services Pty Ltd",
+    "jurisdiction": "AU"
+   },
+   "expect": null,
+   "note": "shared first word"
+  },
+  {
+   "record": {
+    "kind": "company",
+    "name": "Polar Bear Fisheries Pty Ltd",
+    "jurisdiction": "AU"
+   },
+   "expect": null,
+   "note": "two of three words"
+  },
+  {
+   "record": {
+    "kind": "company",
+    "name": "Golden Wattle Metals Pty Ltd"
+   },
+   "expect": null,
+   "note": "two of three words"
+  },
+  {
+   "record": {
+    "kind": "company",
+    "name": "Harbour Lights Remittance Pty Ltd",
+    "jurisdiction": "AU"
+   },
+   "expect": "SAMPLE-SAN-0025",
+   "note": "plural variant of a listed name (true variant)"
+  },
+  {
+   "record": {
+    "kind": "company",
+    "name": "Meridian Supplies Pty Ltd",
+    "jurisdiction": "AU"
+   },
+   "expect": null,
+   "note": "subset of a listed name"
+  },
+  {
+   "record": {
+    "kind": "company",
+    "name": "Kestrel Ventures Ltd",
+    "jurisdiction": "VG"
+   },
+   "expect": null,
+   "note": "shares only the first word with a listed company"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Linh Nguyen",
+    "birth_date": "1990-10-05",
+    "nationality": "AU"
+   },
+   "expect": null,
+   "note": "common name not listed"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Thomas Shore"
+   },
+   "expect": null,
+   "note": "similar to an alias"
+  },
+  {
+   "record": {
+    "kind": "person",
+    "name": "Simon Acheson",
+    "nationality": "GB"
+   },
+   "expect": null,
+   "note": "similar to Simon Achebe"
+  }
+ ]
+}
