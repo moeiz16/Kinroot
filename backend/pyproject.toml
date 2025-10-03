@@ -68,8 +68,8 @@ select = ["E", "F", "W", "I", "B", "UP", "S", "DJ", "SIM", "RUF", "PT", "N", "C4
 ignore = ["S101", "RUF012", "S105", "S106", "N818"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S", "N802"]
-"**/ml/**" = ["N803", "N806"]
+"tests/**" = ["S", "N802", "N812", "PT011", "PT018", "E501"]
+"**/ml/**" = ["N803", "N806", "E501"]  # model-card markdown templates
 
 [tool.mypy]
 python_version = "3.13"
