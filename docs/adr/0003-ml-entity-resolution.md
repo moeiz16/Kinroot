@@ -24,7 +24,10 @@ Pipeline (all classical, CPU, local):
    both train and test) prevent leakage. Optuna tunes hyperparameters on the validation fold; isotonic
    **calibration** on a held-out fold.
 6. **Thresholds from the precision-recall curve** on validation: auto-merge where precision ≥ 0.99, review band
-   down to the point where recall ≥ 0.98, reject below. The expected review-queue rate is reported with them.
+   down to the point where recall ≥ 0.995 (a missed duplicate hides control, and the extra review load is about half
+   a percentage point), reject below. The expected review-queue rate is reported with them. A merge policy sits on
+   top of the probability: a pair with a hard conflict (different full dates of birth, different registration
+   numbers, or clearly different addresses) never merges automatically; it goes to review.
 7. **SHAP** (TreeExplainer) per pair, translated into plain reasons ("Same date of birth", "Different company
    numbers"), top five by absolute contribution.
 8. MLflow (local SQLite + artifacts in `mlruns/`) tracks runs and the registry; a model card documents data,

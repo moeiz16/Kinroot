@@ -138,3 +138,57 @@ LightGBM needs the OpenMP runtime on macOS (`brew install libomp`). Training run
 - **Retention**: preview lists exited clients and their documents with the date each becomes disposable (7 years
   AU, at least 5 UK) and any legal hold; a confirmed run anonymises personal fields of people no other client
   references and deletes stored files, leaving the audit chain intact.
+
+## Domain core in detail (graph, resolution, screening, risk, monitoring, assistant)
+
+### Graph projection and queries
+- Schema (LadybugDB DDL; Neo4j constraints in the adapter): node tables `Party` (`orgId`, `kind`, `name`,
+  `normName`, `jurisdiction`, `identifiers`, `isNominee`, `dormant`…) and `Address`; relationship tables `OWNS`,
+  `CONTROLS` and `REGISTERED_AT`. Every edge stores `fromId`/`toId`, so results never depend on engine-internal
+  ids. Addresses are deduplicated per firm by a normalised-address key, which is what makes shared-address
+  clusters visible.
+- Writes: `graph/sync.py` drains `GraphOutbox` in sequence, collapsing repeats so the current database state is
+  projected. Party ops run before relationship ops; an edge upsert deletes by id first (a merge may have moved its
+  endpoints). Batches use `UNWIND`; batches without percentages omit `pct` (an all-null column would be typed as
+  text by the binder).
+- Reads: `graph/repo.py` holds every Cypher statement. Traversal is hop by hop (`WHERE n.id IN $ids`, bounded by
+  `GRAPH_MAX_DEPTH`), and paths are assembled in Python (`graph/ownership.py`), so the answer is identical on
+  LadybugDB (walk semantics) and Neo4j (trail semantics).
+- UBO (`compute_ubo`): a depth-first walk over simple upstream paths. A person's effective share is the sum of the
+  products along each path. Over-allocated registers are scaled to 100%, and `nominee_for` edges pass a
+  nominee's holding through to the principal. Ownership that leaks into a cycle, an undisclosed holder, a missing
+  allocation or the depth limit is accounted for as `unexplained_pct`, so traced plus unexplained always sum to
+  100%. Control UBOs: trustee, appointor, protector, significant control and nominee principals on the client or
+  on any upstream entity holding at least the threshold (or any trust in the chain); directors of a corporate
+  trustee count. When nobody qualifies, the senior managing official (or a director) is recorded.
+- Decoration happens at read time from the system of record (client ids, cached ratings, screening flags, merge
+  counts), so a rating change never needs a graph write.
+
+### Entity resolution
+`resolution/normalize.py` → `blocking.py` (8 key families, blocking recall about 0.98) → `features.py` (15 stable
+features) → `fellegi_sunter.py` (EM, unsupervised) and the LightGBM champion with isotonic calibration
+(`model.py` loads the committed artifacts). The merge policy adds a conflicting-evidence guard: different full
+dates of birth, different registration numbers or clearly different addresses never auto-merge. Reasons come from
+LightGBM's exact TreeSHAP (`pred_contrib`) mapped to plain language (`reasons.py`). Training is in
+`resolution/ml/` (`python manage.py train er`).
+
+### Screening
+`screening/matcher.py` is a pure scorer. A phonetic token index narrows candidates, then a token-aligned name
+similarity (Jaro-Winkler blended with an edit ratio, order-free, initials-aware, generic company words ignored)
+is adjusted by birth-date and country corroboration. Every adjustment is a reason. The list data is
+versioned reference data (`ListVersion` / `ListEntry`). A new version enqueues an org-wide re-screen, and new
+hits found then raise `list_update_hit` alerts.
+
+### Risk
+`risk/rules.py` holds the methodology as data with a small condition DSL, bands and mandatory floors.
+`risk/features.py` builds one flat feature dict from the graph features, screening and onboarding answers.
+`risk/challenger.py` scores the same dict and decides agreement under the policy in `policy.json`. An assessment
+is idempotent for identical inputs (`inputs_hash`). Every reason cites graph evidence (edge, node or hit ids).
+Training is in `risk/ml/` (`python manage.py train risk`). PSI drift compares the current book with
+`drift_reference.json` once at least 50 clients are assessed.
+
+### Monitoring and the assistant
+Structure-change alerts fire only for relationships that start or end inside the monitoring window and after
+onboarding, so re-pointing records during a merge never alerts. The assistant's tools are permission-checked,
+read only graph, screening and risk records (never cases), and every answer passes a grounding check (every
+sentence must carry valid citation markers); cloud drafts that fail it are replaced by the deterministic answer.
