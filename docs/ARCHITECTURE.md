@@ -14,14 +14,14 @@ flowchart LR
     MW[Request id · security headers · sessions + CSRF · throttles]
     V[api/ views + serializers]
     SSE[/events/stream SSE/]
-    subgraph Platform["Platform (A)"]
+    subgraph Platform["Platform"]
       ACC[accounts · RBAC]
       CLI[clients: system of record]
       CAS[cases · SMR · tipping-off]
       AUD[audit hash chain]
       JOB[jobs queue + event outbox]
     end
-    subgraph Domain["Domain core (B)"]
+    subgraph Domain["Domain core"]
       GR[graph api: UBO · paths · diff · clusters · features]
       ER[resolution: blocking → features → FS + LightGBM → SHAP]
       SCR[screening: lists + matcher]
@@ -165,7 +165,7 @@ LightGBM needs the OpenMP runtime on macOS (`brew install libomp`). Training run
   counts), so a rating change never needs a graph write.
 
 ### Entity resolution
-`resolution/normalize.py` → `blocking.py` (8 key families, blocking recall about 0.98) → `features.py` (15 stable
+`resolution/normalize.py` → `blocking.py` (nine key families, blocking recall 0.98 on the test fold) → `features.py` (15 stable
 features) → `fellegi_sunter.py` (EM, unsupervised) and the LightGBM champion with isotonic calibration
 (`model.py` loads the committed artifacts). The merge policy adds a conflicting-evidence guard: different full
 dates of birth, different registration numbers or clearly different addresses never auto-merge. Reasons come from

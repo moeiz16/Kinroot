@@ -43,4 +43,5 @@ queries are not.
 - No server to run; the graph file lives in `data/graph/` and can always be rebuilt from Django (ADR 0002).
 - Only one read-write process per database file; read-only handles can open alongside it (verified) and see a
   snapshot from open time. This shapes the single-writer design in ADR 0002.
-- A young fork carries upgrade risk: the version is pinned and the smoke test runs in CI (`tests/test_graph_engine.py`).
+- A young fork carries upgrade risk: the version is pinned and the smoke checks run in CI (`scripts/graph_smoke.py` and
+  `tests/test_graph_engine.py`).

@@ -15,7 +15,7 @@ acceptable as the decision of record.
   and evidence ids. Only a published version is used; publishing is audited and needs `methodology:manage`.
 - **Challenger**: calibrated LightGBM on the same rule and graph features, trained on labelled synthetic client
   outcomes (seeded generator with realistic base rates and label noise), with a logistic-regression baseline and
-  a random-forest comparison; group/time-aware split; Optuna tuning; isotonic calibration; SHAP reasons.
+  a random-forest comparison; a time-ordered split by onboarding month; Optuna tuning; isotonic calibration; SHAP reasons.
 - **Disagreement → review**: when the challenger's rating differs from the rules by a band and its probability
   is clearly on the other side of its threshold, a `Disagreement` is opened for the compliance officer
   (keep rules / override / flag a methodology issue). The challenger never changes a rating by itself.
@@ -23,8 +23,8 @@ acceptable as the decision of record.
   bands are used only to test for disparate challenger flags, reported in the model card.
 - **Stability**: unit tests assert monotonic behaviour (adding a sanctions hit never lowers the score), score
   stability under irrelevant perturbations, and identical outputs for identical inputs (`inputsHash`).
-- **Monitoring**: PSI drift on challenger inputs and scores; agreement rate tracked; promotion of a new champion
-  requires sign-off.
+- **Monitoring**: PSI drift on challenger inputs and scores; agreement rate tracked; promoting a new champion
+  needs the compliance officer (`models:promote`) and a recorded reason.
 
 ## Consequences
 - The UI shows the rules rating as the rating; the challenger appears as a "second opinion" with its reasons.
