@@ -108,7 +108,7 @@ class ThresholdsView(ApiView):
 
     def get(self, request: Request) -> Response:
         with domain_errors():
-            return self.wire(resolution_api.thresholds())
+            return self.wire(resolution_api.thresholds(self.org_id))
 
 
 class StatsView(ApiView):

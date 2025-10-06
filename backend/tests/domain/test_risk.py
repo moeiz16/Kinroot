@@ -207,3 +207,33 @@ def test_individual_pep_rating_floor_does_not_open_disagreement(world):
     a = risk.latest_assessment(world.org_id, world.c["jw"].id)
     assert a.rating == "high" and a.challenger.agreement == "agree"
     assert not Disagreement.objects.filter(org=world.org).exists()
+
+
+def test_model_promotion_is_scoped_to_the_firm(world):
+    """One firm's champion/challenger sign-off never changes the model another firm uses."""
+    from risk import challenger as challenger_rt
+    from tests.domain.builder import World
+
+    other = World("Other Firm")
+    rc = {m["name"]: m for m in risk.model_registry(world.org_id)}["risk-challenger"]["versions"]
+    default = next(v["version"] for v in rc if v["stage"] == "champion")
+    alt = next(v["version"] for v in rc if v["stage"] == "challenger")
+    risk.promote_model("risk-challenger", alt, world.actor("co"), "Simpler model preferred after review")
+
+    mine = {m["name"]: m for m in risk.model_registry(world.org_id)}["risk-challenger"]["versions"]
+    theirs = {m["name"]: m for m in risk.model_registry(other.org_id)}["risk-challenger"]["versions"]
+    assert next(v for v in mine if v["stage"] == "champion")["version"] == alt
+    assert next(v for v in theirs if v["stage"] == "champion")["version"] == default
+    assert all(v["promotedBy"] is None for v in theirs)
+    assert challenger_rt.load(org_id=world.org_id).version == alt
+    assert challenger_rt.load(org_id=other.org_id).version == default
+
+
+def test_drift_is_measured_per_firm(hq):
+    """The stability check only reads the calling firm's assessments."""
+    from tests.domain.builder import World
+
+    other = World("Other Firm")
+    risk.assess_client(hq.org_id, next(iter(hq.c.values())).id, hq.actor("co"))
+    assert risk.model_drift(other.org_id)["n"] == 0
+    assert risk.model_drift(hq.org_id)["n"] >= 1

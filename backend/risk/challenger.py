@@ -68,11 +68,16 @@ class Challenger:
         return {f: float(v) for f, v in zip(ML_FEATURES, c, strict=True)}
 
 
-def _active_version(man: dict[str, Any]) -> str:
+def _active_version(man: dict[str, Any], org_id: Any = None) -> str:
     try:
         from .models import ModelPromotion
 
-        promo = ModelPromotion.objects.filter(model_name="risk-challenger", stage="champion").order_by("-id").first()
+        # each firm signs off its own champion; promotions are never shared between firms
+        promo = (
+            ModelPromotion.objects.filter(model_name="risk-challenger", stage="champion", org_id=org_id)
+            .order_by("-id")
+            .first()
+        )
         if promo and promo.version in man["versions"]:
             return promo.version
     except Exception:
@@ -80,9 +85,10 @@ def _active_version(man: dict[str, Any]) -> str:
     return man["champion"]
 
 
-def load(version: str | None = None) -> Challenger:
+def load(version: str | None = None, *, org_id: Any = None) -> Challenger:
+    """The firm's champion (its latest promotion, else the trained default) unless `version` is given."""
     man = manifest()
-    version = version or _active_version(man)
+    version = version or _active_version(man, org_id)
     key = (str(model_dir()), version)
     with _lock:
         if key in _cache:
@@ -121,8 +127,10 @@ def _reason_label(feature: str, value: float, contribution: float) -> str:
     return f"{base}: {shown}"
 
 
-def score(features: dict[str, Any], rules_rating: str, challenger: Challenger | None = None) -> dict[str, Any]:
-    ch = challenger or load()
+def score(
+    features: dict[str, Any], rules_rating: str, challenger: Challenger | None = None, *, org_id: Any = None
+) -> dict[str, Any]:
+    ch = challenger or load(org_id=org_id)
     x = np.array(vector(features), float)
     p = ch.probability(x)
     thr = ch.policy["rating_thresholds"]

@@ -199,7 +199,7 @@ def compute(org_id: Any, client: Any) -> dict[str, Any]:
     ]
     triggers = feat.edd_triggers(f, res.rating)
     try:
-        ch = challenger_rt.score(f, res.rating)
+        ch = challenger_rt.score(f, res.rating, org_id=org_id)
         floored = any(h.floor and h.floor == res.rating for h in res.hits)
         if floored and ch["agreement"] == "disagree":
             # a mandatory floor (PEP client, confirmed sanctions) fixes the rating: nothing for the queue to decide
@@ -531,7 +531,21 @@ def _manifest(name: str) -> tuple[dict[str, Any], Path]:
     return challenger_rt.manifest(), challenger_rt.model_dir()
 
 
+_RUN_IDS: dict[tuple[str, str, str], str | None] = {}
+
+
 def _run_id(name: str, version: str) -> str | None:
+    """MLflow run of a registered version. Looked up once per process: importing MLflow and opening its store
+    costs about a second, and a version's run never changes."""
+    from graph.common import kinroot_setting
+
+    key = (str(kinroot_setting("MLFLOW_TRACKING_URI")), name, version)
+    if key not in _RUN_IDS:
+        _RUN_IDS[key] = _find_run_id(name, version)
+    return _RUN_IDS[key]
+
+
+def _find_run_id(name: str, version: str) -> str | None:
     try:
         from graph.common import kinroot_setting
 
@@ -549,8 +563,9 @@ def _run_id(name: str, version: str) -> str | None:
         return None
 
 
-def drift(name: str = "risk-challenger") -> dict[str, Any]:
-    """PSI of current inputs and scores (latest assessment per client, all firms) against the training reference."""
+def drift(name: str = "risk-challenger", org_id: Any = None) -> dict[str, Any]:
+    """PSI of the firm's current inputs and scores (latest assessment per client) against the training reference.
+    Each firm's book is measured on its own; `org_id=None` pools every firm (eval and offline checks only)."""
     if name != "risk-challenger":
         return {"psi": 0.0, "status": "stable", "features": {}, "n": 0}
     path = challenger_rt.model_dir() / "drift_reference.json"
@@ -558,7 +573,10 @@ def drift(name: str = "risk-challenger") -> dict[str, Any]:
         return {"psi": 0.0, "status": "stable", "features": {}, "n": 0}
     ref = json.loads(path.read_text())
     latest: dict[str, RiskAssessment] = {}
-    for a in RiskAssessment.objects.filter(override__isnull=True).order_by("client_id", "-created_at"):
+    qs = RiskAssessment.objects.filter(override__isnull=True)
+    if org_id is not None:
+        qs = qs.filter(org_id=org_id)
+    for a in qs.order_by("client_id", "-created_at"):
         latest.setdefault(str(a.client_id), a)
     rows = [a for a in latest.values() if a.challenger]
     if len(rows) < MIN_DRIFT_SAMPLE:
@@ -594,17 +612,17 @@ def _psi_ref(spec: dict[str, list[float]], values: list[float]) -> float:
     return float(np.sum((actual - expected) * np.log(actual / expected)))
 
 
-def model_registry() -> list[dict[str, Any]]:
+def model_registry(org_id: Any = None) -> list[dict[str, Any]]:
     out = []
     for name in MODELS:
         try:
             man, d = _manifest(name)
         except FileNotFoundError:
             continue
-        promos = list(ModelPromotion.objects.filter(model_name=name).order_by("-id"))
+        promos = list(ModelPromotion.objects.filter(model_name=name, org_id=org_id).order_by("-id"))
         champion = promos[0].version if promos and promos[0].version in man["versions"] else man["champion"]
         last_promo = {p.version: p for p in reversed(promos)}
-        dr = drift(name)
+        dr = drift(name, org_id)
         card = (d / "model_card.md").read_text() if (d / "model_card.md").exists() else ""
         versions = []
         for v, spec in man["versions"].items():
@@ -645,7 +663,7 @@ def promote_model(model_name: str, version: str, actor: Actor, note: str) -> dic
         raise NotFound("model version")
     if len((note or "").strip()) < 10:
         raise ValueError("Record why this version is promoted (at least 10 characters).")
-    current = next(v for v in model_registry() if v["name"] == model_name)
+    current = next(v for v in model_registry(actor.org_id) if v["name"] == model_name)
     if any(v["version"] == version and v["stage"] == "champion" for v in current["versions"]):
         raise DomainConflict("conflict", "This version is already in use.")
     ModelPromotion.objects.create(
@@ -670,7 +688,7 @@ def promote_model(model_name: str, version: str, actor: Actor, note: str) -> dic
         resource_id=f"{model_name}:{version}",
         metadata={"note": note.strip()[:200]},
     )
-    return next(v for v in model_registry() if v["name"] == model_name)
+    return next(v for v in model_registry(actor.org_id) if v["name"] == model_name)
 
 
 def system(org_id: Any) -> Actor:

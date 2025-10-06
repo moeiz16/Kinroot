@@ -150,7 +150,7 @@ class ModelsView(ApiView):
 
     def get(self, request: Request) -> Response:
         with domain_errors():
-            return self.wire(risk_api.model_registry())
+            return self.wire(risk_api.model_registry(self.org_id))
 
 
 class PromoteIn(serializers.Serializer):

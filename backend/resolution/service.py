@@ -49,8 +49,8 @@ def score_pair(left: PartyRecord, right: PartyRecord) -> MatchScore:
     )
 
 
-def thresholds() -> Thresholds:
-    m = er_model.load()
+def thresholds(org_id: Any = None) -> Thresholds:
+    m = er_model.load(org_id=org_id)
     t = m.thresholds
     return Thresholds(
         auto_merge=float(t["auto_merge"]),
@@ -178,7 +178,7 @@ def find_candidates(org_id: Any, *, party_ids: list[Any] | None = None) -> int:
     actor = system_actor(org_id)
     merged_away: set[str] = set()
     changed = 0
-    matcher = er_model.load()
+    matcher = er_model.load(org_id=org_id)
     for i, j in pairs:
         a, b = records[i], records[j]
         if a.id in merged_away or b.id in merged_away:

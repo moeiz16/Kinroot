@@ -77,10 +77,11 @@ def publish_methodology(org_id: uuid.UUID, methodology_id: uuid.UUID, actor: Act
     return service.publish_methodology(org_id, methodology_id, actor)
 
 
-def model_registry() -> list[dict]:
-    """Both models (entity resolution + risk challenger): versions, stage (champion/challenger/retired),
-    metrics, calibration, PSI drift, model card markdown, mlflow run id."""
-    return service.model_registry()
+def model_registry(org_id: uuid.UUID | None = None) -> list[dict]:
+    """Both models (entity resolution + risk challenger) as seen by one firm: versions, stage
+    (champion/challenger/retired) from that firm's own promotions, metrics, calibration, PSI drift of that firm's
+    book, model card markdown, mlflow run id."""
+    return service.model_registry(org_id)
 
 
 def promote_model(model_name: str, version: str, actor: Actor, note: str) -> dict:
@@ -93,6 +94,6 @@ def seed_methodologies(org_id: uuid.UUID) -> int:
     return service.seed_methodologies(org_id)
 
 
-def model_drift() -> dict:
-    """PSI of the risk challenger's current inputs and scores against its training reference."""
-    return service.drift("risk-challenger")
+def model_drift(org_id: uuid.UUID | None = None) -> dict:
+    """PSI of one firm's risk challenger inputs and scores against its training reference (all firms when None)."""
+    return service.drift("risk-challenger", org_id)

@@ -79,8 +79,9 @@ def split(org_id: uuid.UUID, party_id: uuid.UUID, record_ids: list[uuid.UUID], a
     return service.split(org_id, party_id, record_ids, actor, note)
 
 
-def thresholds() -> Thresholds:
-    return service.thresholds()
+def thresholds(org_id: uuid.UUID | None = None) -> Thresholds:
+    """Thresholds of the firm's champion matcher (the trained default when `org_id` is None)."""
+    return service.thresholds(org_id)
 
 
 def queue_stats(org_id: uuid.UUID) -> dict[str, int | float]:

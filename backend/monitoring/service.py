@@ -417,7 +417,7 @@ def run_daily(org_id: Any) -> dict[str, int]:
     try:
         from risk.service import drift
 
-        d = drift()
+        d = drift(org_id=org_id)
         if d["status"] == "drift":
             a = raise_alert(
                 org_id,

@@ -96,11 +96,16 @@ def conflicting_evidence(f: dict[str, float]) -> bool:
     return bool(dob_conflict or id_conflict or address_conflict)
 
 
-def _active_version(man: dict[str, Any]) -> str:
+def _active_version(man: dict[str, Any], org_id: Any = None) -> str:
     try:
         from risk.models import ModelPromotion
 
-        promo = ModelPromotion.objects.filter(model_name="er-matcher", stage="champion").order_by("-id").first()
+        # each firm signs off its own champion; promotions are never shared between firms
+        promo = (
+            ModelPromotion.objects.filter(model_name="er-matcher", stage="champion", org_id=org_id)
+            .order_by("-id")
+            .first()
+        )
         if promo and promo.version in man["versions"]:
             return promo.version
     except Exception:  # tables not migrated yet (e.g. during the first migrate)
@@ -108,9 +113,10 @@ def _active_version(man: dict[str, Any]) -> str:
     return man["champion"]
 
 
-def load(version: str | None = None) -> Matcher:
+def load(version: str | None = None, *, org_id: Any = None) -> Matcher:
+    """The firm's champion (its latest promotion, else the trained default) unless `version` is given."""
     man = manifest()
-    version = version or _active_version(man)
+    version = version or _active_version(man, org_id)
     key = (str(model_dir()), version)
     with _lock:
         if key in _cache:
