@@ -1,10 +1,10 @@
 # Kinroot API contract (v1)
 
 The binding reference for Kinroot's module boundaries. The web app builds against Part 1; the backend implements
-it. Part 2 is the data model, Part 3 the Python interfaces between the platform/API layer (builder A) and the
-domain core (builder B), Part 4 module ownership, Part 5 the demo seed, Part 6 project conventions.
+it. Part 2 is the data model, Part 3 the Python interfaces between the platform/API layer and the domain core,
+Part 4 the module map, Part 5 the demo seed, Part 6 project conventions.
 
-Changing a shape here means changing it in the same commit as the code, with the other builders told.
+Changing a shape here means changing it in the same commit as the code.
 
 ---
 
@@ -528,17 +528,17 @@ and filtered by the recipient's permissions; restricted case events go only to u
 Every tenant table has `org` (FK, indexed) and every query filters by the request's active org. UUID primary
 keys except append-only logs (BigAutoField). `created_at`/`updated_at` on all.
 
-| App (owner) | Model | Key fields |
+| App | Model | Key fields |
 |---|---|---|
-| accounts (A) | `User` | email (unique), full_name, avatar_color, password (argon2) |
+| accounts | `User` | email (unique), full_name, avatar_color, password (argon2) |
 | | `Organisation` | name, slug, country, abn, address, sector, settings (JSON: `OrgSettings`) |
 | | `Membership` | org, user, role, joined_at; unique (org, user) |
 | | `Invitation` | org, email, role, token_hash (HMAC), expires_at, accepted_at, invited_by |
 | | `TrainingRecord` | org, user, course, completed_on, due_on, evidence_note |
-| audit (A) | `AuditLog` | org, actor, actor_type, action, resource_type, resource_id, metadata, ip, user_agent, restricted, prev_hash, hash |
-| jobs (A) | `Job` | org, kind, payload, status, priority, run_at, attempts, max_attempts, locked_by, locked_until, dedupe_key, result, error, progress, created_by |
+| audit | `AuditLog` | org, actor, actor_type, action, resource_type, resource_id, metadata, ip, user_agent, restricted, prev_hash, hash |
+| jobs | `Job` | org, kind, payload, status, priority, run_at, attempts, max_attempts, locked_by, locked_until, dedupe_key, result, error, progress, created_by |
 | | `Event` | org, name, data, permission, user_ids (JSON), created_at (BigAutoField id = SSE id) |
-| clients (A) | `Client` | org, kind, name, status, party (FK Party), jurisdiction, services, channel, matter_reference, assigned_to, rating, rating_source, edd_required, onboarded_on, last_reviewed_on, next_review_on, relationship_ended_on, legal_hold, submitted_at, ubo_count (cache), blocked_reason, seed_key (stable sample id, unique per org) |
+| clients | `Client` | org, kind, name, status, party (FK Party), jurisdiction, services, channel, matter_reference, assigned_to, rating, rating_source, edd_required, onboarded_on, last_reviewed_on, next_review_on, relationship_ended_on, legal_hold, submitted_at, ubo_count (cache), blocked_reason, seed_key (stable sample id, unique per org) |
 | | `Party` | org, kind, name, normalized_name, given_names, family_name, birth_date, nationality, jurisdiction, identifiers (JSON), address (JSON), is_nominee, dormant, source, source_ref, merged_into (FK self) |
 | | `ClientParty` | org, client, party (membership of a party in a client's structure; maintained from relationships) |
 | | `Relationship` | org, from_party, to_party, kind, pct, interest, role, nominee, valid_from, valid_to, source, source_ref, evidence_note |
@@ -547,36 +547,35 @@ keys except append-only logs (BigAutoField). `created_at`/`updated_at` on all.
 | | `EddCase`, `EddMeasure`, `SignOff` | per §1.10 (`Edd` shape) |
 | | `Communication` | org, client, kind, message, status (sent/held), held_reason_code |
 | | `ClientHold` | org, client, reason_code (manual/restricted), source_ref, note, placed_by, released_at, released_by |
-| cases (A) | `Concern` | org, client, raised_by, summary, details, status |
+| cases | `Concern` | org, client, raised_by, summary, details, status |
 | | `Case` | org, client, title, grounds, status, opened_by, deadline_on |
 | | `CaseAccess` | case, user, level |
 | | `SmrDraft` | case, version, regime, payload (JSON), submitted_at, reference |
-| graph (B) | `GraphOutbox` | seq (BigAutoField), org, entity ("party"/"relationship"), entity_id, op ("upsert"/"delete"), applied_at |
+| graph | `GraphOutbox` | seq (BigAutoField), org, entity ("party"/"relationship"), entity_id, op ("upsert"/"delete"), applied_at |
 | | `GraphSyncState` | org, graph_version, last_applied_at |
-| resolution (B) | `MatchCandidate` | org, left, right (Party; ordered pair unique), probability, band, fs_weight, features, reasons, model_version, status, decided_by, decided_at, note |
+| resolution | `MatchCandidate` | org, left, right (Party; ordered pair unique), probability, band, fs_weight, features, reasons, model_version, status, decided_by, decided_at, note |
 | | `MergeRecord` | org, survivor, merged (Party), candidate, actor, undone_at (split) |
-| screening (B) | `ListVersion` | list_kind, source, version, entries, loaded_at, is_sample |
+| screening | `ListVersion` | list_kind, source, version, entries, loaded_at, is_sample |
 | | `ListEntry` | version, entry_id, list_kind, name, aliases, birth_date, countries, programs, identifiers, url |
 | | `ScreeningRun` | org, client (nullable), reason, list_versions, screened, new_hits |
 | | `ScreeningHit` | org, client, party, entry, score, reasons, status, reviewed_by, reviewed_at, review_reason; unique (party, entry_id) |
-| risk (B) | `RiskMethodology` | org, version, status, bands, rules (JSON), published_by, published_at |
+| risk | `RiskMethodology` | org, version, status, bands, rules (JSON), published_by, published_at |
 | | `RiskAssessment` | org, client, methodology, score, rating, reasons, features (JSON), challenger (JSON), edd_triggers, inputs_hash, override (JSON) |
 | | `Disagreement` | org, assessment, rules_rating, challenger_rating, probability_high, status, outcome, note, resolved_by |
 | | `ModelPromotion` | model_name, version, stage, promoted_by, note (MLflow holds runs/metrics) |
-| monitoring (B) | `Alert` | org, client, kind, severity, title, body, evidence, status, resolved_by, resolution_note |
+| monitoring | `Alert` | org, client, kind, severity, title, body, evidence, status, resolved_by, resolution_note |
 | | `ReviewSchedule` | org, client, due_on, completed_on, completed_by, note |
-| assistant (B) | `AssistantExchange` | org, user, client, question, answer, citations, steps, mode, grounded |
+| assistant | `AssistantExchange` | org, user, client, question, answer, citations, steps, mode, grounded |
 
 ---
 
-# Part 3: Python interfaces between A (platform/API) and B (domain core)
+# Part 3: Python interfaces between the platform/API layer and the domain core
 
 All shared dataclasses live in **`backend/kinroot/contracts.py`** (frozen; listed fields mirror Part 1).
-Each B app exposes one public module, **`<app>/api.py`**; A's views import only those. B never imports A's
-views or serializers. Stubs with full docstrings are committed; implementations replace the
-`NotImplementedError` bodies without changing signatures.
+Each domain app exposes one public module, **`<app>/api.py`**; the HTTP views import only those. Domain code never
+imports views or serializers. Changing a signature means changing this section in the same commit.
 
-### A calls B
+### The API layer calls the domain core
 ```python
 # graph/api.py
 client_graph(org_id, client_id, *, as_of=None, depth=6) -> GraphView
@@ -638,10 +637,10 @@ ask(org_id, question, actor, *, permissions: frozenset[str], client_id=None, as_
 history(org_id, user_id, *, client_id=None, limit=20) -> list[AssistantAnswer]
 suggested_questions(org_id, client_id=None) -> list[str]
 ```
-Errors: B raises `contracts.NotFound` (A → 404) and `contracts.DomainConflict(code, detail)` (A → 409 with that
-code); `ValueError` with a message for invalid input (A → 422).
+Errors: the domain core raises `contracts.NotFound` (→ 404) and `contracts.DomainConflict(code, detail)` (→ 409 with
+that code); `ValueError` with a message for invalid input (→ 422).
 
-### B calls A
+### The domain core calls the platform
 ```python
 # audit/api.py
 record(actor: Actor, action, *, resource_type=None, resource_id=None, metadata=None, restricted=False) -> int
@@ -664,19 +663,19 @@ block_client(org_id, client_id, reason_code, actor) -> None
 raise_concern(org_id, client_id, summary, details, actor) -> UUID   # e.g. screening "escalate"; restricted audit row
 # accounts/services.py
 org_settings(org_id) -> dict                             # OrgSettings, snake_case keys, defaults merged
-# read-only model access: B may query clients.models.Client/Party/Relationship directly (never write them).
+# read-only model access: domain apps may query clients.models.Client/Party/Relationship directly (never write them).
 ```
 
 ### Job kinds
 | Kind | Registered by | Enqueued by |
 |---|---|---|
-| `graph.sync` | B (graph) | A on commit (outbox non-empty) and a 1 s worker tick |
-| `screening.client` / `screening.rescreen_org` | B | A (submit, `/screen`), B (list update) |
-| `risk.assess_client` | B | A (submit), B (structure change, hit decision) |
-| `resolution.find_candidates` | B | A (party created/imported), seed |
-| `monitoring.daily` | B | worker scheduler (daily) |
-| `retention.run` | A | `/settings/retention/run` |
-| `registry.import` | A | `/clients/{id}/registry-import` |
+| `graph.sync` | graph | API on commit (outbox non-empty) and a 1 s worker tick |
+| `screening.client` / `screening.rescreen_org` | screening | API (submit, `/screen`), screening (list update) |
+| `risk.assess_client` | risk | API (submit), domain (structure change, hit decision) |
+| `resolution.find_candidates` | resolution | API (party created/imported), seed |
+| `monitoring.daily` | monitoring | worker scheduler (daily) |
+| `retention.run` | clients | `/settings/retention/run` |
+| `registry.import` | clients | `/clients/{id}/registry-import` |
 
 ### Graph writer rule (ADR 0002)
 `GRAPH_WRITER=worker`: only the worker opens the graph read-write; the API opens it read-only and reopens when
@@ -685,36 +684,33 @@ org_settings(org_id) -> dict                             # OrgSettings, snake_ca
 
 ---
 
-# Part 4: Module ownership
+# Part 4: Module map
 
-| Area | Owner | Paths |
-|---|---|---|
-| Platform: settings, core (errors, middleware, logging, metrics, pagination, throttling, camelCase), URL map | **A** | `backend/kinroot/**` except `contracts.py` |
-| Contracts (frozen; change by agreement) | lead → A + B | `backend/kinroot/contracts.py`, `backend/*/api.py` signatures, `docs/API_CONTRACT.md` |
-| Accounts, auth, sessions, RBAC, invitations, settings, training register, retention | **A** | `backend/accounts/**` |
-| HTTP API (all views, serializers, URL routing, SSE stream) | **A** | `backend/api/**` |
-| Audit trail | **A** | `backend/audit/**` |
-| Jobs queue, worker command, event outbox | **A** | `backend/jobs/**` |
-| Clients system of record, onboarding, documents, verification (mock), consent, EDD workflow + sign-off, tipping-off holds | **A** | `backend/clients/**` |
-| Concerns, cases, SMR drafting, case access | **A** | `backend/cases/**` |
-| Demo seed + reset commands (calls B's APIs after inserting rows) | **A** | `backend/clients/management/commands/seed_demo.py`, `reset_demo.py` |
-| Platform + API tests | **A** | `backend/tests/platform/**`, `backend/tests/api/**` |
-| Graph store (LadybugDB / Neo4j adapter), sync, UBO, paths, diff, clusters, features | **B** | `backend/graph/**` |
-| Entity resolution: features, Fellegi-Sunter, LightGBM matcher, training, thresholds, SHAP | **B** | `backend/resolution/**` |
-| Screening lists + matcher + bundled sample lists | **B** | `backend/screening/**` |
-| Risk rules methodology, EDD triggers, ML challenger + training | **B** | `backend/risk/**` |
-| Monitoring, review schedule, drift (PSI) | **B** | `backend/monitoring/**` |
-| Investigation assistant (tools, offline fake, LiteLLM adapter) | **B** | `backend/assistant/**` |
-| Committed small model artifacts | **B** | `backend/artifacts/models/**` |
-| Eval harness + results | **B** | `eval/**` (`eval/run.py`, `eval/RESULTS.md`) |
-| Domain tests | **B** | `backend/tests/domain/**`, `backend/tests/graph/**`, `backend/tests/ml/**` |
-| Data fetchers | lead (B maintains) | `scripts/**` |
-| Web app | **C** | `frontend/**` |
-| Makefile, CI, README, docs/ADRs | lead (each builder appends their section) | root, `docs/**`, `.github/**` |
+| Area | Paths |
+|---|---|
+| Platform: settings, core (errors, middleware, logging, metrics, pagination, throttling, camelCase), URL map | `backend/kinroot/**` |
+| Shared dataclasses and public domain interfaces (Part 3) | `backend/kinroot/contracts.py`, `backend/*/api.py` |
+| Accounts, auth, sessions, RBAC, invitations, settings, training register | `backend/accounts/**` |
+| HTTP API (views, serializers, URL routing, SSE stream) | `backend/api/**` |
+| Audit trail (per-organisation hash chain) | `backend/audit/**` |
+| Jobs queue, worker command, event outbox | `backend/jobs/**` |
+| Clients system of record, onboarding, documents, verification (mock), consent, EDD workflow and sign-off, holds, registry import, retention | `backend/clients/**` |
+| Demo seed and reset commands | `backend/clients/management/commands/seed_demo.py`, `reset_demo.py` |
+| Concerns, cases, SMR drafting, case access | `backend/cases/**` |
+| Graph store (LadybugDB, Neo4j adapter), sync, UBO, paths, diff, clusters, features | `backend/graph/**` |
+| Entity resolution: normalisation, blocking, features, Fellegi-Sunter, LightGBM matcher, training, thresholds, SHAP | `backend/resolution/**` |
+| Screening lists, matcher, bundled sample lists, attribution | `backend/screening/**` |
+| Risk rules methodology, EDD triggers, challenger model and training, model registry | `backend/risk/**` |
+| Monitoring, review schedule, alerts | `backend/monitoring/**` |
+| Investigation assistant (graph tools, offline planner, optional cloud adapter) | `backend/assistant/**` |
+| Committed model artifacts and model cards | `backend/artifacts/models/**` |
+| Tests: platform, API, domain, graph, ML | `backend/tests/**` |
+| Evaluation harness, gates and results | `eval/**` |
+| Public data downloaders and the graph smoke check | `scripts/**` |
+| Web app | `frontend/**` |
 
-Migrations: each owner generates migrations only for their own apps. Shared files (`settings.py`, `Makefile`,
-`requirements.lock`, `pyproject.toml`) change only with a note to the other builders; new dependencies are pinned
-exactly and the lock regenerated under the heavy lock.
+Migrations live with their app. New dependencies are pinned exactly and frozen in `backend/requirements.lock`
+(`make lock`).
 
 ---
 
@@ -755,9 +751,9 @@ challenger is expected to disagree.
 | 5 | `orchard-lane` | Orchard Lane Investments Pty Ltd | company | Member of the same cycle | medium |
 | 6 | `lumen-trade` | Lumen Trade Pty Ltd | company | **Nominee-director cluster**: director Gregory Pell (address Suite 4, 88 Victoria St, Mahé, SC) who also directs 41 dormant companies; registered office shared | high |
 | 7 | `silverbirch` | Silverbirch Imports Pty Ltd | company | Same nominee cluster (Pell + shared address) | high |
-| 8 | `coralline` | Coralline Logistics Pty Ltd | company | Same nominee cluster; also shares an accountant's address with #6 | medium ✱ |
+| 8 | `coralline` | Coralline Logistics Pty Ltd | company | Same nominee cluster; also shares an accountant's address with #6 | high ✱ |
 | 9 | `aurelian-shipping` | Aurelian Shipping Pty Ltd | company | **Sanctions near-match #1** (likely true match): 100% owned by Aurelian Maritime FZE (AE), near-match to `SAMPLE-SAN-0007` "Aurelian Maritime FZCO" (same city, shared director surname) → pending hit; open **case + SMR draft** (access: Daniel full, Margaret summary) | high |
-| 10 | `petrov-alexei` | Alexei Petrov | individual | **Sanctions near-match #2** (false positive): name match to `SAMPLE-SAN-0012` "Aleksei Petrov", different birth year and nationality → pending hit | low |
+| 10 | `petrov-alexei` | Alexei Petrov | individual | **Sanctions near-match #2** (false positive): name match to `SAMPLE-SAN-0012` "Aleksei Petrov", different birth year and nationality → pending hit; rated medium while the hit is pending | medium |
 | 11 | `whitfield-julian` | Hon. Julian Whitfield | individual | **PEP** (fictional NSW Legislative Council member, `SAMPLE-PEP-0003`): confirmed PEP hit; EDD source-of-wealth done; awaiting **senior approval** (Margaret) | high |
 | 12 | `whitfield-family` | Whitfield Family Super Fund | trust | SMSF; PEP is member and trustee director → PEP in structure | medium |
 | 13 | `ferris-wu` | Ferris & Wu Partners | partnership | Accounting partnership, 3 partners | low |
@@ -766,14 +762,14 @@ challenger is expected to disagree.
 | 16 | `oconnor-sean` | Sean O'Connor | individual | Home buyer; **duplicate entry** "Sean OConnor", same DOB → auto-merge | low |
 | 17 | `patel-riya` | Riya Patel | individual | Property sale; review overdue by 40 days | low |
 | 18 | `harrow-mining` | Harrow Mining Services Pty Ltd | company | 3-layer AU group; one director change in last 90 days → **officer_change alert** | medium |
-| 19 | `kestrel-holdings-uk` | Kestrel Holdings (UK) Ltd | company | UK parent with PSC chain (Companies House sample shape); shares officer with Kestrel Ventures (#1) | medium |
+| 19 | `kestrel-holdings-uk` | Kestrel Holdings (UK) Ltd | company | UK parent with PSC chain (Companies House sample shape); shares officer with Kestrel Ventures (#1) | high |
 | 20 | `blue-gum` | Blue Gum Childcare Ltd | company | Company limited by guarantee (charity); no UBO by ownership → senior managing officials | low |
-| 21 | `marlowe-art` | Marlowe Fine Art Pty Ltd | company | Art dealer; cash-heavy service flag; review due in 10 days | medium |
+| 21 | `marlowe-art` | Marlowe Fine Art Pty Ltd | company | Art dealer; cash-heavy service flag; review due in 10 days | low |
 | 22 | `sato-kenji` | Kenji Sato | individual | Non-resident (JP) buyer, remote channel | medium |
 | 23 | `delacroix-trust` | Delacroix Unit Trust | trust | Unit trust: three unit holders 34/33/33 → all UBOs | medium |
 | 24 | `northshore-dental` | Northshore Dental Group Pty Ltd | company | Simple 2-owner company | low |
 | 25 | `ironbark-ventures` | Ironbark Ventures Pty Ltd | company | **Ownership change** last month: new 40% holder via Cayman entity (KY) → ownership_change alert + risk change | high ✱ |
-| 26 | `greenfield-estates` | Greenfield Estates Pty Ltd | company | **Duplicate person** across structures: "Benjamin Okafor" (here) vs "Ben Okafor" (#1), same DOB, different address → review-band candidate | medium |
+| 26 | `greenfield-estates` | Greenfield Estates Pty Ltd | company | **Duplicate person** across structures: "Benjamin Okafor" (here) vs "Ben Okafor" (#1), same DOB, different address → review-band candidate | low |
 | 27 | `murray-chen` | Murray Chen | individual | Two records "Murray Chen" vs "Murray Cheng", different DOB → reject-band candidate | low |
 | 28 | `southbank-holdings` | Southbank Holdings Pty Ltd | company | Unknown owner: 30% held by bearer-style undisclosed holder → `unknown_owner` | high |
 | 29 | `lim-family` | Lim Family Trust | trust | Fixed-entitlement beneficiaries; onboarding **incomplete** (missing ID for one beneficiary) | – (onboarding) |
@@ -805,7 +801,7 @@ whenever `SANCTIONS_SOURCE=bundled` (default). With `SANCTIONS_SOURCE=opensancti
 - **Commit messages** are conventional (`feat:`, `fix:`, `test:`, `docs:`, `chore:`, `ci:`, `refactor:`, `perf:`),
   in logical batches, with no dates and no tool attribution. Stage explicit paths; never commit `data/`, `.venv`,
   `node_modules`, `mlruns/`, `.env` or `*.db`.
-- **One heavy process at a time** on the build machine: every install, test run, server, training job or download
-  runs under `~/Work/_playbook/heavy <OWNER> <cmd…>`. Stop what you start.
+- **One heavy process at a time** on small machines: run installs, test suites, servers, training jobs and downloads
+  one after another, and stop what you start.
 - **Client-facing copy** never shows engineering vocabulary (see the standards' forbidden list); say "second-opinion
   check" or "pattern check" in the UI, "challenger" only in docs.

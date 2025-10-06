@@ -1,6 +1,6 @@
 # Kinroot frontend design: the investigation board
 
-> Copy this file to `~/Work/kinroot/frontend/DESIGN.md`. The static prototype lives in `prototype/` next to this file (open `index.html`, `dossier.html` or `fuse.html` directly; add `?theme=dark` or `?still` for the settled, reduced-motion state). Screenshots are in `shots/`. Build to this document; the prototype is the visual reference for type, colour, spacing and the graph grammar.
+> The design was first worked out as a static HTML prototype (not part of this repository). The app follows this document for type, colour, spacing and the graph grammar.
 
 Kinroot is customer due diligence and beneficial-ownership software for Australian law firms, accountants and conveyancers coming under the AML/CTF Act through the Tranche 2 reforms, and for UK firms under the Money Laundering Regulations 2017. The demo firm is **Harbourline Legal (Sydney)**.
 
@@ -10,7 +10,7 @@ Stack: React + Vite + React Router + TanStack Query + Tailwind 4.1 (tokens below
 
 ## 1. References
 
-Every reference was re-opened in November 2026. Where a vendor page is marketing-only, the "take" comes from their documentation or release notes, as noted.
+Every reference was reviewed before design work began. Where a vendor page is marketing-only, the "take" comes from their documentation or release notes, as noted.
 
 | # | Reference | What we take |
 |---|---|---|
@@ -24,7 +24,7 @@ Every reference was re-opened in November 2026. Where a vendor page is marketing
 | 8 | Chainalysis Reactor: https://www.chainalysis.com/product/reactor/ (and The Block, May 2022, on "Storyline") | Trace across unlimited hops; a separate chronological "storyline" view of the same entities. → Dossier **Timeline** tab: the same structure told as dated events (incorporations, appointments, share transfers, screenings). |
 | 9 | Maltego Graph release notes and docs: https://docs.maltego.com/en/support/solutions/articles/15000059555 , https://support.maltego.com/en/support/solutions/articles/15000019236-detail-view | **Collection nodes** for many similar entities, hover actions (pin, bookmark, note), and a selected-entity card with previous/next. → Our dotted "41 companies" stack; `J`/`K` previous/next in every review queue. |
 | 10 | OpenCorporates corporate networks (ODI write-up): https://theodi.org/news-and-events/blog/power-of-open-data-reveals-global-corporate-networks/ and "corporate sprawl" analysis: https://onlinejournalismblog.com/2012/04/12/mapping-the-tesco-corporate-organisational-sprawl-an-initial-sketch/ | Grouping companies by **shared directors** (co-director projection). → The constellation clusters clients that share an officer or address, which is how nominee-director clusters become visible. |
-| 11 | Cambridge Intelligence KeyLines combos: https://cambridge-intelligence.com/?p=30003 | Combos: group nodes and hide the detail beneath them until opened (detail on demand). → A client pin on the constellation opens into its structure; stacks open into their members. (We do **not** take their time bar; a scrubbing ruler belongs to Plotline.) |
+| 11 | Cambridge Intelligence KeyLines combos: https://cambridge-intelligence.com/?p=30003 | Combos: group nodes and hide the detail beneath them until opened (detail on demand). → A client pin on the constellation opens into its structure; stacks open into their members. (We do **not** take their time bar: point-in-time views use an "As at / Compared with" date stamp instead of a scrubbing ruler.) |
 | 12 | Kumu views: https://docs.kumu.io/guides/views | Several named views over one map, with a toggle control. → Constellation **lenses** (Risk · Review due · Shared officers · Screening). |
 | 13 | Obsidian graph view: https://obsidian.md/help/plugins/graph | Local graph with depth, hover dims everything that is not a neighbour, colour groups by query. → Hover/focus on a node dims non-neighbours to 35%; "Focus mode" limits depth. |
 | 14 | Sigma.js: https://www.sigmajs.org/ (v3 API) | WebGL rendering for the full client book, camera animation, reducers for highlight/dim, `setCustomBBox` to stop the camera jumping while nodes unfold, `createEdgeArrowProgram` for weighted arrowheads. |
@@ -433,7 +433,7 @@ Light is the default; dark is a full theme (not an inversion). The spine is ink-
 | `--edge-ctrl` | `#6B7377` | `#858E92` | Control edges |
 | `--edge-faint` | `#B9C0BE` | `#3A4246` | Constellation links, minimap |
 
-Hue family: oxblood ≈ 350°, unique in the portfolio. **No orange anywhere** (Plotline). No gradients except the hatch. Shadows: `--shadow-paper` (three-layer soft paper shadow) and `--shadow-drawer` (left-cast).
+Hue family: oxblood ≈ 350°. **No orange anywhere.** No gradients except the hatch. Shadows: `--shadow-paper` (three-layer soft paper shadow) and `--shadow-drawer` (left-cast).
 
 ## 9. Status language (never colour alone)
 
@@ -521,9 +521,9 @@ Libraries: Motion for drawer, tabs, tray and layout; Sigma camera `animate` + a 
 | **Seal check** | Verify the chain: each row's chain-link glyph closes (two halves meet, 160 ms) with a 25 ms stagger, then the summary line appears | | summary only |
 | **Fly to** | camera to a pin from the constellation | 450 ms quadInOut | jump |
 
-What Kinroot **never** uses: self-drawing outlines with `stroke-dashoffset` or time-ruler scrubs (Plotline), plain 150 ms page fades as the only motion (Necessa), 3D flips, parallax or scroll-jacking.
+What Kinroot **never** uses: self-drawing outlines with `stroke-dashoffset`, time-ruler scrubs, plain 150 ms page fades as the only motion, 3D flips, parallax or scroll-jacking.
 
-`prefers-reduced-motion: reduce` switches every row to its right-hand column; the landing renders its settled state (`?still` in the prototype shows exactly that).
+`prefers-reduced-motion: reduce` switches every row to its right-hand column; the landing renders its settled state.
 
 ## 13. Copy voice
 
@@ -533,29 +533,29 @@ Precise, legal, calm. Short declaratives. Sentence case. No exclamation marks, n
 - **The machine-learning parts are described by what they do:** "match likelihood 87 in 100", "second opinion", "pattern check". The rules-based rating is "the risk method".
 - **Compliance claims:** "designed to support", "aligned with", "built for the AML/CTF Act 2006 and the UK Money Laundering Regulations 2017". Never "certified", "compliant", "guarantees" or "approved by AUSTRAC/the FCA".
 - **Tipping-off:** restricted copy says what to do, not what is inside ("Restricted. Do not discuss this with the client or anyone outside this list."). Error and empty states never reveal whether a restricted record exists.
-- **Forbidden in rendered UI (STANDARDS §4):** RAG, retrieval, embeddings, vector, rerank, LLM, model or provider names (GPT, Gemini, Groq, Llama, Claude…), LiteLLM, prompt, tokens, SQL, architecture, pipeline, agent internals, A2A/MCP, latency, fallback, cache. Also avoid for this product: "AI-powered", "smart", "magic", "algorithm", "Cypher", "graph database", "node"/"edge" in user-facing copy (say person, company, trust, link, connection; the citation ids `E-07` stay).
-- **Dates and the as-of convention (coordinator rule):** the repo's copy is written as of **mid-October 2025**. Australia's Tranche 2 obligations **"commence 1 July 2026"**; never "are now live", "took effect" or "since July" in hard-coded text. Anything time-sensitive is computed at runtime from today's date: before 1 July 2026, "Tranche 2 obligations start in N days"; from that date, "Tranche 2 obligations in force since 1 July 2026" (see `prototype/index.html`). SMR deadlines, review-due tags, "new this week" and seeded demo dates are relative to today at runtime. Keep all other copy timeless.
+- **Never in rendered UI:** RAG, retrieval, embeddings, vector, rerank, LLM, model or provider names, LiteLLM, prompt, tokens, SQL, architecture, pipeline, agent internals, A2A/MCP, latency, fallback, cache. Also avoid for this product: "AI-powered", "smart", "magic", "algorithm", "Cypher", "graph database", "node"/"edge" in user-facing copy (say person, company, trust, link, connection; the citation ids `E-07` stay).
+- **Dates and the as-of convention:** the repo's copy is written as of **mid-October 2025**. Australia's Tranche 2 obligations **"commence 1 July 2026"**; never "are now live", "took effect" or "since July" in hard-coded text. Anything time-sensitive is computed at runtime from today's date: before 1 July 2026, "Tranche 2 obligations start in N days"; from that date, "Tranche 2 obligations in force since 1 July 2026". SMR deadlines, review-due tags, "new this week" and seeded demo dates are relative to today at runtime. Keep all other copy timeless.
 
-## 14. How this differs from Necessa and Plotline
+## 14. Design choices at a glance
 
-| Dimension | Necessa | Plotline (Field Atlas) | **Kinroot** |
-|---|---|---|---|
-| Metaphor | Clinical worklist | Field atlas + surveyor's ledger | **Investigation board + case dossiers** |
-| App shell | Light left sidebar with org card and grouped text nav, top search | Two-tier masthead with mono caps section tabs over a full-bleed map | **Ink-black 64 px icon spine + infinite graph board + right dossier drawer with folder tabs** |
-| Landing | Headline left, product card right, 4-up stat strip | Huge centred serif date over a topographic map, scroll story | **The board itself: type into the client pin, roots grow, red string pulled; headline is a small caption bottom-left** |
-| Home | "Good evening, Maya" + Today list + 4 KPI cards | Map of plots with floating ledger and time ruler | **Client constellation: every client a pin, clustered by shared officers, file tray of decisions** |
-| Data idiom | Lists and cards with score rings | Map layers, ledger rows, stamped statements | **Graph + ledger twin + reason lists with cited links** |
-| Type | System sans | Newsreader serif + IBM Plex Mono caps labels | **Spectral (speaks) + Hanken Grotesk (works) + Red Hat Mono (counts only); sentence-case labels** |
-| Palette | Neutral grey + indigo | Warm map paper #ECE7DB + slate + surveyor orange | **Cool bond-grey #E8EBEA dot grid + white paper + oxblood #9B1C31 string; no orange** |
-| Shape | 8–12 px radius cards | Square boxes, ruled forms, rubber stamp | **2 px paper, notched folder tabs, pinned slips, BOVS node shapes** |
-| Motion | 150 ms fades | Self-drawing outlines, fly-to, time-ruler scrub | **Unfold springs, slack-to-taut string with travelling knot, stitch fuse/unpick, redaction sweep** |
-| Signature interactions | Live check progress, quote highlight | Ruler scrub across cut-off, statement stamp | **Pull the thread · Fuse or split · Before/after overlay (date stamp, not a ruler)** |
-| CTAs | Explore the demo / Create an account | Open the Northbank atlas / Start your atlas | **Trace a client / Open Harbourline's files** |
-| Logo | Indigo app tile "M" | Folded-map glyph + serif wordmark | **Spectral italic wordmark + knotted-thread glyph** |
+| Dimension | Kinroot |
+|---|---|
+| Metaphor | **Investigation board + case dossiers** |
+| App shell | **Ink-black 64 px icon spine + infinite graph board + right dossier drawer with folder tabs** |
+| Landing | **The board itself: type into the client pin, roots grow, red string pulled; headline is a small caption bottom-left** |
+| Home | **Client constellation: every client a pin, clustered by shared officers, file tray of decisions** |
+| Data idiom | **Graph + ledger twin + reason lists with cited links** |
+| Type | **Spectral (speaks) + Hanken Grotesk (works) + Red Hat Mono (counts only); sentence-case labels** |
+| Palette | **Cool bond-grey #E8EBEA dot grid + white paper + oxblood #9B1C31 string; no orange** |
+| Shape | **2 px paper, notched folder tabs, pinned slips, BOVS node shapes** |
+| Motion | **Unfold springs, slack-to-taut string with travelling knot, stitch fuse/unpick, redaction sweep** |
+| Signature interactions | **Pull the thread · Fuse or split · Before/after overlay (date stamp, not a ruler)** |
+| CTAs | **Trace a client / Open Harbourline's files** |
+| Logo | **Spectral italic wordmark + knotted-thread glyph** |
 
 ## 15. Prototype
 
-`prototype/` (static, no build): `kinroot.css` (tokens + shell), `board.js` (Sigma + evidence layer, Unfold and Pull the thread), `index.html` (landing with the type-a-client trace), `dossier.html` (dossier with UBO path), `fuse.html` (match review). CDN libraries are pinned: `graphology@0.26.0`, `sigma@3.0.2`, `lucide@0.469.0`, and Google Fonts. `prototype/shoot.mjs` reproduces the screenshots in `shots/` (1440×900 @2×, light and dark, plus the landing's typing and mid-trace frames).
+A static prototype (`kinroot.css`, `board.js`, `index.html`, `dossier.html`, `fuse.html`; no build step) validated the board engine, the landing trace, the dossier and the match review before the app was built. It is not included in this repository; `src/graph/engine.ts` grew out of its `board.js`.
 
 ## 16. Build notes
 
