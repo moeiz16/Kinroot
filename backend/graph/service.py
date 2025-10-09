@@ -220,6 +220,25 @@ def to_path(sub: Subgraph, p: OwnPath, *, ownership: bool = True) -> GraphPath:
     return GraphPath(node_ids=list(p.node_ids), hops=hops, effective_pct=eff, sentence=path_sentence(sub, p))
 
 
+KIND_RANK = {"ownership": 0, "control": 1, "address": 2}
+
+
+def edge_order(sub: Subgraph, e: GEdge) -> tuple[Any, ...]:
+    """Stable, readable edge order: links nearest the focus first, then ownership before control before
+    addresses, larger holdings first, then names. The web app numbers edges E-01, E-02 … in this order, so the
+    same structure always gets the same citation numbers."""
+    names = sub.nodes
+    return (
+        sub.levels.get(e.dst, 99),
+        sub.levels.get(e.src, 99),
+        KIND_RANK.get(e.kind, 3),
+        -(e.pct or 0.0),
+        names[e.src].name if e.src in names else "",
+        names[e.dst].name if e.dst in names else "",
+        e.id,
+    )
+
+
 def _view(
     focus: str | None, as_of: date, sub: Subgraph, decor: Decor, depth: int, org_id: Any, ubo: UboComputation | None
 ) -> GraphView:
@@ -233,7 +252,7 @@ def _view(
         focus_id=focus,
         as_of=as_of,
         nodes=[to_node(n, sub, decor, ubo=ubo) for n in nodes],
-        edges=[to_edge(e) for e in sorted(edges, key=lambda e: e.id)],
+        edges=[to_edge(e) for e in sorted(edges, key=lambda e: edge_order(sub, e))],
         depth=depth,
         truncated=truncated,
         graph_version=sync.current_version(org_id),
@@ -270,11 +289,96 @@ def structure(
     return Structure(client, pid, as_of, sub, ubo, repo)
 
 
+STACK_MIN = 5  # an officer with this many other appointments is drawn with a "N companies" group
+
+
 def client_graph(org_id: Any, client_id: Any, *, as_of: date | None = None, depth: int = 6) -> GraphView:
     st = structure(org_id, client_id, as_of=as_of, depth=depth)
     st.repo.add_addresses(st.sub)
     decor = decorate(org_id, set(st.sub.nodes))
-    return _view(st.party_id, st.as_of, st.sub, decor, depth, org_id, st.ubo)
+    view = _view(st.party_id, st.as_of, st.sub, decor, depth, org_id, st.ubo)
+    add_group_nodes(view, st)
+    return view
+
+
+def add_group_nodes(view: GraphView, st: Structure) -> None:
+    """Open Ownership's grammar for what the records don't name individually:
+    - an undisclosed holder becomes an "Unknown shareholders" node; an entity whose recorded shareholdings fall
+      short of 100% gets one, linked by the missing share;
+    - an officer with many appointments outside the structure gets a "41 companies" stack."""
+    sub, ubo = st.sub, st.ubo
+    by_id = {n.id: n for n in view.nodes}
+    for pid in sorted(ubo.unknown_owner_ids):
+        node = by_id.get(pid)
+        g = sub.nodes.get(pid)
+        if node is None or g is None:
+            continue
+        if g.kind == "other":  # an undisclosed holder on the register
+            node.kind = "unknown"
+            node.sub = f"Not disclosed · recorded as {g.name}"
+            node.label = "Unknown shareholders"
+            node.flags = [f for f in node.flags if f != "unknown_owner"]
+            continue
+        if pid == st.party_id or g.kind == "person":
+            continue
+        links = [e for e in sub.edges.values() if e.dst == pid and e.kind == "ownership"]
+        known = sum(e.pct or 0.0 for e in links)
+        missing = round(100.0 - known, 2)
+        if missing <= 0.01:
+            continue
+        key = f"unknown:{pid}"
+        level = (sub.levels.get(pid) or 0) + 1
+        view.nodes.append(
+            GraphNode(
+                id=key, kind="unknown", label="Unknown shareholders", level=level, sub="Not yet known · 1 or more"
+            )
+        )
+        view.edges.append(
+            GraphEdge(
+                id=f"unknown-edge:{pid}",
+                source=key,
+                target=pid,
+                kind="ownership",
+                label=f"{fmt_pct(missing)}%" if links else "?%",
+                pct=None,
+                source_ref="register gap",
+            )
+        )
+    officers = sorted(
+        {e.src for e in sub.edges.values() if e.kind == "control" and e.role in OFFICER_ROLES and e.src in by_id}
+    )
+    if not officers:
+        return
+    counts = st.repo.appointment_counts(officers, st.as_of, sorted(OFFICER_ROLES))
+    for pid in officers:
+        total, dormant = counts.get(pid, (0, 0))
+        inside = sum(1 for e in sub.edges.values() if e.src == pid and e.kind == "control" and e.role in OFFICER_ROLES)
+        outside = total - inside
+        if outside < STACK_MIN:
+            continue
+        key = f"stack:{pid}"
+        view.nodes.append(
+            GraphNode(
+                id=key,
+                kind="stack",
+                label=f"{outside} companies",
+                level=(sub.levels.get(pid) or 0) + 1,
+                count=outside,
+                sub="Dormant" if dormant * 2 >= outside else "Other appointments",
+                flags=["dormant"] if dormant * 2 >= outside else [],
+            )
+        )
+        view.edges.append(
+            GraphEdge(
+                id=f"stack-edge:{pid}",
+                source=pid,
+                target=key,
+                kind="control",
+                label="Directs",
+                role="director",
+                source_ref="register",
+            )
+        )
 
 
 def party_graph(org_id: Any, party_id: Any, *, as_of: date | None = None, depth: int = 2) -> GraphView:
@@ -288,6 +392,22 @@ def party_graph(org_id: Any, party_id: Any, *, as_of: date | None = None, depth:
     repo.add_addresses(sub, [pid, *[n for n, lvl in sub.levels.items() if lvl <= 1]])
     decor = decorate(org_id, set(sub.nodes))
     return _view(pid, as_of, sub, decor, depth, org_id, None)
+
+
+def subgraph(org_id: Any, node_ids: list[str], edge_ids: list[str], *, as_of: date | None = None) -> GraphView:
+    """Exactly the given parties and links (e.g. the ones an assistant answer cites), decorated like any other view.
+    Levels are left to the renderer; ids the caller cannot see (other firms, merged-away records) are dropped."""
+    as_of = as_of or today()
+    repo = sync.read_repo(org_id)
+    party_ids = [i for i in node_ids if not str(i).startswith("addr:")]
+    sub = repo.neighbourhood(party_ids, as_of, depth=1) if party_ids else Subgraph()
+    repo.add_addresses(sub, party_ids)
+    wanted_nodes, wanted_edges = set(map(str, node_ids)), set(map(str, edge_ids))
+    sub.nodes = {k: n for k, n in sub.nodes.items() if k in wanted_nodes}
+    sub.edges = {k: e for k, e in sub.edges.items() if k in wanted_edges and e.src in sub.nodes and e.dst in sub.nodes}
+    sub.levels = {}
+    decor = decorate(org_id, set(sub.nodes))
+    return _view(None, as_of, sub, decor, 1, org_id, None)
 
 
 def beneficial_owners(

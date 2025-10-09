@@ -46,6 +46,11 @@ def party_graph(org_id: uuid.UUID, party_id: uuid.UUID, *, as_of: date | None = 
     return service.party_graph(org_id, party_id, as_of=as_of, depth=depth)
 
 
+def subgraph(org_id: uuid.UUID, node_ids: list[str], edge_ids: list[str], *, as_of: date | None = None) -> GraphView:
+    """Just these parties and links, for drawing an assistant answer's cited path without one call per party."""
+    return service.subgraph(org_id, node_ids, edge_ids, as_of=as_of)
+
+
 def beneficial_owners(
     org_id: uuid.UUID, client_id: uuid.UUID, *, as_of: date | None = None, threshold_pct: float | None = None
 ) -> UboResult:

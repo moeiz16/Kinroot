@@ -194,3 +194,64 @@ def test_ending_a_relationship_updates_the_graph(hq):
     rel.save()
     r = graph.beneficial_owners(hq.org_id, hq.c["harbour-quay"].id, as_of=date(2024, 6, 1))
     assert "Ben Okafor" not in {o.name for o in r.owners}
+
+
+def test_edges_are_numbered_nearest_the_client_first(hq):
+    """E-01, E-02 … follow the payload order, so it must be stable and readable: hop 1 before hop 2."""
+    view = graph.client_graph(hq.org_id, hq.c["harbour-quay"].id)
+    level = {n.id: n.level for n in view.nodes}
+    parties = [e for e in view.edges if e.kind != "address" and not e.id.startswith(("unknown-", "stack-"))]
+    assert parties[0].target == str(hq.p["hq"].id) and parties[0].source == str(hq.p["kes"].id)
+    targets = [level[e.target] for e in parties]
+    assert targets == sorted(targets)
+    again = graph.client_graph(hq.org_id, hq.c["harbour-quay"].id)
+    assert [e.id for e in again.edges] == [e.id for e in view.edges]
+
+
+def test_missing_shareholders_become_an_unknown_group(hq):
+    """Kestrel Ventures has 80% on record: the other 20% is drawn as "Unknown shareholders"."""
+    view = graph.client_graph(hq.org_id, hq.c["harbour-quay"].id)
+    kes = str(hq.p["kes"].id)
+    unknown = next(n for n in view.nodes if n.kind == "unknown")
+    assert unknown.id == f"unknown:{kes}" and unknown.label == "Unknown shareholders"
+    edge = next(e for e in view.edges if e.source == unknown.id)
+    assert edge.target == kes and edge.label == "20%" and edge.pct is None
+
+
+def test_undisclosed_holder_is_drawn_as_unknown(world):
+    world.person("g", "Gareth Lloyd")
+    world.party("bearer", "other", "Undisclosed bearer shareholder")
+    world.company("sb", "Southbank Holdings Pty Ltd")
+    world.own("g", "sb", 70)
+    world.own("bearer", "sb", 30)
+    world.client("sb", "sb")
+    view = graph.client_graph(world.org_id, world.c["sb"].id)
+    node = next(n for n in view.nodes if n.id == str(world.p["bearer"].id))
+    assert node.kind == "unknown" and node.label == "Unknown shareholders"
+    assert "Undisclosed bearer shareholder" in (node.sub or "")
+    assert not any(n.id.startswith("unknown:") for n in view.nodes)
+
+
+def test_busy_officer_gets_a_stack_of_other_companies(world):
+    world.person("pell", "Gregory Pell", is_nominee=True)
+    world.company("lumen", "Lumen Trade Pty Ltd")
+    world.control("pell", "lumen", "director")
+    for i in range(6):
+        world.company(f"d{i}", f"Dormant Shell {i} Ltd", dormant=True)
+        world.control("pell", f"d{i}", "director")
+    world.client("lumen", "lumen")
+    view = graph.client_graph(world.org_id, world.c["lumen"].id)
+    stack = next(n for n in view.nodes if n.kind == "stack")
+    assert stack.count == 6 and stack.label == "6 companies" and stack.sub == "Dormant"
+    edge = next(e for e in view.edges if e.target == stack.id)
+    assert edge.source == str(world.p["pell"].id) and edge.kind == "control" and edge.label == "Directs"
+
+
+def test_subgraph_returns_exactly_the_cited_parties(hq):
+    ids = [str(hq.p["kes"].id), str(hq.p["hq"].id), str(hq.p["bell"].id)]
+    edge = str(hq.r["kes>hq"].id)
+    view = graph.subgraph(hq.org_id, ids, [edge])
+    assert {n.id for n in view.nodes} == set(ids)
+    assert [e.id for e in view.edges] == [edge]
+    other = World("Other Firm")
+    assert graph.subgraph(other.org_id, ids, [edge]).nodes == []

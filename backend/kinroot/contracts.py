@@ -20,7 +20,9 @@ from typing import Any, Literal
 
 # ── Enumerations (wire values) ────────────────────────────────────────────────────────────────────
 PartyKind = Literal["person", "company", "trust", "partnership", "other"]
-NodeKind = Literal["person", "company", "trust", "partnership", "other", "address"]
+# "unknown" (undisclosed or missing holders) and "stack" (many similar companies) are group nodes added by the
+# client graph view; their keys are "unknown:<partyId>" / "stack:<partyId>" and they never reach the database.
+NodeKind = Literal["person", "company", "trust", "partnership", "other", "address", "unknown", "stack"]
 EdgeKind = Literal["ownership", "control", "address"]
 Interest = Literal["shares", "units", "partnership", "trust_entitlement", "voting_rights"]
 ControlRole = Literal[
@@ -99,6 +101,8 @@ class GraphNode:
     level: int | None = None  # hop distance from the focus node (layered layout hint)
     effective_pct: float | None = None  # effective ownership of the focus client (people/entities upstream)
     merged_count: int = 0  # number of source records fused into this node
+    count: int | None = None  # group nodes: how many parties the group stands for
+    sub: str | None = None  # group nodes: a short caption ("Dormant", "Not disclosed · 1 or more")
 
 
 @dataclass
