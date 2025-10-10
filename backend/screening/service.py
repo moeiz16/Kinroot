@@ -37,6 +37,9 @@ _index_cache: dict[str, Any] = {"key": None, "index": None}
 
 
 # ── Loading ───────────────────────────────────────────────────────────────────────────────────────
+SAMPLE_TITLES = {"pep": "Sample PEP list", "sanctions": "Sample sanctions list"}
+
+
 def _ftm_entry(ent: dict[str, Any], list_kind: str) -> dict[str, Any] | None:
     if ent.get("schema") not in OS_SCHEMAS:
         return None
@@ -125,7 +128,13 @@ def load_lists(*, source: str | None = None) -> dict[str, str]:
     version, rows = _bundled_rows()
     for kind, items in rows.items():
         _, created = _load_version(
-            "bundled-sample", kind, version, items, title=f"Sample {kind} list", licence="sample", sample=True
+            "bundled-sample",
+            kind,
+            version,
+            items,
+            title=SAMPLE_TITLES.get(kind, f"Sample {kind} list"),
+            licence="sample",
+            sample=True,
         )
         created_any |= created
         loaded[f"bundled-sample:{kind}"] = version

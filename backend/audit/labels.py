@@ -57,6 +57,35 @@ LABELS = {
     "hold.released": "Released a hold on client contact",
     "concern.raised": "Raised an internal concern",
     "case.opened": "Opened a case",
+    "case.updated": "Updated a case",
+    "case.closed": "Closed a case without a report",
+    "case.access_changed": "Changed who can see a case",
+    "concern.linked": "Linked a concern to a case",
+    "smr.saved": "Saved a report draft",
+    "smr.submitted": "Lodged a suspicious-matter report",
+    "audit.exported": "Exported the activity log",
+    "screening.rescreen": "Screened every client again",
+    "screening.run": "Screened {client}",
+    "resolution.auto_merged": "Fused duplicate records automatically",
+    "resolution.proposed": "Proposed fusing two records",
+    "resolution.split": "Split a fused record",
+    "risk.disagreement_resolved": "Settled a second-opinion difference",
+    "risk.methodology_published": "Published a new risk method",
+    "models.promoted": "Approved a new second-opinion version",
+    "monitoring.review_completed": "Completed a periodic review of {client}",
+    "monitoring.review_scheduled": "Scheduled a periodic review of {client}",
+    "alert.raised": "Raised a monitoring alert",
+    "monitoring.alert_resolved": "Marked a monitoring alert as handled",
+    "monitoring.alert_dismissed": "Dismissed a monitoring alert with a reason",
+    "assistant.asked": "Asked the board a question",
+    "assistant.pinned": "Pinned an answer to {client}'s file",
+    "retention.run": "Ran a retention review",
+}
+
+AREA_WORDS = {
+    "smr": "Report",
+    "edd": "Enhanced due diligence",
+    "ubo": "Beneficial owners",
 }
 
 
@@ -64,5 +93,6 @@ def label_for(action: str, metadata: dict[str, Any] | None = None, client_name: 
     template = LABELS.get(action)
     if template is None:
         area, _, verb = action.partition(".")
-        template = f"{area.capitalize()}: {verb.replace('_', ' ')}" if verb else action
+        area_word = AREA_WORDS.get(area, area.replace("_", " ").capitalize())
+        template = f"{area_word}: {verb.replace('_', ' ')}" if verb else action.replace("_", " ")
     return template.replace("{client}", client_name or "a client")

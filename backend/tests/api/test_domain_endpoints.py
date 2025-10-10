@@ -270,3 +270,43 @@ def test_assistant_question_limits(as_role, monkeypatch):
         format="json",
     )
     assert resp.status_code == 404
+
+
+def test_assistant_answer_carries_its_graph(as_role):
+    """The answer includes the cited parties and links as one graphology payload (null when nothing was traced)."""
+    body = (
+        as_role("compliance_officer")
+        .post("/api/v1/assistant/ask", {"question": "Who controls Nobody Pty Ltd?"}, format="json")
+        .json()
+    )
+    assert "graph" in body and body["graph"] is None
+    history = as_role("compliance_officer").get("/api/v1/assistant/history").json()
+    assert history and "graph" in history[0]
+
+
+def test_holds_are_listed_for_the_compliance_officer_only(as_role, client_record):
+    co = as_role("compliance_officer")
+    assert co.get(f"/api/v1/clients/{client_record.id}/holds").json() == {"active": False, "holds": []}
+    assert (
+        co.post(
+            f"/api/v1/clients/{client_record.id}/holds", {"note": "Waiting on our review."}, format="json"
+        ).status_code
+        == 201
+    )
+    body = co.get(f"/api/v1/clients/{client_record.id}/holds").json()
+    assert body["active"] and body["holds"][0]["reason"] == "manual" and body["holds"][0]["note"]
+    assert as_role("fee_earner").get(f"/api/v1/clients/{client_record.id}/holds").status_code == 403
+    assert co.post(
+        f"/api/v1/clients/{client_record.id}/holds/release", {"note": "Review done."}, format="json"
+    ).json() == {"released": 1}
+
+
+def test_pinned_answers_list_and_unknown_answer(as_role, client_record):
+    co = as_role("compliance_officer")
+    assert co.get(f"/api/v1/clients/{client_record.id}/pins").json() == []
+    resp = co.post(
+        "/api/v1/assistant/answers/55555555-5555-5555-5555-555555555555/pin",
+        {"clientId": str(client_record.id)},
+        format="json",
+    )
+    assert resp.status_code == 404

@@ -1,4 +1,5 @@
-"""Data-source attribution shown on the app's Sources page and returned with list versions."""
+"""Data-source attribution, returned with each list version by `GET /screening/lists` and shown under "Sources" in
+Settings → Screening lists (CC BY-NC 4.0 requires the OpenSanctions credit wherever its data is used)."""
 
 OPENSANCTIONS = (
     "Sanctions and PEP data: OpenSanctions (opensanctions.org), licensed under CC BY-NC 4.0. "

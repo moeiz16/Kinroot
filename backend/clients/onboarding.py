@@ -75,7 +75,7 @@ def _risk_assessed(client: Client) -> bool:
 def build_checklist(client: Client) -> dict[str, Any]:
     items: list[dict[str, Any]] = []
     people, ubos_ok = _ubo_people(client)
-    base = f"/board/clients/{client.id}"
+    base = f"/clients/{client.id}"  # web-app routes: the dossier's folder tabs
     verified = set(
         VerificationCheck.objects.filter(
             org_id=client.org_id, party_id__in=[p.id for p in people], result="verified"
@@ -94,7 +94,7 @@ def build_checklist(client: Client) -> dict[str, Any]:
                 "done": person.id in verified,
                 "required": True,
                 "party_id": str(person.id),
-                "href": f"{base}/identity?party={person.id}",
+                "href": f"{base}/documents?party={person.id}",
             }
         )
         items.append(
@@ -104,7 +104,7 @@ def build_checklist(client: Client) -> dict[str, Any]:
                 "done": person.id in consented,
                 "required": True,
                 "party_id": str(person.id),
-                "href": f"{base}/identity?party={person.id}",
+                "href": f"{base}/documents?party={person.id}",
             }
         )
     is_entity = client.kind != "individual"
@@ -117,7 +117,7 @@ def build_checklist(client: Client) -> dict[str, Any]:
             "label": "Ownership and control structure recorded",
             "done": has_structure,
             "required": is_entity,
-            "href": f"{base}/structure",
+            "href": f"{base}/owners",
         }
     )
     items.append(
@@ -126,7 +126,7 @@ def build_checklist(client: Client) -> dict[str, Any]:
             "label": "Beneficial owners identified",
             "done": ubos_ok,
             "required": True,
-            "href": f"{base}/structure",
+            "href": f"{base}/owners",
         }
     )
     submitted = client.submitted_at is not None or client.status != "onboarding"
@@ -158,7 +158,7 @@ def build_checklist(client: Client) -> dict[str, Any]:
                 "label": "Enhanced due diligence measures complete",
                 "done": status in {"awaiting_compliance", "awaiting_senior", "approved"},
                 "required": True,
-                "href": f"{base}/edd",
+                "href": f"{base}/risk",
             }
         )
         items.append(
@@ -167,7 +167,7 @@ def build_checklist(client: Client) -> dict[str, Any]:
                 "label": "Compliance and senior sign-off",
                 "done": status == "approved",
                 "required": True,
-                "href": f"{base}/edd",
+                "href": f"{base}/risk",
             }
         )
     pre = [i for i in items if i["required"] and i["key"].startswith(PRE_SUBMIT)]

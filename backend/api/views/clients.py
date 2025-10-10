@@ -35,6 +35,7 @@ from api.wire import (
 from clients import onboarding, registry, services
 from clients.models import (
     Client,
+    ClientHold,
     ClientParty,
     Communication,
     Consent,
@@ -45,6 +46,7 @@ from clients.models import (
 )
 from jobs import api as jobs_api
 from jobs.models import Job
+from kinroot.contracts import to_wire
 from kinroot.core.dates import add_years
 from kinroot.core.errors import AppError, conflict, not_found, validation_error
 
@@ -765,6 +767,12 @@ class VerificationView(ClientMixin):
                     "matched": ["name", "birthDate", "documentNumber"] if result == "verified" else ["name"],
                 }
             ]
+        elif party.kind != "person":
+            # an entity is checked against its register; consent is a person's, so it is not asked for here
+            ids = party.identifiers or {}
+            result = "verified" if any(ids.get(k) for k in ("acn", "abn", "uk_company_number")) else "partial"
+            matched = ["name", "identifier"] if result == "verified" else ["name"]
+            sources = [{"name": "Company register (demo)", "matched": matched}]
         else:
             if not Consent.objects.filter(org=self.org, party=party, purpose="electronic_check").exists():
                 raise validation_error(
@@ -967,9 +975,25 @@ class HoldIn(serializers.Serializer):
 
 
 class HoldsView(ClientMixin):
-    """Compliance officer places a hold on client-facing steps (same neutral wording as every other hold)."""
+    """Compliance officer places a hold on client-facing steps (same neutral wording as every other hold), and
+    sees the active ones. Only the compliance officer reads this list, so the reason may be shown."""
 
     permission = "signoff:compliance"
+
+    def get(self, request: Request, client_id: str) -> Response:
+        client = self.get_client(client_id)
+        rows = ClientHold.objects.filter(client=client, released_at__isnull=True).select_related("placed_by")
+        holds = [
+            {
+                "id": str(h.id),
+                "reason": "restricted" if h.reason_code == "restricted" else "manual",
+                "note": h.note,
+                "placed_by_name": h.placed_by.full_name if h.placed_by else "Kinroot",
+                "placed_at": h.created_at,
+            }
+            for h in rows.order_by("created_at")
+        ]
+        return Response(to_wire({"active": bool(holds), "holds": holds}))
 
     def post(self, request: Request, client_id: str) -> Response:
         client = self.get_client(client_id)

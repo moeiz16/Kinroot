@@ -168,9 +168,9 @@ KINROOT = {
     "UBO_THRESHOLD_PCT": float(env_str("UBO_THRESHOLD_PCT", "25")),
     # data sources (docs/DATA.md)
     "SANCTIONS_SOURCE": env_str("SANCTIONS_SOURCE", "bundled"),  # bundled | opensanctions
-    "COMPANIES_HOUSE_SOURCE": env_str("COMPANIES_HOUSE_SOURCE", "bundled"),  # bundled | bulk | api
+    "COMPANIES_HOUSE_SOURCE": env_str("COMPANIES_HOUSE_SOURCE", "bundled"),  # bundled (bulk | api reserved)
     "COMPANIES_HOUSE_API_KEY": env_str("COMPANIES_HOUSE_API_KEY"),
-    "ABN_SOURCE": env_str("ABN_SOURCE", "mock"),  # mock | live
+    "ABN_SOURCE": env_str("ABN_SOURCE", "mock"),  # mock (live reserved)
     "ABN_LOOKUP_GUID": env_str("ABN_LOOKUP_GUID"),
     # ML (ADR 0003, 0004)
     "MODEL_DIR": env_str("MODEL_DIR", str(BACKEND_DIR / "artifacts" / "models")),

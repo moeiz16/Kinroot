@@ -105,6 +105,12 @@ def test_dashboard_counts_follow_permissions(firm):
     assert co["regime"]["daysToCommencement"] == (timezone.datetime(2026, 7, 1).date() - timezone.localdate()).days
     assert any(t["kind"] == "signoff" for t in co["fileTray"])
     assert len(co["fileTray"]) <= 6
+    # every slip links to a route the web app serves, and subtitles use plain words, not codes
+    for slip in co["fileTray"]:
+        assert slip["href"].startswith(("/clients/", "/screening/", "/fuse/", "/alerts/")), slip["href"]
+        assert "_" not in slip["subtitle"] and "%" not in slip["subtitle"]
+    signoff = next(t for t in co["fileTray"] if t["kind"] == "signoff")
+    assert signoff["href"] == f"/clients/{hq.id}/risk"
     fee = signed_in(firm["users"]["fee_earner"]).get("/api/v1/dashboard").json()
     assert "awaitingSignoff" in fee["counts"]
     assert "mergeQueue" not in fee["counts"]

@@ -40,8 +40,29 @@ def _plural(n: int, word: str) -> str:
     return f"{n} {word}{'' if n == 1 else 's'}"
 
 
-def _href(client_id: Any) -> str:
-    return f"/board/clients/{client_id}"
+def _href(client_id: Any, tab: str = "summary") -> str:
+    """A route in the web app (docs/API_CONTRACT.md 1.5): the client's dossier on the given folder tab."""
+    return f"/clients/{client_id}/{tab}"
+
+
+TRIGGER_WORDS = {
+    "pep": "PEP in structure",
+    "high_rating": "high risk rating",
+    "high_risk_jurisdiction": "high-risk country in structure",
+    "offshore": "offshore layer",
+    "nominee": "nominee in structure",
+    "complex_structure": "complex structure",
+    "unknown_owner": "owner not yet known",
+    "circular": "circular ownership",
+    "sanctions": "possible sanctions match",
+}
+
+
+SEVERITY_WORDS = {"critical": "act now", "warning": "look this week", "info": "for information"}
+
+
+def _trigger_word(code: str) -> str:
+    return TRIGGER_WORDS.get(code, code.replace("_", " "))
 
 
 class DashboardView(ApiView):
@@ -117,7 +138,11 @@ class DashboardView(ApiView):
                 if stage == "senior" and edd.client.assigned_to_id == user.id:
                     continue
                 codes = [t.get("code", "") for t in edd.triggers or []]
-                reason = "PEP in structure" if "pep" in codes else (codes[0].replace("_", " ") if codes else "EDD")
+                reason = (
+                    _trigger_word("pep")
+                    if "pep" in codes
+                    else (_trigger_word(codes[0]) if codes else "enhanced checks")
+                )
                 tray.append(
                     {
                         "kind": "signoff",
@@ -126,7 +151,7 @@ class DashboardView(ApiView):
                         "title": f"Sign-off needed: {edd.client.name}",
                         "subtitle": f"{'Senior approval' if stage == 'senior' else 'Compliance sign-off'} · {reason}",
                         "due_on": None,
-                        "href": f"{_href(edd.client_id)}/edd",
+                        "href": _href(edd.client_id, "risk"),
                     }
                 )
         if self.has("screening:review"):
@@ -134,15 +159,17 @@ class DashboardView(ApiView):
 
             page = _try(lambda: screening_api.list_hits(self.org_id, status="pending", limit=3))
             for hit in getattr(page, "items", []):
+                kind = hit.entry.list_kind
+                list_word = "PEP" if kind == "pep" else kind.capitalize().replace("_", " ")
                 tray.append(
                     {
                         "kind": "hit_review",
                         "id": str(hit.id),
                         "client_id": str(hit.client_id),
                         "title": f"Screening match to review: {hit.party_name}",
-                        "subtitle": f"{hit.entry.list_kind.capitalize()} list · {round(hit.score * 100)}% match",
+                        "subtitle": f"{list_word} list · {round(hit.score * 100)} in 100",
                         "due_on": None,
-                        "href": f"/queues/screening/{hit.id}",
+                        "href": f"/screening/{hit.id}",
                     }
                 )
         if self.has("resolution:decide"):
@@ -156,9 +183,9 @@ class DashboardView(ApiView):
                         "id": str(cand.id),
                         "client_id": cand.client_ids[0] if cand.client_ids else None,
                         "title": f"Possible duplicate: {cand.left.name} / {cand.right.name}",
-                        "subtitle": f"{round(cand.score.probability * 100)}% likely the same",
+                        "subtitle": f"{round(cand.score.probability * 100)} in 100 likely the same",
                         "due_on": None,
-                        "href": f"/queues/matches/{cand.id}",
+                        "href": f"/fuse/{cand.id}",
                     }
                 )
         if self.has("risk:override"):
@@ -174,7 +201,7 @@ class DashboardView(ApiView):
                         "title": f"Second opinion differs: {d.get('client_name') or d.get('clientName')}",
                         "subtitle": "Rules and the pattern check disagree",
                         "due_on": None,
-                        "href": f"/queues/disagreements/{d.get('id')}",
+                        "href": _href(d.get("client_id") or d.get("clientId"), "risk"),
                     }
                 )
         if self.has("monitoring:read"):
@@ -197,9 +224,9 @@ class DashboardView(ApiView):
                         "id": str(alert.id),
                         "client_id": str(alert.client_id),
                         "title": alert.title,
-                        "subtitle": f"{alert.client_name} · {alert.severity}",
+                        "subtitle": f"{alert.client_name} · {SEVERITY_WORDS.get(alert.severity, alert.severity)}",
                         "due_on": None,
-                        "href": f"/queues/alerts/{alert.id}",
+                        "href": f"/alerts/{alert.id}",
                     }
                 )
         reviews = Client.objects.filter(org=self.org, status="active", next_review_on__lte=today + timedelta(days=14))
@@ -261,7 +288,7 @@ class InsightsView(ApiView):
                         "title": f"{len(top.client_ids)} clients share {_officer(top.label)}",
                         "body": top.reason or top.label,
                         "metric": {"value": top.size, "unit": "linked companies", "trend": "flat"},
-                        "href": f"/board?cluster={top.id}",
+                        "href": "/board?lens=shared",
                     }
                 )
         active = Client.objects.filter(org=self.org, status="active", next_review_on__isnull=False)
@@ -277,7 +304,7 @@ class InsightsView(ApiView):
                     "title": f"Reviews overdue: {n_overdue}",
                     "body": f"Periodic reviews past their due date ({parts} risk).",
                     "metric": {"value": n_overdue, "unit": "clients", "trend": "flat"},
-                    "href": "/queues/reviews",
+                    "href": "/board?lens=review",
                 }
             )
         from risk import api as risk_api
@@ -299,7 +326,7 @@ class InsightsView(ApiView):
                     "title": f"Rules and the second-opinion check agree on {pct}% of clients",
                     "body": f"{_plural(total - agree, 'client')} flagged for a closer look by the pattern check.",
                     "metric": {"value": pct, "unit": "%", "trend": "flat"},
-                    "href": "/queues/disagreements",
+                    "href": "/settings/risk-method",
                 }
             )
         onboarded = Client.objects.filter(org=self.org, onboarded_on__gte=today - timedelta(days=90))
@@ -312,7 +339,7 @@ class InsightsView(ApiView):
                     "title": f"{n} client{'s' if n != 1 else ''} onboarded in 90 days",
                     "body": "Identity, beneficial owners, screening and risk completed before work started.",
                     "metric": {"value": n, "unit": "clients", "trend": "up"},
-                    "href": "/clients?status=active",
+                    "href": "/clients",
                 }
             )
         awaiting = EddCase.objects.filter(org=self.org, status__in=["awaiting_compliance", "awaiting_senior"]).count()
@@ -324,7 +351,7 @@ class InsightsView(ApiView):
                     "title": f"{awaiting} file{'s' if awaiting != 1 else ''} awaiting sign-off",
                     "body": "Enhanced due diligence is complete and waiting for approval.",
                     "metric": {"value": awaiting, "unit": "files", "trend": "flat"},
-                    "href": "/queues/signoffs",
+                    "href": "/clients?filter=needs",
                 }
             )
         high = (
@@ -341,7 +368,7 @@ class InsightsView(ApiView):
                     "title": f"{high} high-risk clients need enhanced checks",
                     "body": "Offshore layers, politically exposed people or complex structures.",
                     "metric": {"value": high, "unit": "clients", "trend": "flat"},
-                    "href": "/clients?rating=high",
+                    "href": "/clients?filter=needs",
                 }
             )
         return Response(out)
