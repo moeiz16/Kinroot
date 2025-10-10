@@ -157,7 +157,18 @@ export function clientGraph(g: WorldGraph, client: Client, asOf: string, depth =
     if (cyc.has(id)) a.flags = [...new Set([...a.flags, "circular" as NodeFlag])];
     return { id, ...a };
   });
-  return toPayload(nodes, s.edges.map(edgeAttrs), { focusId: client.partyId, asOf, depth, truncated: s.truncated });
+  const edges = s.edges.map(edgeAttrs);
+  // Like the API: an entity whose recorded shareholdings fall short of 100% gets an "Unknown shareholders" group.
+  for (const n of [...nodes]) {
+    if (!n.flags.includes("unknown_owner") || n.kind === "person" || n.kind === "address") continue;
+    const own = edges.filter((e) => e.target === n.id && e.kind === "ownership");
+    const missing = Math.round((100 - own.reduce((t, e) => t + (e.pct ?? 0), 0)) * 100) / 100;
+    if (missing <= 0) continue;
+    const id = `unknown:${n.id}`;
+    nodes.push({ id, kind: "unknown" as GraphNode["kind"], label: "Unknown shareholders", sub: "Not yet known · 1 or more", jurisdiction: null, identifiers: {}, flags: [], clientId: null, riskRating: null, level: (n.level ?? 0) + 1, effectivePct: null, mergedCount: 0 } as GraphNode);
+    edges.push({ id: `unknown-edge:${n.id}`, source: id, target: n.id, kind: "ownership", label: own.length ? pctLabel(missing) : "?%", pct: null, interest: null, role: null, nominee: false, validFrom: null, validTo: null, sourceRef: "register gap" } as unknown as GraphEdge);
+  }
+  return toPayload(nodes, edges, { focusId: client.partyId, asOf, depth, truncated: s.truncated });
 }
 
 /** Expand one party: its direct owners/controllers and what it owns/controls. */

@@ -83,6 +83,10 @@ export const api = {
     graph: (id: string, asOf?: string, depth = 6) => http.get<T.GraphPayload>(`/clients/${enc(id)}/graph`, { asOf, depth }),
     ubo: (id: string, asOf?: string) => http.get<T.UboResult>(`/clients/${enc(id)}/ubo`, { asOf }),
     diff: (id: string, from: string, to: string) => http.get<T.GraphDiff>(`/clients/${enc(id)}/graph/diff`, { from, to }),
+    holds: (id: string) => http.get<T.HoldList>(`/clients/${enc(id)}/holds`),
+    placeHold: (id: string, note: string) => http.post<{ id: string; active: boolean }>(`/clients/${enc(id)}/holds`, { note }),
+    releaseHolds: (id: string, note: string) => http.post<{ released: number }>(`/clients/${enc(id)}/holds/release`, { note }),
+    pins: (id: string) => http.get<T.PinnedAnswer[]>(`/clients/${enc(id)}/pins`),
   },
   parties: {
     get: (id: string) => http.get<T.PartyDetail>(`/parties/${enc(id)}`),
@@ -123,6 +127,11 @@ export const api = {
   risk: {
     methodology: () => http.get<T.Methodology[]>("/risk/methodology"),
     publish: (id: string) => http.post<T.Methodology>(`/risk/methodology/${enc(id)}/publish`),
+    disagreements: (status = "open") => http.get<T.Page<T.Disagreement>>("/risk/disagreements", { status, pageSize: 50 }),
+    resolveDisagreement: (id: string, outcome: "keep_rules" | "override_to_challenger" | "methodology_issue", note: string) =>
+      http.post<T.Disagreement>(`/risk/disagreements/${enc(id)}/resolve`, { outcome, note }),
+    models: () => http.get<T.ModelEntry[]>("/models"),
+    promote: (name: string, version: string, note: string) => http.post<T.ModelEntry>(`/models/${enc(name)}/promote`, { version, note }),
     signoffs: (stage?: string) => http.get<{ clientId: string; clientName: string; rating: T.Rating; triggers: string[]; waitingSince: string }[]>("/signoffs", { stage }),
   },
   monitoring: {
@@ -134,9 +143,11 @@ export const api = {
   },
   concerns: {
     raise: (body: { clientId?: string; summary: string; details: string }) => http.post<{ id: string; receivedAt: string; message: string }>("/concerns", body),
+    triage: () => http.get<T.Concern[]>("/concerns"),
   },
   cases: {
     list: () => http.get<T.Page<T.Case>>("/cases"),
+    create: (body: { clientId: string; title: string; grounds: string; concernIds?: string[] }) => http.post<T.Case>("/cases", body),
     get: (id: string) => http.get<T.Case>(`/cases/${enc(id)}`),
     patch: (id: string, body: Partial<Pick<T.Case, "title" | "grounds" | "status">>) => http.patch<T.Case>(`/cases/${enc(id)}`, body),
     smr: (id: string) => http.get<T.SmrDraft>(`/cases/${enc(id)}/smr`),
@@ -156,6 +167,7 @@ export const api = {
     ask: (question: string, clientId?: string, asOf?: string) => http.post<T.AssistantAnswer>("/assistant/ask", { question, clientId, asOf }),
     history: (clientId?: string) => http.get<T.AssistantAnswer[]>("/assistant/history", { clientId }),
     suggestions: (clientId?: string) => http.get<string[]>("/assistant/suggestions", { clientId }),
+    pin: (answerId: string, clientId: string) => http.post<{ answerId: string; clientId: string; pinnedAt: string }>(`/assistant/answers/${enc(answerId)}/pin`, { clientId }),
   },
   audit: {
     list: (q: { action?: string; actorId?: string; resourceType?: string; resourceId?: string; from?: string; to?: string; page?: number; pageSize?: number } = {}) =>

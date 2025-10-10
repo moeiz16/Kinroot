@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Printer } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router";
 import { api } from "../api/endpoints";
 import type { Client, Dashboard } from "../api/types";
 import { daysFromToday, fmtDate, today, tranche2Line } from "../lib/dates";
@@ -116,7 +117,12 @@ export default function Programme() {
             {insights.data.map((i) => (
               <li key={i.id}>
                 <span>
-                  <b style={{ fontWeight: 600 }}>{i.title}.</b> {i.body}
+                  <b style={{ fontWeight: 600 }}>{i.title}.</b> {i.body}{" "}
+                  {i.href?.startsWith("/") && (
+                    <Link className="link" to={i.href}>
+                      Show me
+                    </Link>
+                  )}
                 </span>
                 <span className="w">{i.tone === "risk" ? "▲" : i.tone === "progress" ? "●" : "◆"}</span>
               </li>

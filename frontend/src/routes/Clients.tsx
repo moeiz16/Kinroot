@@ -2,7 +2,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { api } from "../api/endpoints";
 import type { Client } from "../api/types";
 import { daysFromToday, fmtDate, today } from "../lib/dates";
@@ -68,7 +68,9 @@ export default function Clients() {
   const { can } = useAuth();
   const nav = useNavigate();
   const board = useBoard();
-  const [filter, setFilter] = useState<Filter | "all">("all");
+  const [params] = useSearchParams();
+  const initial = params.get("filter");
+  const [filter, setFilter] = useState<Filter | "all">(FILTERS.some((f) => f.id === initial) ? (initial as Filter) : "all");
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<"review" | "name" | "risk">("review");
   const clients = useQuery({ queryKey: ["clients", "all"], queryFn: () => api.clients.list({ pageSize: 200 }) });

@@ -9,6 +9,7 @@ import { api } from "../api/endpoints";
 import type { Role } from "../api/types";
 import { fmtDate, relativeDays } from "../lib/dates";
 import { ROLE_LABELS } from "../lib/permissions";
+import { listSourceLabel, ratingLook } from "../lib/format";
 import { applyTheme, useTheme } from "../lib/theme";
 import { useAuth } from "../lib/auth";
 import { Status } from "../shell/chrome";
@@ -270,16 +271,152 @@ function RiskMethod() {
           <ol className="reasons">
             {current.rules.map((r) => (
               <li key={r.code}>
-                <span>
-                  {r.description} <small className="muted" style={{ fontFamily: "var(--f-sans)", fontSize: 12 }}>· {r.condition}</small>
-                </span>
+                <span>{r.description}</span>
                 <span className={`w${r.points > 0 ? " up" : ""}`}>{r.points > 0 ? `+${r.points}` : `−${Math.abs(r.points)}`}</span>
               </li>
             ))}
           </ol>
         </section>
       )}
+      <Differences />
+      <Registry />
     </>
+  );
+}
+
+/** Clients where the rules and the second-opinion check disagree, waiting for the compliance officer. */
+function Differences() {
+  const { can } = useAuth();
+  const nav = useNavigate();
+  const open = useQuery({ queryKey: ["disagreements", "open"], queryFn: () => api.risk.disagreements("open"), enabled: can("risk:read") });
+  const items = open.data?.items ?? [];
+  return (
+    <section className="section">
+      <h2>
+        Where the second opinion differs <span className="aside">{items.length ? `${items.length} open` : "None open"}</span>
+      </h2>
+      {items.length ? (
+        <table className="ledger">
+          <tbody>
+            {items.map((d) => (
+              <tr key={d.id}>
+                <td className="who">
+                  <b>{d.clientName}</b>
+                  <small>
+                    Rules: {ratingLook(d.rulesRating).word} · second opinion: {ratingLook(d.challengerRating).word} ({Math.round(d.probabilityHigh * 100)} in 100 for high risk)
+                  </small>
+                </td>
+                <td style={{ textAlign: "right" }}>
+                  <button className="link" onClick={() => nav(`/clients/${d.clientId}/risk`)}>
+                    {can("risk:override") ? "Settle it →" : "Open →"}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p className="muted" style={{ fontSize: 13.5 }}>
+          The rules and the second-opinion check agree on every client.
+        </p>
+      )}
+    </section>
+  );
+}
+
+const CHECK_NAME: Record<string, { title: string; lede: string }> = {
+  "risk-challenger": { title: "Second-opinion risk check", lede: "Reads each client’s structure and services and says whether it looks high risk. It never changes a rating on its own." },
+  "er-matcher": { title: "Duplicate matching", lede: "Scores how likely two records are the same person or company. Below the lower line they stay apart; above the upper line they are fused, unless anything conflicts." },
+};
+const pct100 = (v: number | undefined) => (v == null ? "—" : `${Math.round(v * 100)} in 100`);
+function checkFacts(name: string, m: Record<string, number>): string {
+  if (name === "er-matcher") return `Finds ${pct100(m.recallAtReview)} true duplicates · ${pct100(m.reviewRate)} of pairs need a person · wrong fusions avoided ${pct100(m.autoMergePrecision)} times`;
+  return `Ranks a high-risk client above a lower-risk one ${pct100(m.rocAuc)} times · right ${pct100(m.precision)} times when it says high`;
+}
+
+/** Which version of each check the firm uses; a compliance officer can switch with a recorded reason. */
+function Registry() {
+  const { can } = useAuth();
+  const qc = useQueryClient();
+  const models = useQuery({ queryKey: ["models"], queryFn: api.risk.models, enabled: can("models:read") });
+  const [picking, setPicking] = useState<{ name: string; version: string } | null>(null);
+  const [note, setNote] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
+  const promote = useMutation({
+    mutationFn: () => api.risk.promote(picking!.name, picking!.version, note.trim()),
+    onSuccess: () => {
+      setMsg("Switched. The reason is in the activity log, and only this firm uses the new version.");
+      setPicking(null);
+      setNote("");
+      void qc.invalidateQueries({ queryKey: ["models"] });
+    },
+    onError: (e) => setMsg(errorMessage(e)),
+  });
+  if (!models.data?.length) return null;
+  return (
+    <section className="section">
+      <h2>
+        The checks behind the ratings <span className="aside">Versions in use at this firm</span>
+      </h2>
+      {models.data.map((m) => (
+        <div key={m.name} style={{ marginBottom: 18 }}>
+          <p style={{ margin: "0 0 4px", fontWeight: 600 }}>{CHECK_NAME[m.name]?.title ?? m.name}</p>
+          <p className="muted" style={{ margin: "0 0 8px", fontSize: 13 }}>
+            {CHECK_NAME[m.name]?.lede}
+          </p>
+          <table className="ledger">
+            <tbody>
+              {m.versions.map((v) => (
+                <tr key={v.version}>
+                  <td className="who">
+                    <b>
+                      <span className="mono">v{v.version.replace(/^[a-z]+-/, "").replace(/-logreg$/, "")}</span> · {v.kind === "logreg" ? "simple scorecard" : "detailed pattern check"}
+                    </b>
+                    <small>
+                      {checkFacts(m.name, v.metrics)}
+                      {v.stage === "champion" ? ` · inputs ${v.drift.status === "stable" ? "steady" : v.drift.status === "watch" ? "shifting a little" : "shifted: needs a look"}` : ""}
+                      {v.promotedBy ? ` · chosen by ${v.promotedBy}` : ""}
+                    </small>
+                  </td>
+                  <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                    {v.stage === "champion" ? (
+                      <Status tone="clear">In use</Status>
+                    ) : can("models:promote") ? (
+                      <button className="btn btn-line btn-sm" onClick={() => setPicking({ name: m.name, version: v.version })}>
+                        Use this version
+                      </button>
+                    ) : (
+                      <Status tone="neutral">{v.stage === "retired" ? "Retired" : "Standby"}</Status>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {picking?.name === m.name && (
+            <div style={{ marginTop: 10 }}>
+              <label className="field">
+                <span>Why switch? (at least 10 characters, kept in the activity log)</span>
+                <input className="input" value={note} onChange={(e) => setNote(e.target.value)} />
+              </label>
+              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                <button className="btn btn-ink btn-sm" disabled={note.trim().length < 10 || promote.isPending} onClick={() => promote.mutate()}>
+                  Switch for this firm
+                </button>
+                <button className="btn btn-quiet btn-sm" onClick={() => setPicking(null)}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+      {msg && (
+        <p role="status" className="note">
+          {msg}
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -304,10 +441,9 @@ function Lists() {
           {(lists.data ?? []).map((l) => (
             <tr key={l.list}>
               <td className="who">
-                <b>{l.list}</b>
+                <b>{l.title ?? (l.list === "pep" ? "PEP list" : "Sanctions list")}</b>
                 <small>
-                  {l.source}
-                  {l.sample ? " · sample data" : ""} · loaded {fmtDate(l.loadedAt.slice(0, 10))}
+                  {listSourceLabel(l.source)} · loaded {fmtDate(l.loadedAt.slice(0, 10))}
                 </small>
               </td>
               <td className="mono">{l.version}</td>
@@ -324,6 +460,18 @@ function Lists() {
           </tr>
         </tbody>
       </table>
+      <section className="section" style={{ marginTop: 22 }}>
+        <h2>Sources</h2>
+        <ul className="sources">
+          {[...new Map((lists.data ?? []).map((l) => [l.attribution ?? l.source, l])).values()].map((l) => (
+            <li key={l.attribution ?? l.source}>
+              <b>{listSourceLabel(l.source)}</b>
+              {l.licence && l.licence !== "sample" ? <span className="mono"> · {l.licence}</span> : null}
+              <p>{l.attribution ?? "Supplied with Kinroot."}</p>
+            </li>
+          ))}
+        </ul>
+      </section>
       <p style={{ marginTop: 16 }}>
         {settings.data?.screening.autoRescreenOnListUpdate ? "Every client is screened again automatically when a list changes." : "Clients are screened when they are onboarded and at each review."} Names count as a possible match from {Math.round((settings.data?.screening.fuzzyThreshold ?? 0.82) * 100)} in 100.
       </p>

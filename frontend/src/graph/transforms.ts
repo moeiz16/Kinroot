@@ -87,7 +87,7 @@ export function fromPayload(p: GraphPayload, opts: FromPayloadOptions = {}): { n
     const kind: BKind = a.kind === "address" ? "address" : (a.kind as BKind);
     const isClient = a.flags.includes("client") && (a.level === 0 || key === p.attributes.focusId);
     const o = owners.get(key);
-    const roles = (outgoing.get(key) ?? []).filter((e) => e.attributes.kind === "control" && level.get(e.target) !== undefined).map((e) => e.attributes.role ?? "");
+    const roles = (outgoing.get(key) ?? []).filter((e) => e.attributes.kind === "control" && level.get(e.target) !== undefined).map((e) => e.attributes.label || e.attributes.role || "");
     let sub: string | undefined;
     if (isClient) sub = opts.clientSub ?? "Client";
     else if (o?.isUbo && o.effectivePct != null && o.effectivePct >= (opts.ubo?.thresholdPct ?? 25)) sub = `Beneficial owner · ${pct(o.effectivePct)}`;
@@ -153,7 +153,7 @@ export function fromPayload(p: GraphPayload, opts: FromPayloadOptions = {}): { n
       s: source,
       t: target,
       kind,
-      label: back ? `Circular · ${pct(a.pct)} ↺` : a.kind === "ownership" ? pct(a.pct) : a.kind === "control" ? (a.role ?? a.label) : undefined,
+      label: back ? `Circular · ${pct(a.pct)} ↺` : a.kind === "ownership" ? (a.pct == null ? a.label || "?%" : pct(a.pct)) : a.kind === "control" ? (a.label || a.role || undefined) : undefined,
       pct: a.pct,
       curve: back,
       citation: cites.get(key),
@@ -162,16 +162,7 @@ export function fromPayload(p: GraphPayload, opts: FromPayloadOptions = {}): { n
     };
   });
 
-  // Unknown owners: the entity is flagged and its known shareholdings don't reach 100%.
-  for (const n of nodes) {
-    if (!n.flags.some((f) => f.text.includes("Owners not disclosed"))) continue;
-    const known = edges.filter((e) => e.t === n.id && e.kind === "own").reduce((s, e) => s + (e.pct ?? 0), 0);
-    const missing = Math.round((100 - known) * 100) / 100;
-    if (missing <= 0) continue;
-    const id = `unknown:${n.id}`;
-    nodes.push({ id, kind: "unknown", label: "Unknown shareholders", sub: "1 or more", glyph: "?", level: n.level + 1, flags: [], aria: `Unknown shareholders of ${n.label}, holding ${missing} percent, not yet known`, x: 0, y: 0 });
-    edges.push({ id: `unknown-edge:${n.id}`, s: id, t: n.id, kind: "unknown", label: known > 0 ? pct(missing) : "?%", pct: null });
-  }
+  // Unknown shareholders and "N companies" stacks arrive from the API as group nodes (kinds unknown / stack).
 
   // Each node unfolds out of the party it owns or controls one level up.
   const lv = new Map(nodes.map((n) => [n.id, n.level]));
@@ -209,7 +200,7 @@ export function applyDiff(scene: { nodes: BNode[]; edges: BEdge[] }, diff: Graph
   for (const r of diff.removed) {
     if (edges.some((e) => e.id === r.id)) continue;
     if (!byId.has(r.source) || !byId.has(r.target)) continue;
-    edges.push({ id: r.id, s: r.source, t: r.target, kind: r.kind === "ownership" ? "own" : "ctrl", label: r.kind === "ownership" ? pct(r.pct) : (r.role ?? r.label), pct: r.pct, removed: removedLabel(r) });
+    edges.push({ id: r.id, s: r.source, t: r.target, kind: r.kind === "ownership" ? "own" : "ctrl", label: r.kind === "ownership" ? pct(r.pct) : (r.label || r.role || undefined), pct: r.pct, removed: removedLabel(r) });
     const src = byId.get(r.source)!;
     if (!edges.some((e) => !e.removed && (e.s === src.id || e.t === src.id))) src.removed = removedLabel(r);
   }

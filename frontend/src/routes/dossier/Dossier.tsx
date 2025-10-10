@@ -32,6 +32,7 @@ export default function Dossier() {
   const docs = useQuery({ queryKey: ["documents", id], queryFn: () => api.clients.documents(id), enabled: !!client.data });
   const hits = useQuery({ queryKey: ["hits", "client", id], queryFn: () => api.screening.hits({ clientId: id, status: "all" }), enabled: !!client.data });
   const audit = useQuery({ queryKey: ["timeline", id], queryFn: () => api.audit.list({ resourceId: id, pageSize: 40 }), enabled: !!client.data && can("audit:read") });
+  const pins = useQuery({ queryKey: ["pins", id], queryFn: () => api.clients.pins(id), enabled: !!client.data });
   const cases = useQuery({ queryKey: ["cases"], queryFn: api.cases.list, enabled: can("smr:read") });
   const caseRec = cases.data?.items.find((c) => c.clientId === id && c.status === "open");
 
@@ -112,7 +113,7 @@ export default function Dossier() {
   ];
   const props: PanelProps = { client: c, structure, risk: risk.data, edd: edd.data, docs: docs.data ?? [], hits: hits.data?.items ?? [], onCite, onParty: (pid) => board.engine()?.focusNode(pid), onThread: (pid) => void pullThread(pid) };
   const panel =
-    tab === "owners" ? <OwnersPanel {...props} /> : tab === "screening" ? <ScreeningPanel {...props} /> : tab === "risk" ? <RiskPanel {...props} /> : tab === "documents" ? <DocumentsPanel {...props} /> : tab === "timeline" ? <TimelinePanel {...props} audit={audit.data?.items ?? []} /> : tab === "restricted" && caseRec ? <RestrictedPanel caseRec={caseRec} /> : <SummaryPanel {...props} />;
+    tab === "owners" ? <OwnersPanel {...props} /> : tab === "screening" ? <ScreeningPanel {...props} /> : tab === "risk" ? <RiskPanel {...props} /> : tab === "documents" ? <DocumentsPanel {...props} /> : tab === "timeline" ? <TimelinePanel {...props} audit={audit.data?.items ?? []} pins={pins.data ?? []} /> : tab === "restricted" && caseRec ? <RestrictedPanel caseRec={caseRec} /> : <SummaryPanel {...props} />;
 
   return (
     <>

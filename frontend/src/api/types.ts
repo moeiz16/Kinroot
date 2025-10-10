@@ -536,6 +536,9 @@ export interface ScreeningList {
   entries: number;
   loadedAt: ISODateTime;
   sample: boolean;
+  title?: string;
+  licence?: string;
+  attribution?: string;
 }
 
 // 1.10 Risk
@@ -580,7 +583,7 @@ export interface Methodology {
   publishedAt?: ISODateTime;
   publishedBy?: string;
   bands: { medium: number; high: number };
-  rules: { code: string; factor: string; description: string; points: number; condition: string }[];
+  rules: { code: string; factor: string; description: string; points: number; condition: unknown }[];
 }
 export type MeasureKey =
   | "source_of_wealth"
@@ -700,6 +703,8 @@ export interface AssistantAnswer {
   mode: "offline" | "cloud";
   createdAt: ISODateTime;
   grounded: boolean;
+  /** The cited parties and links as one graphology payload (null when nothing was found). */
+  graph: GraphPayload | null;
 }
 
 // 1.14 Audit
@@ -721,4 +726,59 @@ export interface AuditVerify {
   valid: boolean;
   checked: number;
   brokenAt: number | null;
+}
+
+// Holds (compliance officer only), pinned answers, concerns triage, second-opinion review, model registry
+export interface HoldList {
+  active: boolean;
+  holds: { id: string; reason: "manual" | "restricted"; note: string; placedByName: string; placedAt: ISODateTime }[];
+}
+export interface PinnedAnswer {
+  id: string;
+  question: string;
+  answer: string;
+  citations: Citation[];
+  pinnedByName: string;
+  pinnedAt: ISODateTime;
+}
+export interface Concern {
+  id: string;
+  clientId: string | null;
+  clientName: string | null;
+  raisedByName: string;
+  summary: string;
+  details: string;
+  status: string;
+  caseId: string | null;
+  receivedAt: ISODateTime;
+}
+export interface Disagreement {
+  id: string;
+  clientId: string;
+  clientName: string;
+  rulesRating: Rating;
+  challengerRating: Rating;
+  probabilityHigh: number;
+  reasons: MatchReason[];
+  status: "open" | "resolved";
+  outcome?: string | null;
+  note?: string | null;
+  createdAt?: ISODateTime;
+}
+export interface ModelVersion {
+  version: string;
+  stage: "champion" | "challenger" | "retired";
+  kind?: string;
+  trainedAt: ISODateTime | null;
+  metrics: Record<string, number>;
+  calibration: { brier: number | null; ece: number | null };
+  drift: { psi: number | null; status: "stable" | "watch" | "drift" };
+  modelCard: string;
+  runId: string | null;
+  promotedBy?: string | null;
+  promotedAt?: ISODateTime | null;
+}
+export interface ModelEntry {
+  name: "er-matcher" | "risk-challenger";
+  versions: ModelVersion[];
 }

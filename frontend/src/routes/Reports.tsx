@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { ApiError, errorMessage } from "../api/client";
 import { api } from "../api/endpoints";
-import type { Case, SmrDraft } from "../api/types";
+import type { Case, Concern, SmrDraft } from "../api/types";
 import { businessDaysUntil, fmtDate, fmtDateTime } from "../lib/dates";
 import { prefersReduced } from "../lib/theme";
 import { useAuth } from "../lib/auth";
@@ -48,7 +48,7 @@ function exportDraft(c: Case, d: SmrDraft) {
     `Case: ${c.title}`,
     `Grounds for suspicion:\n${d.suspicionGrounds}`,
     `Subjects:\n${d.subjects.map((s) => `- ${s.name} (${s.role})`).join("\n")}`,
-    `Transactions:\n${d.transactions.map((t) => `- ${t.date} ${t.currency} ${t.amount.toLocaleString("en-AU")} ${t.description}`).join("\n")}`,
+    `Transactions:\n${d.transactions.map((t) => `- ${t.date} ${t.currency} ${Number(t.amount).toLocaleString("en-AU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${t.description}`).join("\n")}`,
     `Narrative:\n${d.narrative}`,
     `Prepared in Kinroot. Kinroot does not lodge reports on the firm's behalf.`,
   ].join("\n\n");
@@ -98,10 +98,60 @@ export default function Reports() {
               );
             })}
           </ul>
+          <Concerns />
         </Sheet>
       )}
       {one.data && <CaseFile c={one.data} onBack={id && can("smr:read") ? () => nav("/reports") : undefined} />}
     </>
+  );
+}
+
+/** Concerns raised by staff: only the compliance officer sees them; the person who raised one only ever sees
+ * "received". Opening a case places the usual neutral hold on the client. */
+function Concerns() {
+  const { can } = useAuth();
+  const nav = useNavigate();
+  const qc = useQueryClient();
+  const concerns = useQuery({ queryKey: ["concerns"], queryFn: api.concerns.triage, enabled: can("smr:read") });
+  const open = useMutation({
+    mutationFn: (c: Concern) => api.cases.create({ clientId: c.clientId!, title: c.summary, grounds: c.details, concernIds: [c.id] }),
+    onSuccess: (k) => {
+      void qc.invalidateQueries({ queryKey: ["cases"] });
+      void qc.invalidateQueries({ queryKey: ["concerns"] });
+      nav(`/reports/${k.id}`);
+    },
+  });
+  const items = concerns.data ?? [];
+  if (!items.length) return null;
+  return (
+    <section className="section" style={{ marginTop: 26 }}>
+      <h2>
+        Concerns from the team · {items.length} <span className="aside">The person who raised it only sees “received”</span>
+      </h2>
+      <ul className="concerns">
+        {items.map((c) => (
+          <li key={c.id}>
+            <b>{c.summary}</b>
+            <p>{c.details}</p>
+            <small>
+              {c.clientName ?? "No client named"} · raised by {c.raisedByName} · {fmtDate(c.receivedAt.slice(0, 10))}
+            </small>
+            <div style={{ marginTop: 8 }}>
+              {c.caseId ? (
+                <button className="link" onClick={() => nav(`/reports/${c.caseId}`)}>
+                  Open its case →
+                </button>
+              ) : c.clientId && can("smr:write") ? (
+                <button className="btn btn-line btn-sm" disabled={open.isPending} onClick={() => open.mutate(c)}>
+                  <Lock /> Open a case
+                </button>
+              ) : null}
+            </div>
+          </li>
+        ))}
+      </ul>
+      {open.isError && <p className="note-error">{errorMessage(open.error)}</p>}
+    </section>
   );
 }
 
@@ -247,7 +297,7 @@ function CaseFile({ c }: { c: Case; onBack?: () => void }) {
                       <td className="mono" style={{ width: 110 }}>{fmtDate(t.date)}</td>
                       <td>{t.description}</td>
                       <td className="num">
-                        {t.currency} {t.amount.toLocaleString("en-AU")}
+                        {t.currency} {Number(t.amount).toLocaleString("en-AU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
                     </tr>
                   ))}

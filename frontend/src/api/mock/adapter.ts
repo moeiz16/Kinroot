@@ -810,6 +810,43 @@ on("POST", "/clients/:id/review", (ctx) => {
 // ------------------------------------------------------------------ concerns and cases (tipping-off: 404 for anyone outside the list)
 on("POST", "/concerns", (ctx) => (need(ctx, "concerns:raise"), { id: `con-${Date.now()}`, receivedAt: new Date().toISOString(), message: "Received. The compliance officer will take it from here." }));
 on("GET", "/concerns/mine", (ctx) => (need(ctx, "concerns:raise"), []));
+on("GET", "/concerns", (ctx) => {
+  need(ctx, "smr:read");
+  const lumen = ctx.world.clients.find((c) => c.name.startsWith("Lumen"));
+  return [{ id: "con-1", clientId: lumen?.id ?? null, clientName: lumen?.name ?? null, raisedByName: "Tom Nguyen", summary: "Director seems to be a stand-in", details: "The director defers every question to an overseas contact.", status: "received", caseId: null, receivedAt: new Date().toISOString() }];
+});
+const holds = new Map<string, T.HoldList["holds"]>();
+on("GET", "/clients/:id/holds", (ctx) => {
+  need(ctx, "signoff:compliance");
+  clientById(ctx.world, ctx.params[0]!);
+  const h = holds.get(ctx.params[0]!) ?? [];
+  return { active: h.length > 0, holds: h };
+});
+on("POST", "/clients/:id/holds", (ctx) => {
+  need(ctx, "signoff:compliance");
+  const h = { id: `hold-${Date.now()}`, reason: "manual" as const, note: String(ctx.body.note ?? ""), placedByName: actorName(ctx), placedAt: new Date().toISOString() };
+  holds.set(ctx.params[0]!, [...(holds.get(ctx.params[0]!) ?? []), h]);
+  return { id: h.id, active: true };
+});
+on("POST", "/clients/:id/holds/release", (ctx) => {
+  need(ctx, "signoff:compliance");
+  const n = holds.get(ctx.params[0]!)?.length ?? 0;
+  holds.delete(ctx.params[0]!);
+  return { released: n };
+});
+const pins = new Map<string, T.PinnedAnswer[]>();
+on("GET", "/clients/:id/pins", (ctx) => (need(ctx, "clients:read"), pins.get(ctx.params[0]!) ?? []));
+on("POST", "/assistant/answers/:id/pin", (ctx) => {
+  need(ctx, "assistant:use");
+  const a = history.find((h) => h.id === ctx.params[0]);
+  if (!a) throw notFound();
+  const clientId = String(ctx.body.clientId ?? "");
+  clientById(ctx.world, clientId);
+  const pinnedAt = new Date().toISOString();
+  pins.set(clientId, [{ id: a.id, question: a.question, answer: a.answer, citations: a.citations, pinnedByName: actorName(ctx), pinnedAt }, ...(pins.get(clientId) ?? [])]);
+  return { answerId: a.id, clientId, pinnedAt };
+});
+on("GET", "/risk/disagreements", (ctx) => (need(ctx, "risk:read"), paged([], ctx.query)));
 on("GET", "/cases", (ctx) => {
   need(ctx, "dashboard:read");
   return paged(ctx.world.cases.filter((c) => canSeeCase(ctx, c)).map((c) => caseView(ctx, c)), ctx.query);
@@ -871,10 +908,23 @@ on("POST", "/assistant/ask", (ctx) => {
   need(ctx, "assistant:use");
   const q = String(ctx.body.question ?? "").trim();
   if (!q || q.length > 500) throw invalid("question", "Ask a question of up to 500 characters.");
-  const ans = answer(ctx.world, q, ctx.body.clientId ? String(ctx.body.clientId) : undefined);
+  const ans = withGraph(ctx.world, answer(ctx.world, q, ctx.body.clientId ? String(ctx.body.clientId) : undefined));
   history.push(ans);
   return ans;
 });
+
+/** Like the API: the cited parties and links as one graphology payload. */
+function withGraph(w: World, a: T.AssistantAnswer): T.AssistantAnswer {
+  if (!a.highlight.nodeIds.length) return { ...a, graph: null };
+  const nodes = new Map<string, T.GraphPayload["nodes"][number]>();
+  const edges = new Map<string, T.GraphPayload["edges"][number]>();
+  for (const id of a.highlight.nodeIds) {
+    const p = partyGraph(w, id, today(), 1);
+    p.nodes.forEach((n) => a.highlight.nodeIds.includes(n.key) && nodes.set(n.key, n));
+    p.edges.forEach((e) => a.highlight.edgeIds.includes(e.key) && edges.set(e.key, e));
+  }
+  return { ...a, graph: { attributes: { focusId: null, asOf: today(), depth: 1, truncated: false, graphVersion: 0 }, nodes: [...nodes.values()], edges: [...edges.values()] } };
+}
 
 function findParty(w: World, name: string) {
   const n = name.toLowerCase().replace(/[?.]/g, "").trim();
@@ -882,7 +932,7 @@ function findParty(w: World, name: string) {
   return ps.find((p) => p.name.toLowerCase() === n) ?? ps.find((p) => p.name.toLowerCase().includes(n)) ?? ps.find((p) => n.includes(p.name.toLowerCase()));
 }
 function answer(w: World, question: string, clientId?: string): T.AssistantAnswer {
-  const base = { id: `ask-${history.length + 1}${clientId ? "-" + clientId : ""}`, question, mode: "offline" as const, createdAt: new Date().toISOString() };
+  const base = { id: `ask-${history.length + 1}${clientId ? "-" + clientId : ""}`, question, mode: "offline" as const, createdAt: new Date().toISOString(), graph: null };
   const cites: T.Citation[] = [];
   const cite = (edgeId: string) => {
     const r = w.rels.find((x) => x.id === edgeId)!;

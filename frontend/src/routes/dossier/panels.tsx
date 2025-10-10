@@ -5,11 +5,12 @@ import { useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { errorMessage } from "../../api/client";
 import { api } from "../../api/endpoints";
-import type { AuditEntry, BeneficialOwner, Case, Client, DocType, DocumentRec, Edd, RiskAssessment, ScreeningHit } from "../../api/types";
+import type { AuditEntry, BeneficialOwner, Case, Client, DocType, DocumentRec, Edd, PinnedAnswer, RiskAssessment, ScreeningHit } from "../../api/types";
 import { fmtDate, fmtDateTime, relativeDays } from "../../lib/dates";
 import { bytes, COUNTRY, KIND_LABEL, likelihood, ratingLook } from "../../lib/format";
 import { useAuth } from "../../lib/auth";
 import { RatingTag, Status } from "../../shell/chrome";
+import { HoldBox, SecondOpinionBox } from "./HoldBox";
 import { SignOffBox } from "./SignOffBox";
 import type { Structure } from "./structure";
 
@@ -401,6 +402,8 @@ export function RiskPanel(p: PanelProps) {
         </section>
       )}
       <SignOffBox client={client} edd={edd} />
+      <SecondOpinionBox client={client} risk={risk} />
+      <HoldBox client={client} />
       {can("risk:override") && (
         <section className="section">
           <h2>Change the rating</h2>
@@ -533,10 +536,13 @@ interface TimelineEvent {
   text: string;
   who?: string;
   edgeId?: string;
+  note?: string;
+  cites?: string[];
 }
-export function TimelinePanel(p: PanelProps & { audit: AuditEntry[] }) {
-  const { structure, client, hits, audit } = p;
+export function TimelinePanel(p: PanelProps & { audit: AuditEntry[]; pins?: PinnedAnswer[] }) {
+  const { structure, client, hits, audit, pins = [] } = p;
   const events: TimelineEvent[] = [];
+  for (const a of pins) events.push({ date: a.pinnedAt, text: `Answer pinned: “${a.question}”`, who: a.pinnedByName, note: a.answer.replace(/\s*\[\d+\]/g, ""), cites: a.citations.map((c) => c.id) });
   for (const e of structure?.edges ?? []) {
     if (!e.validFrom || e.kind === "unknown") continue;
     const verb = e.kind === "own" ? `took ${e.label} of` : `became ${(e.label ?? "").toLowerCase()} of`;
@@ -567,6 +573,16 @@ export function TimelinePanel(p: PanelProps & { audit: AuditEntry[] }) {
                 </>
               )}
               {e.who && <small> · {e.who}</small>}
+              {e.note && <span className="pin-note">{e.note}</span>}
+              {e.cites && structure && e.cites.some((id) => structure.cites.get(id)) && (
+                <span className="pin-cites">
+                  {e.cites
+                    .filter((id) => structure.cites.get(id))
+                    .map((id) => (
+                      <Cite key={id} id={id} label={structure.cites.get(id)} onCite={p.onCite} />
+                    ))}
+                </span>
+              )}
             </span>
           </li>
         ))}

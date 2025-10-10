@@ -1,7 +1,7 @@
 // Ask the board: questions are lines of enquiry. The answer draws its path on the board in red string with
 // numbered citations, and the drawer holds the written answer with the same numbers.
-import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
-import { CornerDownLeft, Copy } from "lucide-react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { CornerDownLeft, Copy, Pin } from "lucide-react";
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { errorMessage } from "../api/client";
@@ -17,16 +17,9 @@ import "./sheets.css";
 import "./ask.css";
 
 /** Only the parties and links the answer used, laid out roots-down, each cited link numbered. */
-export function answerScene(a: AssistantAnswer, payloads: GraphPayload[]): { scene: Scene; strings: StringSpec[] } | null {
-  if (!a.highlight.nodeIds.length) return null;
-  const merged: GraphPayload = { attributes: payloads[0]?.attributes ?? { focusId: null, asOf: "", depth: 1, truncated: false, graphVersion: 0 }, nodes: [], edges: [] };
-  const seenN = new Set<string>();
-  const seenE = new Set<string>();
-  for (const p of payloads) {
-    p.nodes.forEach((n) => !seenN.has(n.key) && a.highlight.nodeIds.includes(n.key) && (seenN.add(n.key), merged.nodes.push(n)));
-    p.edges.forEach((e) => !seenE.has(e.key) && a.highlight.edgeIds.includes(e.key) && (seenE.add(e.key), merged.edges.push(e)));
-  }
-  const model = fromPayload(merged);
+export function answerScene(a: AssistantAnswer, graph: GraphPayload | null = a.graph): { scene: Scene; strings: StringSpec[] } | null {
+  if (!a.highlight.nodeIds.length || !graph?.nodes.length) return null;
+  const model = fromPayload(graph);
   // Level = longest chain of links above the party (clients and other end points at the top).
   const level = new Map(model.nodes.map((n) => [n.id, 0]));
   for (let i = 0; i < model.nodes.length; i++) for (const e of model.edges) level.set(e.s, Math.max(level.get(e.s)!, (level.get(e.t) ?? 0) + 1));
@@ -59,12 +52,18 @@ export default function Ask() {
   const [answer, setAnswer] = useState<AssistantAnswer | null>(null);
   const [tab, setTab] = useState("answer");
   const [copied, setCopied] = useState(false);
+  const [pinnedTo, setPinnedTo] = useState<string | null>(null);
+  const pin = useMutation({
+    mutationFn: ({ answerId, clientId }: { answerId: string; clientId: string; name: string }) => api.assistant.pin(answerId, clientId),
+    onSuccess: (_r, v) => setPinnedTo(v.name),
+  });
   const suggestions = useQuery({ queryKey: ["suggestions"], queryFn: () => api.assistant.suggestions() });
   const history = useQuery({ queryKey: ["ask-history"], queryFn: () => api.assistant.history() });
   const ask = useMutation({
     mutationFn: (question: string) => api.assistant.ask(question),
     onSuccess: (a) => {
       setAnswer(a);
+      setPinnedTo(null);
       setTab("answer");
       void history.refetch();
     },
@@ -79,10 +78,7 @@ export default function Ask() {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const ids = (answer?.highlight.nodeIds ?? []).slice(0, 10);
-  const graphs = useQueries({ queries: ids.map((id) => ({ queryKey: ["party-graph", id, 1], queryFn: () => api.parties.graph(id, undefined, 1) })) });
-  const ready = graphs.length > 0 && graphs.every((g) => g.data);
-  const built = useMemo(() => (answer && ready ? answerScene(answer, graphs.map((g) => g.data!)) : null), [answer, ready]); // eslint-disable-line react-hooks/exhaustive-deps
+  const built = useMemo(() => (answer ? answerScene(answer) : null), [answer]);
   useBoardScene(built?.scene ?? null, { unfold: true, strings: built?.strings });
 
   const onCite = (n: number) => {
@@ -98,7 +94,14 @@ export default function Ask() {
     setQ(text);
     ask.mutate(text.trim());
   };
-  const clientNode = built?.scene.nodes.find((n) => n.client);
+  // The client the question is about: named in the question, else the top of the drawn path.
+  const clientNodes = built?.scene.nodes.filter((n) => n.client && n.clientId) ?? [];
+  const clientNode = clientNodes.find((n) => answer?.question.toLowerCase().includes(n.label.toLowerCase())) ?? [...clientNodes].sort((x, y) => x.level - y.level)[0];
+  // Keep the drawing clear of the question slip at the bottom of the board.
+  useEffect(() => {
+    board.setReserve({ bottom: 90 });
+    return () => board.setReserve({ bottom: 0 });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <>
@@ -168,9 +171,18 @@ export default function Ask() {
               )}
               <div className="decide">
                 <div className="row">
+                  {clientNode?.clientId && answer.grounded && (
+                    <button
+                      className="btn btn-string"
+                      disabled={pin.isPending || pinnedTo === clientNode.label}
+                      onClick={() => pin.mutate({ answerId: answer.id, clientId: clientNode.clientId!, name: clientNode.label })}
+                    >
+                      <Pin /> {pinnedTo === clientNode.label ? "Pinned" : `Pin to ${clientNode.label.replace(/ Pty Ltd$/, "")}’s dossier`}
+                    </button>
+                  )}
                   {clientNode?.clientId && (
-                    <button className="btn btn-ink" onClick={() => nav(`/clients/${clientNode.clientId}/summary`)}>
-                      Open {clientNode.label.replace(/ Pty Ltd$/, "")}’s dossier
+                    <button className="btn btn-ink" onClick={() => nav(`/clients/${clientNode.clientId}/timeline`)}>
+                      Open the dossier
                     </button>
                   )}
                   <button
@@ -185,6 +197,12 @@ export default function Ask() {
                   </button>
                 </div>
               </div>
+              {pinnedTo && (
+                <p role="status" className="note" style={{ marginTop: 10 }}>
+                  Pinned to {pinnedTo}’s dossier. It sits in the Timeline with the links it cites.
+                </p>
+              )}
+              {pin.isError && <p className="note-error">{errorMessage(pin.error)}</p>}
             </>
           ) : (
             <>

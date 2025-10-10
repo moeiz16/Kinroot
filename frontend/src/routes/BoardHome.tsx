@@ -89,8 +89,9 @@ export function constellationScene(payload: GraphPayload, clients: Client[], clu
 
 const TRAY_WORD: Record<TrayItem["kind"], string> = { signoff: "Sign-off", hit_review: "Screening", merge_review: "Fuse or split", disagreement: "Second opinion", alert: "Alert", review_due: "Review" };
 
-/** Where a tray slip opens in this app (the API's href uses its own route names). */
+/** Where a tray slip opens: the API's href is a route in this app; the kind decides when it is missing. */
 export function trayHref(t: TrayItem): string {
+  if (t.href && t.href.startsWith("/")) return t.href;
   switch (t.kind) {
     case "hit_review":
       return `/screening/${t.id}`;
@@ -128,6 +129,11 @@ export default function BoardHome() {
   const [params, setParams] = useSearchParams();
   const lens = (params.get("lens") as Lens) || "risk";
   const [selectedCluster, setSelectedCluster] = useState<string | null>(null);
+  // The file tray sits across the top of the home board: keep the client book clear of it.
+  useEffect(() => {
+    board.setReserve({ top: 84 });
+    return () => board.setReserve({ top: 0 });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const payload = useQuery({ queryKey: ["constellation"], queryFn: api.graph.constellation });
   const clients = useQuery({ queryKey: ["clients", "all"], queryFn: () => api.clients.list({ pageSize: 200 }) });
   const clusters = useQuery({ queryKey: ["clusters"], queryFn: () => api.graph.clusters() });
