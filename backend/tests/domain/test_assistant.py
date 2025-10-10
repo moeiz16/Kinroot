@@ -197,3 +197,24 @@ def test_cloud_mode_keeps_only_grounded_drafts(hq, monkeypatch, draft, accepted)
         a = assistant.ask(hq.org_id, "Who controls Harbour Quay Developments?", hq.actor("co"), permissions=ALL)
     assert a.mode == "cloud" and a.grounded
     assert (a.answer == draft) is accepted
+
+
+def test_pin_an_answer_to_the_dossier(hq):
+    a = assistant.ask(hq.org_id, "Who controls Harbour Quay Developments?", hq.actor("co"), permissions=ALL)
+    client = hq.c["harbour-quay"]
+    out = assistant.pin(hq.org_id, a.id, client.id, hq.actor("co"))
+    assert out["client_id"] == str(client.id)
+    pins = assistant.pinned(hq.org_id, client.id)
+    assert [p["id"] for p in pins] == [a.id] and pins[0]["citations"]
+    from kinroot.contracts import NotFound
+
+    with pytest.raises(NotFound):  # only your own answers can be pinned
+        assistant.pin(hq.org_id, a.id, client.id, hq.actor("someone-else"))
+
+
+def test_how_is_a_person_linked_to_our_clients(hq):
+    a = assistant.ask(hq.org_id, "How is Gregory Pell linked to our clients?", hq.actor("co"), permissions=ALL)
+    assert a.grounded and "Gregory Pell reaches Harbour Quay Developments Pty Ltd" in a.answer
+    assert a.steps[0].label == "Followed Gregory Pell's links to the firm's clients"
+    assert str(hq.r["kes>hq"].id) in cited_ids(a)
+    assert agent.grounded(a.answer, a.citations)

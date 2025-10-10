@@ -203,6 +203,40 @@ def path_between(org_id: Any, a: str, b: str, permissions: frozenset[str], *, as
     return res
 
 
+# ── clients a party reaches (pull the thread) ──────────────────────────────────────────────────────
+def clients_reached(
+    org_id: Any, party_id: str, permissions: frozenset[str], *, as_of: date | None = None
+) -> ToolResult:
+    """Every client this party owns or controls, directly or through other entities, with the path to each.
+    Reported as a path search (same permission), so the answer cites each link on the way."""
+    check("path_between", permissions)
+    thread = graph.pull_thread(org_id, party_id, as_of=as_of)
+    repo = sync.read_repo(org_id)
+    nodes = repo.nodes([party_id, *thread.node_ids])
+    names = {k: v.display for k, v in nodes.items()}
+    who = names.get(party_id, "This party")
+    res = ToolResult("path_between", f"Followed {who}'s links to the firm's clients", {"fromId": party_id})
+    for entry in thread.entries[:4]:
+        path = entry.paths[0] if entry.paths else None
+        if path is None or not path.hops:
+            continue
+        cites = [
+            _edge_cite(
+                h.edge_id, _hop_label(names, GEdge(h.edge_id, h.from_id, h.to_id, h.kind, pct=h.pct, role=h.role))
+            )
+            for h in path.hops
+            if h.kind != "address"
+        ]
+        if not cites:
+            continue
+        share = f", holding {fmt_pct(entry.effective_pct)}% in effect" if entry.effective_pct else ""
+        res.facts.append(Fact(f"{who} reaches {entry.client_name}{share}: {path.sentence.rstrip('.')}", cites))
+        res.node_ids += path.node_ids
+        res.edge_ids += [h.edge_id for h in path.hops]
+    res.data = {"clients": len(thread.entries)}
+    return res
+
+
 # ── changes_since ─────────────────────────────────────────────────────────────────────────────────
 def changes_since(org_id: Any, client_id: str, since: date, permissions: frozenset[str]) -> ToolResult:
     check("changes_since", permissions)

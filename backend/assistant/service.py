@@ -111,7 +111,10 @@ def suggested_questions(org_id: Any, client_id: Any = None) -> list[str]:
         if other:
             out.append(f"How is {c.name} connected to {other.name}?")
         return out
-    clients = list(Client.objects.filter(org_id=org_id, status="active").order_by("-rating", "name")[:2])
+    # Highest-risk structures first (ratings are words, so rank them explicitly; people have no structure to trace).
+    rank = {"high": 0, "medium": 1, "low": 2}
+    active = Client.objects.filter(org_id=org_id, status="active").exclude(kind="individual")
+    clients = sorted(active, key=lambda c: (rank.get(c.rating or "", 3), c.name))[:2]
     if len(clients) >= 2:
         return [
             f"Who controls {clients[0].name}?",
@@ -119,3 +122,42 @@ def suggested_questions(org_id: Any, client_id: Any = None) -> list[str]:
             f"What changed in {clients[1].name}'s structure in the last 90 days?",
         ]
     return ["Who controls this client?", "What changed in the structure in the last 90 days?"]
+
+
+def pin(org_id: Any, answer_id: Any, client_id: Any, actor: Actor) -> dict[str, Any]:
+    """Pin one of the caller's own answers to a client's dossier (it joins the client's Timeline)."""
+    x = (
+        AssistantExchange.objects.filter(org_id=org_id, id=as_uuid(answer_id), user_id=actor.user_id).first()
+        if actor.user_id is not None
+        else None
+    )
+    if x is None:
+        raise NotFound("answer")
+    if not x.grounded:
+        raise ValueError("Only answers traced from the ownership records can be pinned.")
+    client = _client(org_id, client_id)
+    x.pinned_client, x.pinned_by_id, x.pinned_at = client, actor.user_id, timezone.now()
+    x.save(update_fields=["pinned_client", "pinned_by", "pinned_at"])
+    audit(actor, "assistant.pinned", resource_type="client", resource_id=client.id, metadata={"answer": str(x.id)})
+    return {"answer_id": str(x.id), "client_id": str(client.id), "pinned_at": x.pinned_at}
+
+
+def pinned(org_id: Any, client_id: Any) -> list[dict[str, Any]]:
+    """Answers pinned to a client's dossier, newest first. Assistant answers never contain case data."""
+    client = _client(org_id, client_id)
+    rows = (
+        AssistantExchange.objects.filter(org_id=org_id, pinned_client=client)
+        .select_related("pinned_by")
+        .order_by("-pinned_at")[:50]
+    )
+    return [
+        {
+            "id": str(x.id),
+            "question": x.question,
+            "answer": x.answer,
+            "citations": x.citations,
+            "pinned_by_name": x.pinned_by.full_name if x.pinned_by else "",
+            "pinned_at": x.pinned_at,
+        }
+        for x in rows
+    ]

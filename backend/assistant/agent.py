@@ -33,6 +33,15 @@ MONTHS = {
 
 INTENTS = [
     (
+        "clients_reached",
+        re.compile(
+            r"\b(link|linked|connect|connected|related|tied)\b.*\b(to|with) "
+            r"(our|the firm's|any of our|our firm's) clients\b"
+            r"|\bwhich (of our )?clients\b|\bour clients\b.*\b(link|linked|connected|reach)",
+            re.I,
+        ),
+    ),
+    (
         "path_between",
         re.compile(
             r"\b(connect|connected|connection|link|linked|path|related|relationship) (between|to|with)\b"
@@ -123,7 +132,9 @@ def run_offline(
     results: list[tools.ToolResult] = []
     denied = False
     try:
-        if p.intent == "path_between":
+        if p.intent == "clients_reached" and p.parties:
+            results.append(tools.clients_reached(org_id, p.parties[0]["id"], permissions))
+        elif p.intent == "path_between":
             if len(p.parties) >= 2:
                 results.append(tools.path_between(org_id, p.parties[0]["id"], p.parties[1]["id"], permissions))
         elif p.parties:
@@ -168,6 +179,7 @@ def compose(
         empty = {
             "changes_since": "No ownership or control changes were recorded in that period.",
             "screening_status": "No screening matches are recorded for this structure.",
+            "clients_reached": "No connection to any client was found within 6 steps.",
         }.get(intent or "")
         if empty and results:
             return Outcome(empty, [], steps, node_ids, edge_ids, grounded=True)

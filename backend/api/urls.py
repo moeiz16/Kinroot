@@ -124,6 +124,8 @@ urlpatterns = [
     path("assistant/ask", assistant.AskView.as_view()),
     path("assistant/history", assistant.HistoryView.as_view()),
     path("assistant/suggestions", assistant.SuggestionsView.as_view()),
+    path("assistant/answers/<str:answer_id>/pin", assistant.PinView.as_view()),
+    path("clients/<str:client_id>/pins", assistant.PinnedView.as_view()),
     # §1.14 audit, jobs, events
     path("audit", audit.AuditListView.as_view()),
     path("audit/verify", audit.AuditVerifyView.as_view()),

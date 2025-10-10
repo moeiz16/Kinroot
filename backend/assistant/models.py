@@ -21,6 +21,14 @@ class AssistantExchange(models.Model):
     mode = models.CharField(max_length=8, default="offline")
     grounded = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    # "Pin to dossier": the answer joins that client's Timeline with the links it cites
+    pinned_client = models.ForeignKey(
+        "clients.Client", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    pinned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    pinned_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-created_at"]

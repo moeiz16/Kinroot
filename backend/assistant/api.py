@@ -39,3 +39,13 @@ def history(
 
 def suggested_questions(org_id: uuid.UUID, client_id: uuid.UUID | None = None) -> list[str]:
     return service.suggested_questions(org_id, client_id)
+
+
+def pin(org_id: uuid.UUID, answer_id: uuid.UUID, client_id: uuid.UUID, actor: Actor) -> dict:
+    """Pin the caller's own grounded answer to a client's dossier. NotFound for other people's answers."""
+    return service.pin(org_id, answer_id, client_id, actor)
+
+
+def pinned(org_id: uuid.UUID, client_id: uuid.UUID) -> list[dict]:
+    """Answers pinned to a client's dossier, newest first."""
+    return service.pinned(org_id, client_id)
