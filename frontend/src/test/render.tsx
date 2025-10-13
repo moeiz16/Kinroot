@@ -6,7 +6,10 @@ import { makeQueryClient } from "../app/queryClient";
 import { AuthProvider } from "../lib/auth";
 
 export function signInAs(userId: string | null) {
-  if (userId) localStorage.setItem("kinroot.mock.session", JSON.stringify({ userId, orgId: "org-harbourline" }));
+  if (userId) {
+    localStorage.setItem("kinroot.mock.session", JSON.stringify({ userId, orgId: "org-harbourline" }));
+    localStorage.setItem("kinroot.session", "1"); // this browser has signed in before
+  }
 }
 
 export function renderApp(path: string, userId: string | null = "u-daniel") {

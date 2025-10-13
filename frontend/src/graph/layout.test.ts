@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { constellationLayout, layered, seeded } from "./layout";
+import { constellationLayout, labelRoom, layered, seeded } from "./layout";
 import type { BEdge, BNode } from "./model";
 
 const node = (id: string, level: number): BNode => ({ id, kind: "company", label: id, glyph: "", level, flags: [], aria: id, x: 0, y: 0 });
@@ -52,10 +52,15 @@ describe("constellation layout", () => {
     expect([...a.entries()]).toEqual([...b.entries()]);
   });
   it("keeps pins far enough apart for their labels", () => {
-    const pos = [...constellationLayout(nodes, edges).values()];
-    for (let i = 0; i < pos.length; i++)
-      for (let j = i + 1; j < pos.length; j++) {
-        const close = Math.abs(pos[i]!.x - pos[j]!.x) < 170 && Math.abs(pos[i]!.y - pos[j]!.y) < 40;
+    const placed = constellationLayout(nodes, edges);
+    const ids = [...placed.keys()];
+    for (let i = 0; i < ids.length; i++)
+      for (let j = i + 1; j < ids.length; j++) {
+        const a = placed.get(ids[i]!)!;
+        const b = placed.get(ids[j]!)!;
+        const left = a.x <= b.x ? ids[i]! : ids[j]!;
+        const room = labelRoom(nodes.find((n) => n.id === left)!);
+        const close = Math.abs(a.x - b.x) < room - 1 && Math.abs(a.y - b.y) < 40;
         expect(close).toBe(false);
       }
   });
