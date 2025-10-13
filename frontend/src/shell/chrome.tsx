@@ -294,7 +294,17 @@ export function Legend({ items = ["person", "company", "trust", "owns", "control
     ),
   };
   return (
-    <div className="chrome legend" aria-label="Legend" style={{ bottom: board.occlusion.bottom + 16, left: `calc(${board.occlusion.left}px + (100% - ${board.occlusion.left + board.occlusion.right}px) / 2 + 60px)`, transform: "translateX(-50%)" }}>
+    <div
+      className="chrome legend"
+      aria-label="Legend"
+      style={
+        // Centred under the visible board when there is room; otherwise tucked to the right so it never covers the
+        // zoom group and minimap at the bottom-left.
+        typeof window !== "undefined" && window.innerWidth - board.occlusion.left - board.occlusion.right < 1080
+          ? { bottom: board.occlusion.bottom + 16, right: board.occlusion.right + 16 }
+          : { bottom: board.occlusion.bottom + 16, left: `calc(${board.occlusion.left}px + (100% - ${board.occlusion.left + board.occlusion.right}px) / 2 + 60px)`, transform: "translateX(-50%)" }
+      }
+    >
       {items.map((k) => all[k])}
     </div>
   );

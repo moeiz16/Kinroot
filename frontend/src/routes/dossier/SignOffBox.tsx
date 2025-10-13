@@ -44,7 +44,9 @@ export function SignOffBox({ client, edd }: { client: Client; edd: Edd | undefin
     : edd.status === "approved"
       ? `Approved by ${edd.signoffs.map((s) => s.byName).join(" and ")}.`
       : stage === "senior"
-        ? `The compliance officer signed off. A partner who doesn't act for this client approves next.`
+        ? client.assignedTo?.id === me?.user.id && can("signoff:senior")
+          ? "The compliance officer signed off. You act for this client, so another partner gives the approval."
+          : "The compliance officer signed off. A partner who doesn't act for this client approves next."
         : `${done} of ${measures.length} enhanced checks received.${waiting.length ? ` Waiting on ${waiting.slice(0, 2).join(" and ")}.` : " Ready for sign-off."}`;
   return (
     <section className="signoff" aria-label={heading}>

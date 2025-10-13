@@ -20,7 +20,16 @@ export interface Structure {
   diff: GraphDiff | undefined;
 }
 
-export function buildStructure(payload: GraphPayload, ubo: UboResult | undefined, diff: GraphDiff | undefined, compareLabel: string | null, key: string): Structure {
+/** The dossier draws parties and their interests; registered addresses belong to the client book's shared-address
+ * clusters, so they are left out of a single client's structure (and its ledger twin). */
+export function withoutAddresses(p: GraphPayload): GraphPayload {
+  const addr = new Set(p.nodes.filter((n) => n.attributes.kind === "address").map((n) => n.key));
+  if (!addr.size) return p;
+  return { ...p, nodes: p.nodes.filter((n) => !addr.has(n.key)), edges: p.edges.filter((e) => !addr.has(e.source) && !addr.has(e.target)) };
+}
+
+export function buildStructure(raw: GraphPayload, ubo: UboResult | undefined, diff: GraphDiff | undefined, compareLabel: string | null, key: string): Structure {
+  const payload = withoutAddresses(raw);
   let model = fromPayload(payload, { ubo });
   if (diff && compareLabel) model = applyDiff(model, diff, compareLabel);
   const nodes = applyPositions(model.nodes, layered(model.nodes, model.edges));

@@ -358,7 +358,8 @@ export class BoardEngine {
     const H = this.host.clientHeight || 1;
     const vw = Math.max(80, W - this.insets.left - this.insets.right);
     const vh = Math.max(80, H - this.insets.top - this.insets.bottom);
-    const s = clamp(Math.min(vw / Math.max(1, this.content.w), vh / Math.max(1, this.content.h)), 0.42, 1);
+    // Phones get a smaller floor so a whole client book still fits across the screen.
+    const s = clamp(Math.min(vw / Math.max(1, this.content.w), vh / Math.max(1, this.content.h)), W < 640 ? 0.24 : 0.3, 1);
     this.base = s;
     const vcx = this.insets.left + vw / 2;
     const vcy = this.insets.top + vh / 2;

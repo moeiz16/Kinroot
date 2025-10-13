@@ -10,7 +10,7 @@ import { applyPositions, layered } from "../graph/layout";
 import type { BNode, Scene } from "../graph/model";
 import { fromPayload } from "../graph/transforms";
 import { fmtDate } from "../lib/dates";
-import { COUNTRY, likelihood } from "../lib/format";
+import { COUNTRY, likelihood, listSourceLabel } from "../lib/format";
 import { useAuth } from "../lib/auth";
 import { useBoard, useBoardScene } from "../shell/board";
 import { BoardTools, Status } from "../shell/chrome";
@@ -34,8 +34,8 @@ export function screeningScene(hit: ScreeningHit, g: GraphPayload): Scene {
     sub: `${hit.entry.listKind === "pep" ? "PEP list" : "Sanctions list"} · ${hit.entry.countries.map((c) => COUNTRY[c] ?? c).join(", ")}`,
     glyph: "≡",
     level: 1,
-    flags: [{ text: hit.entry.source, level: "info" }],
-    aria: `List entry ${hit.entry.name}, ${hit.entry.source}`,
+    flags: [{ text: listSourceLabel(hit.entry.source), level: "info" }],
+    aria: `List entry ${hit.entry.name}, ${listSourceLabel(hit.entry.source)}`,
     x: party.x + 430,
     y: party.y,
   };
@@ -90,7 +90,7 @@ export default function Screening() {
 
   const h = current;
   const row = (label: string, ours: string | null | undefined, theirs: string | null | undefined, feature: RegExp) => {
-    const eff = effectOf(h?.reasons.find((r) => feature.test(r.feature)));
+    const eff = effectOf(h?.reasons.find((r) => feature.test(r.feature)), Math.max(...(h?.reasons ?? []).map((x) => Math.abs(x.contribution)), 0.01));
     return (
       <tr key={label}>
         <td className="f">{label}</td>
@@ -178,7 +178,7 @@ export default function Screening() {
           </>
         ) : tab === "entry" ? (
           <>
-            <div className="eyebrow">{h.entry.source}</div>
+            <div className="eyebrow">{listSourceLabel(h.entry.source)}</div>
             <h1 className="title" style={{ fontSize: 26 }}>
               {h.entry.name}
             </h1>

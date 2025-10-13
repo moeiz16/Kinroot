@@ -299,14 +299,14 @@ function harbourlineClients(): { g: ReturnType<typeof makeBuilders>; clients: Cl
 
   P("p-delacroix", "trust", "Delacroix Unit Trust", { jurisdiction: "AU", identifiers: { abn: "52 811 470 213" } });
   co("p-delacroix-nominees", "Delacroix Nominees Pty Ltd", "AU", { acn: "620 337 115" });
-  person("p-claude-delacroix", "Claude Delacroix", "1960-12-12", "FR");
+  person("p-clement-delacroix", "Clément Delacroix", "1960-12-12", "FR");
   person("p-mira-delacroix", "Mira Delacroix", "1992-01-08");
   person("p-oscar-delacroix", "Oscar Delacroix", "1994-05-19");
-  own("p-claude-delacroix", "p-delacroix", 34, { interest: "units" });
+  own("p-clement-delacroix", "p-delacroix", 34, { interest: "units" });
   own("p-mira-delacroix", "p-delacroix", 33, { interest: "units" });
   own("p-oscar-delacroix", "p-delacroix", 33, { interest: "units" });
   ctl("p-delacroix-nominees", "p-delacroix", "Trustee");
-  ctl("p-claude-delacroix", "p-delacroix-nominees", "Director");
+  ctl("p-clement-delacroix", "p-delacroix-nominees", "Director");
 
   co("p-northshore", "Northshore Dental Group Pty Ltd", "AU", { acn: "609 223 870" });
   person("p-amelia-ross", "Dr Amelia Ross", "1980-09-09");

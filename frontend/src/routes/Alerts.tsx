@@ -77,6 +77,12 @@ export default function Alerts() {
     setTimeout(() => board.engine()?.setDim(null), 2600);
   };
 
+  const onNode = (nodeId: string) => {
+    board.engine()?.setDim([nodeId]);
+    board.engine()?.flyTo(nodeId, 1);
+    setTimeout(() => board.engine()?.setDim(null), 2600);
+  };
+
   return (
     <>
       <div className="chrome queue-tray" style={{ top: 92, left: 16, right: board.occlusion.right + 16 }}>
@@ -184,16 +190,25 @@ export default function Alerts() {
                         <>
                           {(() => {
                             const e = structure?.edges.find((x) => x.id === ev.id);
-                            return e ? `${structure!.names(e.s)} → ${structure!.names(e.t)} · ${e.label ?? ""}${e.added ? ` · ${e.added}` : e.removed ? ` · ${e.removed}` : ""}` : "A link in the structure";
+                            if (e) return `${structure!.names(e.s)} → ${structure!.names(e.t)} · ${e.label ?? ""}${e.added ? ` · ${e.added}` : e.removed ? ` · ${e.removed}` : ""}`;
+                            const gone = structure?.diff?.removed.find((x) => x.id === ev.id) ?? structure?.diff?.changed.find((x) => x.before.id === ev.id)?.before;
+                            return gone ? `${structure!.names(gone.source)} → ${structure!.names(gone.target)} · ${gone.label} · no longer in place` : "A link that has since ended";
                           })()}{" "}
-                          <Cite id={ev.id} label={structure?.cites.get(ev.id) ?? "Show"} onCite={onCite} />
+                          {structure?.cites.get(ev.id) && <Cite id={ev.id} label={structure.cites.get(ev.id)} onCite={onCite} />}
                         </>
                       ) : ev.type === "hit" ? (
                         <button className="link" onClick={() => nav(`/screening/${ev.id}`)}>
                           Open the screening match
                         </button>
+                      ) : ev.type === "node" && structure?.nodes.some((n) => n.id === ev.id) ? (
+                        <>
+                          {structure.names(ev.id)}{" "}
+                          <button className="link" onClick={() => onNode(ev.id)}>
+                            Show on the board
+                          </button>
+                        </>
                       ) : (
-                        ev.id
+                        "A party in the structure"
                       )}
                     </span>
                   </li>

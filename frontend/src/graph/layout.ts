@@ -18,8 +18,24 @@ export function layered(nodes: BNode[], edges: BEdge[], opts: LayeredOptions = {
   const rankSep = opts.rankSep ?? 160;
   const nodeSep = opts.nodeSep ?? 205;
   const pos = new Map<string, { x: number; y: number }>();
-  // A link between two parties on the same row would run through their labels: push the interested party down a row.
   const lv = new Map(nodes.map((n) => [n.id, n.level]));
+  // Rank by the longest chain of interests above the client, not by hop count: a person who directs the client and
+  // also owns it through three companies sits at the foot of that chain, so every ownership path runs straight down
+  // and only the short control link reaches back up. Loops (curved links) are skipped; the cap stops runaway cycles.
+  const chain = edges.filter((e) => !e.curve && (e.kind === "own" || e.kind === "unknown" || e.kind === "ctrl") && lv.has(e.s) && lv.has(e.t));
+  const cap = nodes.length + 1;
+  for (let pass = 0; pass < nodes.length; pass++) {
+    let moved = false;
+    for (const e of chain) {
+      const want = Math.min(cap, lv.get(e.t)! + 1);
+      if (lv.get(e.s)! < want) {
+        lv.set(e.s, want);
+        moved = true;
+      }
+    }
+    if (!moved) break;
+  }
+  // A link between two parties on the same row would run through their labels: push the interested party down a row.
   for (let pass = 0; pass < nodes.length; pass++) {
     let moved = false;
     for (const e of edges) {
@@ -102,10 +118,17 @@ export function constellationLayout(nodes: BNode[], edges: BEdge[], width = 1100
   return relax(pos, nodes, 175, 46);
 }
 
-/** Resolve label collisions: overlapping pins are pushed apart along the axis of least overlap. */
-function relax(pos: Map<string, { x: number; y: number }>, nodes: BNode[], minDx: number, minDy: number): Map<string, { x: number; y: number }> {
+/** Room a pin needs to its right: the shape plus its label (labels sit to the right, max 150 px wide). */
+export function labelRoom(n: BNode): number {
+  return (n.client ? 40 : 24) + Math.min(150, n.label.length * (n.client ? 6.7 : 5.6));
+}
+
+/** Resolve label collisions: overlapping pins are pushed apart along the axis of least overlap. The horizontal gap
+ * a pair needs is the label room of whichever pin is on the left, so long names never run into a neighbour. */
+function relax(pos: Map<string, { x: number; y: number }>, nodes: BNode[], minDxFloor: number, minDy: number): Map<string, { x: number; y: number }> {
   const ids = nodes.map((n) => n.id);
-  for (let pass = 0; pass < 120; pass++) {
+  const room = new Map(nodes.map((n) => [n.id, Math.max(minDxFloor * 0.6, labelRoom(n))]));
+  for (let pass = 0; pass < 200; pass++) {
     let moved = false;
     for (let i = 0; i < ids.length; i++) {
       for (let j = i + 1; j < ids.length; j++) {
@@ -113,6 +136,7 @@ function relax(pos: Map<string, { x: number; y: number }>, nodes: BNode[], minDx
         const b = pos.get(ids[j]!)!;
         const dx = b.x - a.x;
         const dy = b.y - a.y;
+        const minDx = dx >= 0 ? room.get(ids[i]!)! : room.get(ids[j]!)!;
         const ox = minDx - Math.abs(dx);
         const oy = minDy - Math.abs(dy);
         if (ox <= 0 || oy <= 0) continue;

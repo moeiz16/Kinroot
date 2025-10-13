@@ -28,6 +28,8 @@ const ROLES: Record<ClientKind, Role[]> = {
 };
 const ROLE_LABEL: Record<Role, string> = { owner: "Shareholder", director: "Director", trustee: "Trustee", appointor: "Appointor", partner: "Partner", beneficiary: "Beneficiary", unit_holder: "Unit holder" };
 const HOLDS: Role[] = ["owner", "partner", "beneficiary", "unit_holder"];
+/** The contract's interest codes for each holding role (docs/API_CONTRACT.md 1.6). */
+const INTEREST: Partial<Record<Role, string>> = { owner: "shares", partner: "partnership", beneficiary: "trust_entitlement", unit_holder: "units" };
 
 export interface DraftParty {
   key: string;
@@ -39,6 +41,10 @@ export interface DraftParty {
   serverId?: string;
   dupOf?: { id: string; name: string };
   verified?: boolean;
+  partial?: boolean;
+  street?: string;
+  suburb?: string;
+  postcode?: string;
   docType?: string;
   docNo?: string;
   consent?: boolean;
@@ -47,6 +53,9 @@ interface DraftClient {
   kind: ClientKind;
   name: string;
   state: string;
+  street: string;
+  suburb: string;
+  postcode: string;
   identifier: string;
   services: Service[];
   channel: Client["channel"];
@@ -81,23 +90,26 @@ export function draftScene(c: DraftClient, parties: DraftParty[], canAdd: boolea
   return { key: "onboard-draft", nodes: applyPositions(nodes, layered(nodes, edges, { nodeSep: 215 })), edges };
 }
 
+// Consent comes before the identity check: the collection notice is given, and consent to an electronic check
+// recorded, before anyone's details are checked against an issuer (Privacy Act 1988; AML/CTF Rules safe harbour).
 const STEPS = [
   { id: "client", label: "1 Client" },
   { id: "people", label: "2 People and owners" },
-  { id: "identity", label: "3 Identity" },
-  { id: "consent", label: "4 Consent" },
+  { id: "consent", label: "3 Consent" },
+  { id: "identity", label: "4 Identity" },
   { id: "review", label: "5 Review" },
 ];
+const addressOf = (street: string | undefined, suburb: string | undefined, postcode: string | undefined, state: string) =>
+  street?.trim() ? { line1: street.trim(), locality: suburb?.trim() || undefined, state, postcode: postcode?.trim() || undefined, country: "AU" } : undefined;
 
 export default function Onboard() {
   const nav = useNavigate();
   const qc = useQueryClient();
   const [step, setStep] = useState("client");
-  const [c, setC] = useState<DraftClient>({ kind: "trust", name: "", state: "NSW", identifier: "", services: ["property_transaction"], channel: "face_to_face", matterReference: "", birthDate: "" });
+  const [c, setC] = useState<DraftClient>({ kind: "trust", name: "", state: "NSW", identifier: "", services: ["property_transaction"], channel: "face_to_face", matterReference: "", birthDate: "", street: "", suburb: "", postcode: "" });
   const [parties, setParties] = useState<DraftParty[]>([]);
   const [client, setClient] = useState<Client | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [linkNote, setLinkNote] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState<Client | null>(null);
   const [checklist, setChecklist] = useState<Onboarding | null>(null);
   const risk = useQuery({ queryKey: ["risk", submitted?.id], queryFn: () => api.clients.risk(submitted!.id), enabled: !!submitted });
@@ -129,14 +141,14 @@ export default function Onboard() {
         channel: c.channel,
         matterReference: c.matterReference || undefined,
         identifiers: c.kind === "company" ? { acn: c.identifier } : c.kind !== "individual" && id ? { abn: c.identifier } : undefined,
-        person: c.kind === "individual" ? { givenNames: c.name.split(" ").slice(0, -1).join(" "), familyName: c.name.split(" ").pop() ?? "", birthDate: c.birthDate, nationality: "AU" } : undefined,
+        person: c.kind === "individual" ? { givenNames: c.name.split(" ").slice(0, -1).join(" "), familyName: c.name.split(" ").pop() ?? "", birthDate: c.birthDate, nationality: "AU", address: addressOf(c.street, c.suburb, c.postcode, c.state) } : undefined,
       });
       setClient(made);
       return made;
     },
     onSuccess: () => {
       setErr(null);
-      setStep(c.kind === "individual" ? "identity" : "people");
+      setStep(c.kind === "individual" ? "consent" : "people");
     },
     onError: (e) => setErr(e instanceof ApiError ? (e.fieldErrors().name ?? errorMessage(e)) : (e as Error).message),
   });
@@ -149,28 +161,32 @@ export default function Onboard() {
       for (const p of parties) {
         if (p.serverId) continue;
         if (!p.name.trim()) throw new Error("Every person or entity needs a name.");
-        const party = await api.clients.addParty(client.id, { kind: p.kind, name: p.name.trim(), birthDate: p.birthDate || undefined, jurisdiction: "AU" });
+        const party = await api.clients.addParty(client.id, { kind: p.kind, name: p.name.trim(), birthDate: p.birthDate || undefined, jurisdiction: "AU", address: p.kind === "person" ? addressOf(p.street, p.suburb, p.postcode, c.state) : undefined });
         await api.relationships.create(
           HOLDS.includes(p.role)
-            ? { fromPartyId: party.id, toPartyId: client.partyId, kind: "ownership", pct: p.pct || undefined, interest: p.role === "unit_holder" ? "units" : p.role === "beneficiary" ? "beneficial interest" : "shares", validFrom: today() }
-            : { fromPartyId: party.id, toPartyId: client.partyId, kind: "control", role: ROLE_LABEL[p.role], validFrom: today() },
+            ? { fromPartyId: party.id, toPartyId: client.partyId, kind: "ownership", pct: p.pct || undefined, interest: INTEREST[p.role], validFrom: today() }
+            : { fromPartyId: party.id, toPartyId: client.partyId, kind: "control", role: p.role, validFrom: today() },
         );
         set(p.key, { serverId: party.id });
       }
     },
     onSuccess: () => {
       setErr(null);
-      setStep("identity");
+      setStep("consent");
     },
     onError: (e) => setErr(e instanceof ApiError ? errorMessage(e) : (e as Error).message),
   });
 
   const verify = useMutation({
     mutationFn: async (p: { key: string; partyId: string }) => {
-      await api.clients.verify(client!.id, { partyId: p.partyId, method: "electronic", documentIds: [] });
-      return p.key;
+      const check = await api.clients.verify(client!.id, { partyId: p.partyId, method: "electronic", documentIds: [] });
+      return { key: p.key, ok: check.result === "verified" };
     },
-    onSuccess: (key) => (key === "client" ? setClientVerified(true) : set(key, { verified: true })),
+    onSuccess: ({ key, ok }) => {
+      setErr(null);
+      if (key === "client") setClientVerified(ok);
+      else set(key, { verified: ok, partial: !ok });
+    },
     onError: (e) => setErr(errorMessage(e)),
   });
   const [clientVerified, setClientVerified] = useState(false);
@@ -178,18 +194,26 @@ export default function Onboard() {
   const consent = useMutation({
     mutationFn: async () => {
       const people = parties.filter((p) => p.kind === "person" && p.consent && p.serverId);
-      for (const p of people) await api.clients.consent(client!.id, { partyId: p.serverId!, purpose: "identity_verification", givenOn: today(), method: "online form" });
-      if (c.kind === "individual" && clientConsent) await api.clients.consent(client!.id, { partyId: client!.partyId, purpose: "identity_verification", givenOn: today(), method: "online form" });
-      return api.clients.onboarding(client!.id);
+      const ids = [...people.map((p) => p.serverId!), ...(c.kind === "individual" && clientConsent ? [client!.partyId] : [])];
+      for (const partyId of ids)
+        for (const purpose of ["identity_verification", "electronic_check"] as const) await api.clients.consent(client!.id, { partyId, purpose, givenOn: today(), method: "online form" });
     },
+    onSuccess: () => {
+      setErr(null);
+      setStep("identity");
+    },
+    onError: (e) => setErr(errorMessage(e)),
+  });
+  const [clientConsent, setClientConsent] = useState(false);
+
+  const toReview = useMutation({
+    mutationFn: () => api.clients.onboarding(client!.id),
     onSuccess: (o) => {
       setChecklist(o);
       setStep("review");
     },
     onError: (e) => setErr(errorMessage(e)),
   });
-  const [clientConsent, setClientConsent] = useState(false);
-
   const submit = useMutation({
     mutationFn: () => api.clients.submit(client!.id),
     onSuccess: (res) => {
@@ -201,9 +225,9 @@ export default function Onboard() {
     onError: (e) => setErr(e instanceof ApiError && e.code === "invalid_transition" ? "Some required items are still open. Finish them, then try again." : errorMessage(e)),
   });
 
-  const toVerify: { key: string; partyId?: string; name: string; kind: string; verified: boolean }[] = [
+  const toVerify: { key: string; partyId?: string; name: string; kind: string; verified: boolean; partial?: boolean }[] = [
     ...(c.kind === "individual" || parties.length === 0 ? [{ key: "client", partyId: client?.partyId, name: c.name, kind: c.kind === "individual" ? "person" : "entity", verified: clientVerified }] : []),
-    ...parties.map((p) => ({ key: p.key, partyId: p.serverId, name: p.name, kind: p.kind, verified: !!p.verified })),
+    ...parties.map((p) => ({ key: p.key, partyId: p.serverId, name: p.name, kind: p.kind, verified: !!p.verified, partial: !!p.partial })),
   ];
 
   return (
@@ -233,10 +257,26 @@ export default function Onboard() {
                 <input className="input" value={c.name} onChange={(e) => setC({ ...c, name: e.target.value })} disabled={!!client} />
               </label>
               {c.kind === "individual" ? (
-                <label className="field">
-                  <span>Date of birth</span>
-                  <input className="input" type="date" value={c.birthDate} onChange={(e) => setC({ ...c, birthDate: e.target.value })} disabled={!!client} />
-                </label>
+                <>
+                  <label className="field">
+                    <span>Date of birth</span>
+                    <input className="input" type="date" value={c.birthDate} onChange={(e) => setC({ ...c, birthDate: e.target.value })} disabled={!!client} />
+                  </label>
+                  <label className="field">
+                    <span>Residential address</span>
+                    <input className="input" value={c.street} placeholder="Street" onChange={(e) => setC({ ...c, street: e.target.value })} disabled={!!client} />
+                  </label>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 120px", gap: 10 }}>
+                    <label className="field">
+                      <span>Suburb</span>
+                      <input className="input" value={c.suburb} onChange={(e) => setC({ ...c, suburb: e.target.value })} disabled={!!client} />
+                    </label>
+                    <label className="field">
+                      <span>Postcode</span>
+                      <input className="input mono" inputMode="numeric" maxLength={4} value={c.postcode} onChange={(e) => setC({ ...c, postcode: e.target.value })} disabled={!!client} />
+                    </label>
+                  </div>
+                </>
               ) : (
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 120px", gap: 10 }}>
                   <label className="field">
@@ -330,6 +370,24 @@ export default function Onboard() {
                         <input className="input" type="date" value={p.birthDate ?? ""} onChange={(e) => set(p.key, { birthDate: e.target.value })} disabled={!!p.serverId} />
                       </label>
                     )}
+                    {p.kind === "person" && (
+                      <label className="field pc-wide">
+                        <span>Residential address</span>
+                        <input className="input" value={p.street ?? ""} placeholder="Street" onChange={(e) => set(p.key, { street: e.target.value })} disabled={!!p.serverId} />
+                      </label>
+                    )}
+                    {p.kind === "person" && (
+                      <label className="field">
+                        <span>Suburb</span>
+                        <input className="input" value={p.suburb ?? ""} onChange={(e) => set(p.key, { suburb: e.target.value })} disabled={!!p.serverId} />
+                      </label>
+                    )}
+                    {p.kind === "person" && (
+                      <label className="field">
+                        <span>Postcode</span>
+                        <input className="input mono" inputMode="numeric" maxLength={4} value={p.postcode ?? ""} onChange={(e) => set(p.key, { postcode: e.target.value })} disabled={!!p.serverId} />
+                      </label>
+                    )}
                   </div>
                   {p.dupOf && (
                     <div className="dup-note">
@@ -360,13 +418,9 @@ export default function Onboard() {
                 <Plus /> Add a company or trust
               </button>
             </div>
-            <p style={{ marginTop: 14 }}>
-              Or{" "}
-              <button className="link" onClick={() => setLinkNote("A link for the client has been prepared. Their answers will appear here as they fill it in.")}>
-                <Link2 size={14} style={{ verticalAlign: -2 }} /> send the client a link to fill this in
-              </button>
+            <p className="note" style={{ marginTop: 14, display: "flex", gap: 6, alignItems: "center" }}>
+              <Link2 size={14} aria-hidden /> Coming soon: send the client a secure link to fill in their own owners and documents.
             </p>
-            {linkNote && <p role="status" className="note">{linkNote}</p>}
             <div className="decide">
               <div className="row" style={{ justifyContent: "space-between" }}>
                 <button className="btn btn-quiet" onClick={() => setStep("client")}>
@@ -398,6 +452,8 @@ export default function Onboard() {
                         <span className="stamp-verified">
                           <BadgeCheck size={14} aria-hidden /> Verified
                         </span>
+                      ) : "partial" in p && p.partial ? (
+                        <Status tone="review">Partly matched: date of birth or address missing</Status>
                       ) : (
                         <button className="btn btn-line btn-sm" disabled={!p.partyId || verify.isPending} onClick={() => p.partyId && verify.mutate({ key: p.key, partyId: p.partyId })}>
                           Check against the issuer
@@ -410,10 +466,10 @@ export default function Onboard() {
             </table>
             <div className="decide">
               <div className="row" style={{ justifyContent: "space-between" }}>
-                <button className="btn btn-quiet" onClick={() => setStep(c.kind === "individual" ? "client" : "people")}>
+                <button className="btn btn-quiet" onClick={() => setStep("consent")}>
                   Back
                 </button>
-                <button className="btn btn-string" onClick={() => setStep("consent")}>
+                <button className="btn btn-string" onClick={() => toReview.mutate()} disabled={toReview.isPending}>
                   Continue →
                 </button>
               </div>
@@ -446,7 +502,7 @@ export default function Onboard() {
             </div>
             <div className="decide">
               <div className="row" style={{ justifyContent: "space-between" }}>
-                <button className="btn btn-quiet" onClick={() => setStep("identity")}>
+                <button className="btn btn-quiet" onClick={() => setStep(c.kind === "individual" ? "client" : "people")}>
                   Back
                 </button>
                 <button className="btn btn-string" onClick={() => consent.mutate()} disabled={consent.isPending}>
@@ -473,7 +529,7 @@ export default function Onboard() {
                 </ul>
                 <div className="decide">
                   <div className="row" style={{ justifyContent: "space-between" }}>
-                    <button className="btn btn-quiet" onClick={() => setStep("consent")}>
+                    <button className="btn btn-quiet" onClick={() => setStep("identity")}>
                       Back
                     </button>
                     <button className="btn btn-string" onClick={() => submit.mutate()} disabled={submit.isPending}>

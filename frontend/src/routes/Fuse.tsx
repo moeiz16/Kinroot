@@ -89,11 +89,21 @@ function fieldValue(r: PartyRecord, field: string): string | null {
       return null;
   }
 }
-export function effectOf(reason: MatchReason | undefined): { glyph: string; word: string; up: number; down: number } {
-  if (!reason || reason.contribution === 0 || reason.value === -1) return { glyph: "—", word: "Can’t compare", up: 0, down: 0 };
-  const w = Math.min(50, Math.round(Math.abs(reason.contribution) * 100));
+/** Effect of one reason: a verdict glyph and a bar. `scale` is the largest |contribution| in this match file, so the
+ * strongest reason fills the half-bar and the others are drawn relative to it (never shown as a number). */
+export function effectOf(reason: MatchReason | undefined, scale = 0.5): { glyph: string; word: string; up: number; down: number } {
+  if (!reason || reason.contribution === 0 || reason.value === -1 || /no shared|not provided|can.t compare/i.test(reason.label)) return { glyph: "—", word: reason?.label ?? "Can’t compare", up: 0, down: 0 };
+  const w = Math.max(3, Math.min(50, Math.round((Math.abs(reason.contribution) / Math.max(scale, 1e-6)) * 50)));
   if (reason.direction === "against") return { glyph: "≠", word: reason.label, up: 0, down: w };
-  return { glyph: /sound|similar|almost|short form|written differently|initial/i.test(reason.label) ? "≈" : "=", word: reason.label, up: w, down: 0 };
+  return { glyph: /sound|similar|almost|short form|written differently|initial|month and year|partial|swapped|nearby|overlap/i.test(reason.label) ? "≈" : "=", word: reason.label, up: w, down: 0 };
+}
+
+/** Why a high-likelihood pair still waits for a person (the merge policy in resolution/model.py). */
+export function heldBack(features: Record<string, number>): string | null {
+  if (features.dob_exact === 0 && features.dob_transposed !== 1) return "the birth dates differ";
+  if (features.id_agree === 0) return "the registration numbers differ";
+  if ((features.address_token_overlap ?? -1) >= 0 && features.address_token_overlap! < 0.3 && features.postcode_agree === 0) return "the addresses differ";
+  return null;
 }
 
 export default function Fuse() {
@@ -188,8 +198,8 @@ export default function Fuse() {
     onError: (e) => setMsg(errorMessage(e)),
   });
 
-  const auto = (thresholds.data?.autoMerge ?? 0.97) * 100;
-  const review = (thresholds.data?.review ?? 0.4) * 100;
+  const auto = Math.round((thresholds.data?.autoMerge ?? 0.97) * 100);
+  const review = Math.round((thresholds.data?.review ?? 0.4) * 100);
   const decided = (past.data?.items ?? []).filter((c) => c.status !== "pending");
   const reasonFor = (field: string) => current?.score.reasons.find((r) => FIELD_FOR.some(([re, f]) => f === field && re.test(r.feature)));
   const fields = ["Birth date", "Address", "Name", "Linked to", "ID document", "Middle name"];
@@ -291,6 +301,7 @@ export default function Fuse() {
               {current.score.probability >= 0.75 ? "Probably the same " : "Possibly the same "}
               {current.left.kind === "person" ? "person" : "company"}. {current.score.reasons.filter((r) => r.direction === "for").slice(0, 2).map((r, i) => (i === 0 ? r.label : r.label.charAt(0).toLowerCase() + r.label.slice(1))).join(" and ")}.{" "}
               {current.score.reasons.find((r) => r.direction === "against") ? `${current.score.reasons.find((r) => r.direction === "against")!.label}.` : ""}
+              {current.status === "pending" && Math.round(current.score.probability * 100) >= auto && heldBack(current.score.features) ? ` Not fused automatically because ${heldBack(current.score.features)}: records that conflict always wait for a person.` : ""}
             </p>
             <div className="scale" style={{ marginTop: 22 }} role="img" aria-label={`Match likelihood ${likelihood(current.score.probability)}. ${review} to ${auto} needs a person to decide.`}>
               <div className="bar" style={{ gridTemplateColumns: `${review}fr ${auto - review}fr ${100 - auto}fr` }}>
@@ -336,7 +347,7 @@ export default function Fuse() {
                     const va = f === "Linked to" ? (r ? r.label.replace(/^Both linked to /, "") : null) : fieldValue(current.left, f);
                     const vb = f === "Linked to" ? (r ? r.label.replace(/^Both linked to /, "") : null) : fieldValue(current.right, f);
                     if (!va && !vb && !r) return null;
-                    const eff = effectOf(r);
+                    const eff = effectOf(r, Math.max(...current.score.reasons.map((x) => Math.abs(x.contribution)), 0.01));
                     return (
                       <tr key={f}>
                         <td className="f">{f}</td>

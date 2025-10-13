@@ -27,7 +27,8 @@
 .typein .go { height: 30px; padding: 0 10px; font-size: 12.5px; }
 .typein .chips { position: absolute; left: -320px; width: 640px; top: 44px; display: flex; gap: 6px; align-items: center; justify-content: center; font: 500 12px/1 var(--f-sans); color: var(--muted); transition: opacity .3s; }
 .hero.tracing .typein .chips { opacity: 0 !important; pointer-events: none; }
-.hero.done .typein .chips { top: auto; bottom: auto; position: fixed; opacity: 0 !important; pointer-events: none; }
+/* once a trace has settled, the chips sit just above the field so another structure can be traced */
+.hero.done .typein .chips { top: -146px; opacity: 1; pointer-events: auto; }
 @keyframes blink { 50% { opacity: 0; } }
 .hero.pre .node.client .lbl, .hero.typing .node.client .lbl { opacity: 0; }
 .hero:not(.done) .nbadge { opacity: 0; animation: none; }
@@ -75,6 +76,7 @@
   .typein .pinfield { width: min(358px, calc(100vw - 32px)); left: calc(min(358px, calc(100vw - 32px)) / -2); top: 0; }
   .typein .pinfield::after { display: none; }
   .typein .chips { left: -179px; width: 358px; flex-wrap: wrap; top: 56px; }
+  .hero.done .typein .chips { display: none; }
   .landing-slip { position: relative; left: auto; top: auto; width: auto; margin: 12px 16px 0; transform: none; display: none; }
   .landing-slip.on { display: block; }
   .hero .caption { position: relative; left: auto; bottom: auto; width: auto; padding: 24px 16px 32px; }

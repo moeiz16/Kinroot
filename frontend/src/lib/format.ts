@@ -40,3 +40,12 @@ export function addressText(a: Address | string | null | undefined): string | nu
   const line = [a.line1, [a.locality, a.state, a.postcode].filter(Boolean).join(" "), a.country && a.country !== "AU" ? a.country : ""].filter(Boolean).join(", ");
   return line || null;
 }
+
+/** A screening list's source in plain words ("bundled-sample@2025.10" → "Sample list · fictional entries"). */
+export function listSourceLabel(source: string | null | undefined): string {
+  const s = (source ?? "").toLowerCase();
+  if (!s) return "Screening list";
+  if (s.startsWith("bundled") || s.includes("sample")) return "Sample list · fictional entries";
+  if (s.includes("opensanctions")) return "OpenSanctions";
+  return source!.replace(/[@_-]+/g, " ").trim();
+}

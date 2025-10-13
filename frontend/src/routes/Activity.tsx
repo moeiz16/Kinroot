@@ -128,7 +128,7 @@ export default function Activity() {
                     )}
                   </td>
                   <td>
-                    <span className={`seal${i < checked ? " closed" : ""}`} title={r.hash} aria-label={`Seal ${r.hash.slice(0, 4)}${i < checked ? ", verified" : ""}`}>
+                    <span className={`seal${i < checked ? " closed" : ""}`} aria-label={`Seal ${r.hash.slice(0, 4)}${i < checked ? ", verified" : ""}`}>
                       <span className="chain" aria-hidden>
                         <span className="link-l" />
                         <span className="link-r" />

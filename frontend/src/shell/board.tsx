@@ -16,6 +16,8 @@ interface BoardApi {
   pull: (specs: StringSpec[], opts?: { animate?: boolean; dur?: number }) => Promise<void>;
   clearStrings: () => void;
   setOcclusion: (o: Partial<Insets>, animate?: boolean) => void;
+  /** Extra room a route's own floating chrome needs (e.g. the Ask slip); only the fit changes, not other chrome. */
+  setReserve: (o: Partial<Insets>) => void;
   setHandlers: (h: Handlers) => void;
   scene: Scene | null;
   occlusion: Insets;
@@ -33,7 +35,8 @@ interface Wire {
 }
 const BoardContext = createContext<BoardApi | null>(null);
 
-const CHROME = { top: 76, bottom: 64, left: 16, right: 16 };
+// Floating chrome around the board: the As-at stamp and Find pill on top, the zoom group and minimap (about 120 px) at the foot.
+const CHROME = { top: 76, bottom: 128, left: 16, right: 16 };
 
 export function BoardProvider({ children }: { children: ReactNode }) {
   const engineRef = useRef<BoardEngine | null>(null);
@@ -44,6 +47,13 @@ export function BoardProvider({ children }: { children: ReactNode }) {
   const [focused, setFocused] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
   const occRef = useRef(occlusion);
+  const reserveRef = useRef<Insets>({ top: 0, right: 0, bottom: 0, left: 0 });
+  const insetsFor = (o: Insets): Insets => ({
+    top: o.top + CHROME.top + reserveRef.current.top,
+    right: o.right + CHROME.right + reserveRef.current.right,
+    bottom: o.bottom + CHROME.bottom + reserveRef.current.bottom,
+    left: o.left + CHROME.left + reserveRef.current.left,
+  });
 
   const api = useMemo<Omit<BoardApi, "_wire">>(
     () => ({
@@ -68,7 +78,13 @@ export function BoardProvider({ children }: { children: ReactNode }) {
         if (JSON.stringify(next) === JSON.stringify(occRef.current)) return;
         occRef.current = next;
         setOcc(next);
-        engineRef.current?.setInsets({ top: next.top + CHROME.top, right: next.right + CHROME.right, bottom: next.bottom + CHROME.bottom, left: next.left + CHROME.left }, animate);
+        engineRef.current?.setInsets(insetsFor(next), animate);
+      },
+      setReserve: (r) => {
+        const next = { ...reserveRef.current, ...r };
+        if (JSON.stringify(next) === JSON.stringify(reserveRef.current)) return;
+        reserveRef.current = next;
+        engineRef.current?.setInsets(insetsFor(occRef.current), false);
       },
       setHandlers: (h) => {
         handlers.current = h;
@@ -86,7 +102,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
     engineRef.current = e;
     if (!e) return;
     const o = occRef.current;
-    e.setInsets({ top: o.top + CHROME.top, right: o.right + CHROME.right, bottom: o.bottom + CHROME.bottom, left: o.left + CHROME.left });
+    e.setInsets(insetsFor(o));
     if (pending.current) {
       const p = pending.current;
       pending.current = null;

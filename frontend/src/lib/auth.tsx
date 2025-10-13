@@ -16,13 +16,49 @@ interface AuthValue {
 }
 const AuthContext = createContext<AuthValue | null>(null);
 
+// Public pages only ask "who is signed in?" when this browser signed in before, so a first visit to the landing
+// page or sign-in makes no request that is bound to fail.
+const HINT = "kinroot.session";
+const PUBLIC = (path: string) => path === "/" || path === "/sign-up" || path.startsWith("/sign-in") || path.startsWith("/invite");
+function hinted(): boolean {
+  try {
+    return localStorage.getItem(HINT) === "1";
+  } catch {
+    return false;
+  }
+}
+function setHint(on: boolean) {
+  try {
+    if (on) localStorage.setItem(HINT, "1");
+    else localStorage.removeItem(HINT);
+  } catch {
+    /* storage unavailable: the app still works, public pages simply skip the check */
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
-  const meQuery = useQuery({ queryKey: ["me"], queryFn: () => api.auth.me(), retry: false, staleTime: 60_000 });
+  const meQuery = useQuery({
+    queryKey: ["me"],
+    queryFn: async () => {
+      try {
+        const m = await api.auth.me();
+        setHint(true);
+        return m;
+      } catch (e) {
+        setHint(false);
+        throw e;
+      }
+    },
+    retry: false,
+    staleTime: 60_000,
+    enabled: !PUBLIC(location.pathname) || hinted(),
+  });
   const me = meQuery.isError ? null : (meQuery.data ?? null);
 
   useEffect(() => {
     setUnauthenticatedHandler((code) => {
+      setHint(false);
       qc.setQueryData(["me"], null);
       if (!location.pathname.startsWith("/sign-in") && !["/", "/sign-up"].includes(location.pathname) && !location.pathname.startsWith("/invite")) {
         const next = encodeURIComponent(location.pathname + location.search);
@@ -50,12 +86,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [me]);
 
-  const setMe = useCallback((m: Me) => qc.setQueryData(["me"], m), [qc]);
+  const setMe = useCallback(
+    (m: Me) => {
+      setHint(true);
+      qc.setQueryData(["me"], m);
+    },
+    [qc],
+  );
   const signIn = useCallback(
     async (email: string, password: string) => {
       await api.auth.csrf().catch(() => undefined);
       const m = await api.auth.login(email, password);
       qc.removeQueries({ predicate: (q) => q.queryKey[0] !== "me" });
+      setHint(true);
       qc.setQueryData(["me"], m);
       return m;
     },
@@ -63,6 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
   const signOut = useCallback(async () => {
     await api.auth.logout().catch(() => undefined);
+    setHint(false);
     qc.setQueryData(["me"], null);
     qc.removeQueries({ predicate: (q) => q.queryKey[0] !== "me" });
   }, [qc]);
