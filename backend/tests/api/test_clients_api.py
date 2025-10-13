@@ -460,3 +460,17 @@ def test_registry_search_and_import_endpoint(as_role, firm):
     )
     assert missing.status_code == 404
     assert Job.objects.filter(kind="resolution.find_candidates").count() <= 1
+
+
+def test_identity_evidence_on_a_fused_record_lands_on_the_survivor(as_role, firm, client_record):
+    """A person fused while the client is still onboarding: consent and checks follow the merge."""
+    from clients.models import ClientParty, Party
+
+    org = firm["org"]
+    survivor = Party.objects.create(org=org, kind="person", name="Priscilla Moana", address={"line1": "1 St"})
+    dup = Party.objects.create(org=org, kind="person", name="Priscilla Moana", merged_into=survivor)
+    ClientParty.objects.get_or_create(org=org, client=client_record, party=survivor)
+    co = as_role("compliance_officer")
+    body = {"partyId": str(dup.id), "purpose": "electronic_check", "givenOn": "2025-10-01", "method": "online form"}
+    resp = co.post(f"/api/v1/clients/{client_record.id}/consent", body, format="json")
+    assert resp.status_code == 201 and resp.json()["partyId"] == str(survivor.id)

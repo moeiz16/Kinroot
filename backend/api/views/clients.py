@@ -147,7 +147,9 @@ class ClientMixin(ApiView):
             raise not_found("Client")
         return client
 
-    def get_party(self, party_id: Any, *, field: str | None = None) -> Party:
+    def get_party(self, party_id: Any, *, field: str | None = None, survivor: bool = False) -> Party:
+        """`survivor=True` follows a fused record to the party it was merged into: identity evidence recorded
+        against a duplicate (e.g. one fused while the client was still being onboarded) lands on the survivor."""
         try:
             pid = uuid.UUID(str(party_id))
         except (TypeError, ValueError):
@@ -157,6 +159,13 @@ class ClientMixin(ApiView):
             if field:
                 raise validation_error("Unknown party.", [{"field": field, "message": "Choose a party in this firm."}])
             raise not_found("Party")
+        seen = {party.id}
+        while survivor and party.merged_into_id and party.merged_into_id not in seen:
+            nxt = Party.objects.filter(org=self.org, id=party.merged_into_id).first()
+            if nxt is None:
+                break
+            seen.add(nxt.id)
+            party = nxt
         return party
 
 
@@ -674,7 +683,7 @@ class DocumentsView(ClientMixin):
             raise validation_error(
                 "Choose the document type.", [{"field": "docType", "message": "Unknown document type."}]
             )
-        party = self.get_party(party_id, field="partyId")
+        party = self.get_party(party_id, field="partyId", survivor=True)
         if party.id not in services.structure_party_ids(self.org_id, client.id):
             raise validation_error(
                 "That party is not in this client's structure.", [{"field": "partyId", "message": "Not in structure."}]
@@ -746,7 +755,7 @@ class VerificationView(ClientMixin):
         data = VerificationIn(data=request.data)
         data.is_valid(raise_exception=True)
         v = data.validated_data
-        party = self.get_party(v["party_id"], field="partyId")
+        party = self.get_party(v["party_id"], field="partyId", survivor=True)
         if party.id not in services.structure_party_ids(self.org_id, client.id):
             raise validation_error(
                 "That party is not in this client's structure.", [{"field": "partyId", "message": "Not in structure."}]
@@ -834,7 +843,7 @@ class ConsentView(ClientMixin):
         data = ConsentIn(data=request.data)
         data.is_valid(raise_exception=True)
         v = data.validated_data
-        party = self.get_party(v["party_id"], field="partyId")
+        party = self.get_party(v["party_id"], field="partyId", survivor=True)
         if v["given_on"] > timezone.localdate():
             raise validation_error(
                 "The consent date is in the future.", [{"field": "givenOn", "message": "Future date."}]
