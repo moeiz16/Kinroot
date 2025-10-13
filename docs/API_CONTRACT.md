@@ -185,7 +185,7 @@ demo: `run` with `dryRun:false` anonymises personal fields and keeps the audit c
 {
   "fileTray": [{ "kind": "signoff"|"hit_review"|"merge_review"|"disagreement"|"alert"|"review_due",
                  "id": "…", "clientId": "…", "title": "Sign-off needed: Calder Family Trust",
-                 "subtitle": "Senior approval · PEP in structure", "dueOn": "2025-10-20", "href": "/board/clients/…" }],
+                 "subtitle": "Senior approval · PEP in structure", "dueOn": "2025-10-20", "href": "/clients/…/risk" }],
   "counts": { "clients": 30, "highRisk": 6, "reviewsOverdue": 3, "reviewsDueSoon": 4, "screeningBacklog": 4,
               "mergeQueue": 7, "openAlerts": 5, "eddInProgress": 4, "awaitingSignoff": 3,
               "trainingOverdue": 1, "smrDrafts": 1 },
@@ -195,7 +195,11 @@ demo: `run` with `dryRun:false` anonymises personal fields and keeps the audit c
                        "actorName": "Daniel Cho", "createdAt": "…" }]
 }
 ```
-`smrDrafts` appears only with `smr:read`. `fileTray` holds at most 6 items for the caller's role.
+`smrDrafts` appears only with `smr:read`. `fileTray` holds at most 6 items for the caller's role. Every `href` (tray
+and insights) is a route in the web app: `/clients/{id}/{tab}`, `/screening/{hitId}`, `/fuse/{candidateId}`,
+`/alerts/{alertId}`, `/board?lens=…`, `/clients?filter=needs`, `/settings/risk-method`. Subtitles are plain words
+("Sanctions list · 85 in 100", "Compliance sign-off · nominee in structure"), never codes or percentages for
+likelihoods.
 
 `GET /insights` (`insights:read`) → `Insight[]` = `{ id, tone: "risk"|"progress"|"info", title, body, metric?: { value, unit, trend: "up"|"down"|"flat" }, href? }`.
 Examples: "4 clients share a director who holds 41 other appointments", "Onboarding time fell from 6 to 3 days",
@@ -229,6 +233,7 @@ Examples: "4 clients share a director who holds 41 other appointments", "Onboard
 | POST | `/clients/{id}/submit` | `clients:onboard` | onboarding complete → `202 { client: Client, jobs: Job[] }` (screening + risk jobs); `422 invalid_transition` with the missing checklist items in `errors[].field` (item keys) |
 | POST | `/clients/{id}/communications` | `clients:write` | `{ kind: "information_request"\|"exit_notice", message }` → `202 { id, status: "sent" }` or `409 action_held` |
 | POST | `/clients/{id}/exit` | `clients:write` | `{ reason }` → `Client` or `409 action_held` |
+| GET | `/clients/{id}/holds` | `signoff:compliance` | `{ active, holds: [{ id, reason: "manual"\|"restricted", note, placedByName, placedAt }] }` (active holds only) |
 | POST | `/clients/{id}/holds` | `signoff:compliance` | `{ note }` → `201 { id, active }` (manual hold; same neutral wording as every hold) |
 | POST | `/clients/{id}/holds/release` | `signoff:compliance` | `{ note }` → `{ released }` (releases every active hold on the client, including a case hold) |
 
@@ -283,7 +288,15 @@ Graph payloads use the **graphology serialisation** so the web app can `graph.im
       "validFrom": "2019-06-01", "validTo": null, "sourceRef": "manual" } }]
 }
 ```
-Node `kind`: person (circle), company (rectangle), trust / partnership (rounded rect with fold), address.
+Node `kind`: person (circle), company (rectangle), trust / partnership (rounded rect with fold), address, and two
+**group nodes** added by the client graph (never stored): `unknown` ("Unknown shareholders": an undisclosed holder
+on the register, or `unknown:<partyId>` for the share of an entity nobody has declared, linked by an ownership edge
+`unknown-edge:<partyId>` with `pct: null` and `label` = the missing share or "?%") and `stack` (`stack:<partyId>`,
+"43 companies": an officer's appointments outside the structure, with `count` and `sub` "Dormant" / "Other
+appointments", linked by a control edge labelled "Directs"). Group nodes carry `count` and `sub` attributes.
+**Edge order is stable**: links nearest the focus first, then ownership before control before addresses, larger
+holdings first, then names. The web app numbers edges `E-01`, `E-02` … in payload order, so the same structure
+always gets the same citation numbers.
 Edge `kind`: `ownership` (solid, % label, owner → owned), `control` (dashed, role label, controller → entity),
 `address` (party → address). Node flags: `client, ubo, pep, sanctions_hit, nominee, offshore,
 high_risk_jurisdiction, dormant, unknown_owner, circular, merged`. Positions are computed in the browser
@@ -385,8 +398,8 @@ Fee earners see hit **status** on their clients but `reviewReason` only once dec
 | POST | `/risk/disagreements/{id}/resolve` | `risk:override` | `{ outcome: "keep_rules"\|"override_to_challenger"\|"methodology_issue", note }` |
 | GET | `/risk/methodology` | `risk:read` | `Methodology[]` |
 | POST | `/risk/methodology/{id}/publish` | `methodology:manage` | publishes a draft; previous → retired |
-| GET | `/models` | `models:read` | `ModelEntry[]` (ER matcher + risk challenger) |
-| POST | `/models/{name}/promote` | `models:promote` | `{ version, note }` → `ModelEntry` (champion/challenger sign-off) |
+| GET | `/models` | `models:read` | `ModelEntry[]` (ER matcher + risk challenger) as seen by the caller's firm |
+| POST | `/models/{name}/promote` | `models:promote` | `{ version, note }` → `ModelEntry` (champion/challenger sign-off for **this firm only**: another firm's champion, scoring and drift are unaffected) |
 | GET | `/clients/{id}/edd` | `risk:read` | `Edd` |
 | POST | `/clients/{id}/edd/measures/{key}` | `edd:manage` | `{ status: "done"\|"not_applicable", note, documentIds? }` → `Edd` |
 | POST | `/clients/{id}/signoff` | `signoff:compliance` or `signoff:senior` (per stage) | `{ stage: "compliance"\|"senior", decision: "approve"\|"reject", note }` → `Edd` |
@@ -470,13 +483,16 @@ Summary members may read, never write (`403`). The compliance officer always has
 | POST | `/assistant/ask` | `assistant:use` (`assistant`) | `{ question (≤500), clientId?, asOf? }` → `AssistantAnswer` |
 | GET | `/assistant/history?clientId=` | `assistant:use` | `AssistantAnswer[]` (caller's own) |
 | GET | `/assistant/suggestions?clientId=` | `assistant:use` | `string[]` |
+| POST | `/assistant/answers/{id}/pin` | `assistant:use` | `{ clientId }` → `201 { answerId, clientId, pinnedAt }` (own grounded answers only; `404` otherwise) |
+| GET | `/clients/{id}/pins` | `clients:read` | `[{ id, question, answer, citations, pinnedByName, pinnedAt }]` newest first (shown in the dossier Timeline) |
 
 ```text
 Citation      = { type: "edge"|"node"|"hit"|"alert", id, label }
 AssistantStep = { tool: "find_party"|"who_controls"|"path_between"|"changes_since"|"screening_status"|"risk_reasons",
                   label, args, resultCount }
 AssistantAnswer = { id, question, answer, citations: Citation[], steps: AssistantStep[],
-                    highlight: { nodeIds: string[], edgeIds: string[] }, mode: "offline"|"cloud", createdAt, grounded }
+                    highlight: { nodeIds: string[], edgeIds: string[] }, mode: "offline"|"cloud", createdAt, grounded,
+                  graph: graphology payload | null }   // exactly the highlighted parties and links, as at the answer's date
 ```
 `answer` sentences end with `[1]`, `[2]` markers indexing `citations`. When the draft is not fully grounded,
 `grounded: false` and `answer` is a safe message ("I couldn't confirm that from the ownership records").
@@ -562,10 +578,10 @@ keys except append-only logs (BigAutoField). `created_at`/`updated_at` on all.
 | risk | `RiskMethodology` | org, version, status, bands, rules (JSON), published_by, published_at |
 | | `RiskAssessment` | org, client, methodology, score, rating, reasons, features (JSON), challenger (JSON), edd_triggers, inputs_hash, override (JSON) |
 | | `Disagreement` | org, assessment, rules_rating, challenger_rating, probability_high, status, outcome, note, resolved_by |
-| | `ModelPromotion` | model_name, version, stage, promoted_by, note (MLflow holds runs/metrics) |
+| | `ModelPromotion` | org (the firm that signed off; champions are per firm), model_name, version, stage, promoted_by, note (MLflow holds runs/metrics) |
 | monitoring | `Alert` | org, client, kind, severity, title, body, evidence, status, resolved_by, resolution_note |
 | | `ReviewSchedule` | org, client, due_on, completed_on, completed_by, note |
-| assistant | `AssistantExchange` | org, user, client, question, answer, citations, steps, mode, grounded |
+| assistant | `AssistantExchange` | org, user, client, question, answer, citations, steps, mode, grounded, pinned_client, pinned_by, pinned_at |
 
 ---
 
@@ -587,6 +603,7 @@ connection(org_id, from_party_id, to_party_id, *, as_of=None, max_hops=6) -> Con
 clusters(org_id, *, kinds=None, min_size=3) -> list[Cluster]
 constellation(org_id) -> GraphView
 search(org_id, q, *, limit=10) -> list[GraphNode]
+subgraph(org_id, node_ids, edge_ids, *, as_of=None) -> GraphView   # exactly these parties/links (assistant answers)
 graph_features(org_id, client_id, *, as_of=None) -> GraphFeatures
 rebuild_org(org_id) -> int                      # seed + bulk imports
 apply_pending(limit=500) -> int                  # worker job "graph.sync"
@@ -600,7 +617,7 @@ get_candidate(org_id, candidate_id) -> MatchCandidateView
 decide(org_id, candidate_id, decision, actor: Actor, note="") -> MergeOutcome      # DomainConflict("already_decided")
 propose_merge(org_id, left_id, right_id, actor) -> MatchCandidateView
 split(org_id, party_id, record_ids, actor, note) -> MergeOutcome
-thresholds() -> Thresholds
+thresholds(org_id=None) -> Thresholds       # of the firm's champion matcher
 queue_stats(org_id) -> dict
 
 # screening/api.py
@@ -621,7 +638,8 @@ edd_requirements(org_id, client_id) -> list[EddTrigger]
 list_disagreements(org_id, *, status="open", offset=0, limit=25) -> Page[dict]
 resolve_disagreement(org_id, disagreement_id, outcome, note, actor) -> dict
 methodology_versions(org_id) -> list[dict]; publish_methodology(org_id, methodology_id, actor) -> dict
-model_registry() -> list[dict]; promote_model(model_name, version, actor, note) -> dict
+model_registry(org_id=None) -> list[dict]; promote_model(model_name, version, actor, note) -> dict  # per-firm champion
+model_drift(org_id=None) -> dict                                                                     # PSI of one firm's book
 
 # monitoring/api.py
 list_alerts(org_id, *, status="open", kind=None, client_id=None, offset=0, limit=25) -> Page[AlertView]
@@ -635,6 +653,7 @@ on_structure_changed(org_id, client_ids, changed_edge_ids) -> int
 # assistant/api.py
 ask(org_id, question, actor, *, permissions: frozenset[str], client_id=None, as_of=None) -> AssistantAnswer
 history(org_id, user_id, *, client_id=None, limit=20) -> list[AssistantAnswer]
+pin(org_id, answer_id, client_id, actor) -> dict; pinned(org_id, client_id) -> list[dict]
 suggested_questions(org_id, client_id=None) -> list[str]
 ```
 Errors: the domain core raises `contracts.NotFound` (→ 404) and `contracts.DomainConflict(code, detail)` (→ 409 with
