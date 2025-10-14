@@ -201,7 +201,11 @@ export default function Fuse() {
   const auto = Math.round((thresholds.data?.autoMerge ?? 0.97) * 100);
   const review = Math.round((thresholds.data?.review ?? 0.4) * 100);
   const decided = (past.data?.items ?? []).filter((c) => c.status !== "pending");
-  const reasonFor = (field: string) => current?.score.reasons.find((r) => FIELD_FOR.some(([re, f]) => f === field && re.test(r.feature)));
+  // The strongest reason for a field, with exact-date evidence ahead of partial-date evidence.
+  const reasonFor = (field: string) =>
+    current?.score.reasons
+      .filter((r) => FIELD_FOR.some(([re, f]) => f === field && re.test(r.feature)))
+      .sort((a, b) => Number(b.feature === "dob_exact") - Number(a.feature === "dob_exact") || Math.abs(b.contribution) - Math.abs(a.contribution))[0];
   const fields = ["Birth date", "Address", "Name", "Linked to", "ID document", "Middle name"];
 
   return (
@@ -299,7 +303,7 @@ export default function Fuse() {
             </h1>
             <p className="lede">
               {current.score.probability >= 0.75 ? "Probably the same " : "Possibly the same "}
-              {current.left.kind === "person" ? "person" : "company"}. {current.score.reasons.filter((r) => r.direction === "for").slice(0, 2).map((r, i) => (i === 0 ? r.label : r.label.charAt(0).toLowerCase() + r.label.slice(1))).join(" and ")}.{" "}
+              {current.left.kind === "person" ? "person" : "company"}. {current.score.reasons.filter((r) => r.direction === "for" && !(r.feature === "dob_partial" && current.score.reasons.some((x) => x.feature === "dob_exact" && x.direction === "for"))).slice(0, 2).map((r, i) => (i === 0 ? r.label : r.label.charAt(0).toLowerCase() + r.label.slice(1))).join(" and ")}.{" "}
               {current.score.reasons.find((r) => r.direction === "against") ? `${current.score.reasons.find((r) => r.direction === "against")!.label}.` : ""}
               {current.status === "pending" && Math.round(current.score.probability * 100) >= auto && heldBack(current.score.features) ? ` Not fused automatically because ${heldBack(current.score.features)}: records that conflict always wait for a person.` : ""}
             </p>
@@ -347,7 +351,10 @@ export default function Fuse() {
                     const va = f === "Linked to" ? (r ? r.label.replace(/^Both linked to /, "") : null) : fieldValue(current.left, f);
                     const vb = f === "Linked to" ? (r ? r.label.replace(/^Both linked to /, "") : null) : fieldValue(current.right, f);
                     if (!va && !vb && !r) return null;
-                    const eff = effectOf(r, Math.max(...current.score.reasons.map((x) => Math.abs(x.contribution)), 0.01));
+                    let eff = effectOf(r, Math.max(...current.score.reasons.map((x) => Math.abs(x.contribution)), 0.01));
+                    // No scored reason for this field, but both records have a value: say plainly whether they match.
+                    if (f === "Birth date" && r && va && va === vb) eff = { ...eff, glyph: "=", word: "Same date of birth" };
+                    if (!r && va && vb) eff = va.trim().toLowerCase() === vb.trim().toLowerCase() ? { glyph: "=", word: "The same", up: 0, down: 0 } : { glyph: "≠", word: "Different", up: 0, down: 0 };
                     return (
                       <tr key={f}>
                         <td className="f">{f}</td>

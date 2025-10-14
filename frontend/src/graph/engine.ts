@@ -303,7 +303,12 @@ export class BoardEngine {
     }
     // Parallel links between the same two parties (owns and controls) bow apart so neither hides the other.
     const twins = [...this.edges.values()].filter((x) => (x.s === e.s && x.t === e.t) || (x.s === e.t && x.t === e.s));
-    if (twins.length && svgDrawn) re.bow = (re.bow ?? 0) + 52 * twins.length;
+    if (twins.length && svgDrawn) {
+      re.bow = (re.bow ?? 0) + 52 * twins.length;
+      // and their labels sit at different points along the link, so "38%" and "Director" never stack
+      re.labelAt ??= 0.34;
+      for (const tw of twins) if (tw.labelAt === undefined && !tw.bow) tw.labelAt = 0.66;
+    }
     this.edges.set(e.id, re);
   }
 
@@ -450,13 +455,16 @@ export class BoardEngine {
         const cx = (t.x1 + t.x2) / 2 + (-(t.y2 - t.y1) / len) * e.bow * k;
         const cy = (t.y1 + t.y2) / 2 + ((t.x2 - t.x1) / len) * e.bow * k;
         e.path.setAttribute("d", `M${t.x1},${t.y1} Q${cx},${cy} ${t.x2},${t.y2}`);
-        mid = { x: 0.25 * t.x1 + 0.5 * cx + 0.25 * t.x2, y: 0.25 * t.y1 + 0.5 * cy + 0.25 * t.y2 };
+        const u = e.labelAt ?? 0.5; // point on the curve at u (quadratic Bézier)
+        mid = { x: (1 - u) ** 2 * t.x1 + 2 * u * (1 - u) * cx + u ** 2 * t.x2, y: (1 - u) ** 2 * t.y1 + 2 * u * (1 - u) * cy + u ** 2 * t.y2 };
       } else e.path.setAttribute("d", `M${t.x1},${t.y1} L${t.x2},${t.y2}`);
       const dimmed = this.isDimmed(e.s) && this.isDimmed(e.t);
       e.path.style.opacity = !vis || e.onString ? "0" : e.removed || dimmed ? "0.35" : "1";
     }
     if (e.lbl) {
-      e.lbl.style.transform = `translate(${mid.x}px, ${mid.y}px) translate(-50%, -50%)`;
+      // Link labels shrink with the board (as party labels do), so a zoomed-out structure stays legible.
+      const ls = Math.min(1, Math.max(0.55, k));
+      e.lbl.style.transform = `translate(${mid.x}px, ${mid.y}px) translate(-50%, -50%)${ls < 1 ? ` scale(${ls.toFixed(3)})` : ""}`;
       e.lbl.style.opacity = vis ? (e.removed ? "0.5" : "1") : "0";
       e.lbl.classList.toggle("on-string", !!e.onString);
     }

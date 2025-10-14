@@ -87,7 +87,9 @@ export function draftScene(c: DraftClient, parties: DraftParty[], canAdd: boolea
     edges.push(HOLDS.includes(p.role) ? { id: `e-${p.key}`, s: p.key, t: "client", kind: p.pct ? "own" : "unknown", label: p.pct ? `${p.pct}%` : "?%", pct: p.pct ?? null } : { id: `e-${p.key}`, s: p.key, t: "client", kind: "ctrl", label: ROLE_LABEL[p.role] });
   });
   if (canAdd) nodes.push({ id: "ghost", kind: "unknown", label: "Add an owner", sub: "or controller", glyph: "+", level: 1, from: "client", flags: [], aria: "Add an owner or controller", x: 0, y: 0 });
-  return { key: "onboard-draft", nodes: applyPositions(nodes, layered(nodes, edges, { nodeSep: 215 })), edges };
+  // The key carries the draft's content: the board redraws as people are added, renamed or given a share.
+  const key = `onboard-draft:${c.kind}:${c.name}:${parties.map((p) => `${p.kind}/${p.name}/${p.role}/${p.pct ?? ""}`).join("|")}:${canAdd ? 1 : 0}`;
+  return { key, nodes: applyPositions(nodes, layered(nodes, edges, { nodeSep: 215 })), edges };
 }
 
 // Consent comes before the identity check: the collection notice is given, and consent to an electronic check

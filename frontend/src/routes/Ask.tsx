@@ -31,6 +31,11 @@ export function answerScene(a: AssistantAnswer, graph: GraphPayload | null = a.g
   return { scene: { key: `ask-${a.id}`, nodes: placed, edges }, strings };
 }
 
+/** "Harbour Quay Developments" → "Harbour Quay Developments’", "Bellmere Holdings Ltd" → "Bellmere Holdings Ltd’s". */
+export function possessive(name: string): string {
+  return /s$/i.test(name) ? `${name}’` : `${name}’s`;
+}
+
 export function renderAnswer(text: string, onCite: (n: number) => void): ReactNode[] {
   return text.split(/(\[\d+\])/g).map((part, i) => {
     const m = part.match(/^\[(\d+)\]$/);
@@ -177,7 +182,7 @@ export default function Ask() {
                       disabled={pin.isPending || pinnedTo === clientNode.label}
                       onClick={() => pin.mutate({ answerId: answer.id, clientId: clientNode.clientId!, name: clientNode.label })}
                     >
-                      <Pin /> {pinnedTo === clientNode.label ? "Pinned" : `Pin to ${clientNode.label.replace(/ Pty Ltd$/, "")}’s dossier`}
+                      <Pin /> {pinnedTo === clientNode.label ? "Pinned" : `Pin to ${possessive(clientNode.label.replace(/ Pty Ltd$/, ""))} dossier`}
                     </button>
                   )}
                   {clientNode?.clientId && (
@@ -199,7 +204,7 @@ export default function Ask() {
               </div>
               {pinnedTo && (
                 <p role="status" className="note" style={{ marginTop: 10 }}>
-                  Pinned to {pinnedTo}’s dossier. It sits in the Timeline with the links it cites.
+                  Pinned to {possessive(pinnedTo)} dossier. It sits in the Timeline with the links it cites.
                 </p>
               )}
               {pin.isError && <p className="note-error">{errorMessage(pin.error)}</p>}
