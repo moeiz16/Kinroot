@@ -64,6 +64,9 @@ interface DraftClient {
 }
 
 /** The structure as it is being typed: client pin on top, every added party unfolding beneath it. */
+/** Draft party keys: a counter, never the clock (two parties added in the same millisecond must not collide). */
+let draftSeq = 0;
+
 export function draftScene(c: DraftClient, parties: DraftParty[], canAdd: boolean): Scene {
   const cKind: BKind = c.kind === "individual" ? "person" : c.kind;
   const nodes: BNode[] = [
@@ -118,7 +121,7 @@ export default function Onboard() {
   const { structure } = useStructure(submitted?.id, null);
   const draft = useMemo(() => draftScene(c, parties, step === "people" && c.kind !== "individual"), [c, parties, step]);
   useBoardScene(submitted && structure ? structure.scene : draft, { unfold: !!submitted, strings: submitted ? structure?.strings : null });
-  const addParty = (kind: DraftParty["kind"]) => setParties((ps) => [...ps, { key: `d${Date.now()}`, kind, name: "", role: ROLES[c.kind][0] ?? "owner" }]);
+  const addParty = (kind: DraftParty["kind"]) => setParties((ps) => [...ps, { key: `d${++draftSeq}`, kind, name: "", role: ROLES[c.kind][0] ?? "owner" }]);
   useBoardHandlers({ onActivate: (id) => id === "ghost" && addParty("person") });
   const set = (k: string, patch: Partial<DraftParty>) => setParties((ps) => ps.map((p) => (p.key === k ? { ...p, ...patch } : p)));
 
