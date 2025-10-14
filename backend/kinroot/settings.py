@@ -160,6 +160,8 @@ KINROOT = {
     # graph (ADR 0001, 0002)
     "GRAPH_BACKEND": env_str("GRAPH_BACKEND", "ladybug"),  # ladybug | neo4j
     "GRAPH_PATH": env_str("GRAPH_PATH", str(DATA_DIR / "graph" / "kinroot.lbug")),
+    # Demo clock: "YYYY-MM-DD" replays the server as of that day (walkthroughs, screenshots); empty = real time
+    "DEMO_TODAY": env_str("KINROOT_DEMO_TODAY", ""),
     "GRAPH_WRITER": env_str("GRAPH_WRITER", "worker"),  # worker | inline (tests, seed, single-process demo)
     "GRAPH_MAX_DEPTH": env_int("GRAPH_MAX_DEPTH", 10),
     "NEO4J_URI": env_str("NEO4J_URI"),
