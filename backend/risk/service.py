@@ -612,6 +612,18 @@ def _psi_ref(spec: dict[str, list[float]], values: list[float]) -> float:
     return float(np.sum((actual - expected) * np.log(actual / expected)))
 
 
+def registered_versions() -> list[tuple[str, str]]:
+    """(model name, version) for every version in the committed manifests."""
+    out: list[tuple[str, str]] = []
+    for name in MODELS:
+        try:
+            man, _d = _manifest(name)
+        except FileNotFoundError:
+            continue
+        out += [(name, v) for v in man["versions"]]
+    return out
+
+
 def model_registry(org_id: Any = None) -> list[dict[str, Any]]:
     out = []
     for name in MODELS:
