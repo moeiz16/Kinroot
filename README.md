@@ -280,8 +280,28 @@ Snapshot with every table: [eval/RESULTS.md](eval/RESULTS.md).
 
 ### Tests and performance
 
-> **TODO (coordinator):** add the QA run's test counts (backend pytest, web Vitest) and the measured API timings
-> (p50/p95 per main endpoint, `make seed` and `make reset` durations, machine and setup) here before publishing.
+- **Tests:** 434 backend tests (pytest: platform, API, RBAC matrix, tenant isolation, tipping-off, graph, entity
+  resolution, screening, risk, monitoring, assistant, models) and 101 web tests (Vitest: API client, fixture
+  contract, graph transforms and layout, key journeys). Ruff, mypy (Django/DRF plugins), ESLint and `tsc` are clean.
+- **End-to-end:** every main journey driven in a real browser against the production web build, the API and the
+  worker, signed in as each demo role, with motion on and with reduced motion: no console errors, no failed
+  requests, no horizontal overflow at 390 px.
+- **Speed** (one laptop, SQLite + embedded graph, warm API, signed in as the compliance officer, 40 calls each):
+
+| Request | p50 | p95 |
+|---|---|---|
+| Home (`/dashboard`) | 13 ms | 14 ms |
+| Client book, 50 per page | 36 ms | 37 ms |
+| Client structure graph | 8 ms | 9 ms |
+| Beneficial owners with explained paths | 6 ms | 7 ms |
+| Pull the thread (a person to every client) | 6 ms | 6 ms |
+| Whole-book constellation | 28 ms | 30 ms |
+| Assistant question (offline, cited) | 11 ms | 52 ms |
+
+  Inside the graph layer a beneficial-owner calculation takes about 2 ms (four layers with a trust, or a circular
+  holding) and the whole 29-client book about 36 ms. A full `make reset` (drop, migrate, seed both firms with
+  graph projection, duplicate detection, screening, risk and monitoring) takes about 6 s, of which the seed is
+  1.2 s. `make train` retrains both models from fixed seeds in about 2.5 minutes on CPU (147 s; Optuna, 40 trials each) and reproduces the committed artifacts byte for byte.
 
 CI runs lint, mypy, a migrations check, the graph smoke test, the backend tests with coverage, the offline seed,
 the evaluation gates, and the web typecheck, lint, tests and production build.
@@ -290,8 +310,16 @@ the evaluation gates, and the web typecheck, lint, tests and production build.
 
 All screens use the synthetic Harbourline sample firm. Images live in [`docs/screenshots/`](docs/screenshots/).
 
-> **TODO (coordinator):** embed the final screenshots from `docs/screenshots/` here (two-column table, alt text
-> describing each screen).
+| | |
+|---|---|
+| ![Landing page: a sample client is traced live and the red string multiplies 100% × 80% × 62% into a 49.6% beneficial owner](docs/screenshots/01-landing-hero.jpg) | ![Home board: the whole client book as pins clustered by shared officers and addresses, with a file tray of the next decisions](docs/screenshots/04-constellation.jpg) |
+| **Trace a client.** The landing page is the product: type a name, watch the owners unfold, see the path to the beneficial owner. | **The client book.** Every client a pin, clustered by shared directors, owners and addresses; the next decisions wait in the tray. |
+| ![Client dossier: a trust over a company over an offshore holding, the beneficial owner's chain drawn on the board, and rated reasons citing each link](docs/screenshots/06-dossier-ubo-path.jpg) | ![Before/after overlay: a new 40% holder through a Cayman company, with new and changed links tagged against the onboarding date](docs/screenshots/10-before-after.jpg) |
+| **Who really owns this client.** Each reason for the rating cites the link it rests on (`E-04`, `E-01`). | **What changed since onboarding.** New, ended and changed links are tagged on the board. |
+| ![Fuse or split: two records of the same person scored 100 in 100 but held for a person because their addresses differ, with field-by-field evidence](docs/screenshots/12-fuse-or-split.jpg) | ![Screening review: the client's owner beside a sanctions list entry, compared field by field before a decision](docs/screenshots/13-screening-review.jpg) |
+| **Fuse or split.** Likely duplicates with plain reasons; anything that conflicts waits for a person. | **Screening review.** A possible sanctions match compared field by field; every decision needs a reason. |
+| ![Restricted case: a draft suspicious-matter report behind a restricted band, visible only to the people named on the case](docs/screenshots/15-smr-case.jpg) | ![Ask the board: "How is Gregory Pell linked to our clients?" answered with three cited links drawn on the board](docs/screenshots/16-ask-the-board.jpg) |
+| **Suspicious-matter reports.** Restricted to the people on the case, so nobody tips off the client. | **Ask the board.** Answers come only from traced paths, and every link they use is numbered and drawn. |
 
 ## Compliance alignment
 
