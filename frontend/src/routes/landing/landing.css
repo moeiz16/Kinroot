@@ -22,9 +22,9 @@
 .typein .pinfield:focus-within { box-shadow: var(--shadow-paper), var(--focus); }
 .typein .lead { font: 600 11.5px/1 var(--f-sans); color: var(--muted); border-right: 1px solid var(--rule); padding-right: 10px; }
 .typein .val { font: 600 15px/1 var(--f-sans); color: var(--ink); border: 0; outline: none; background: transparent; flex: 1; min-width: 0; padding: 0; }
-.typein .val::placeholder { color: var(--faint); font-weight: 500; }
+.typein .val::placeholder { color: var(--muted); font-weight: 500; }
 .typein .caret { width: 1.5px; height: 20px; background: var(--string); animation: blink 1s steps(1) infinite; margin-left: -10px; }
-.typein .go { height: 30px; padding: 0 10px; font-size: 12.5px; }
+.typein .go { height: 30px; padding: 0 10px; font-size: 13px; }
 .typein .chips { position: absolute; left: -320px; width: 640px; top: 44px; display: flex; gap: 6px; align-items: center; justify-content: center; font: 500 12px/1 var(--f-sans); color: var(--muted); transition: opacity .3s; }
 .hero.tracing .typein .chips { opacity: 0 !important; pointer-events: none; }
 /* once a trace has settled, the chips sit just above the field so another structure can be traced */
@@ -40,19 +40,21 @@
 .landing-slip .foot p { margin: 0; font-size: 13px; color: var(--ink-2); }
 .hero .sample { position: absolute; right: 40px; bottom: 22px; z-index: 7; font: 400 12px/1 var(--f-sans); color: var(--muted); }
 
-.notes { position: relative; background: var(--paper); border-top: 1px solid var(--paper-edge); padding: 72px 40px 80px; }
-.notes h2 { font: 500 34px/1.15 var(--f-serif); margin: 0 0 28px; max-width: 680px; letter-spacing: -.01em; }
-.notes .sub { margin: -12px 0 28px; max-width: 640px; color: var(--ink-2); font-size: 15px; }
-.notes .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1.5px solid var(--ink); }
-.notes .grid3.four { grid-template-columns: repeat(4, 1fr); }
-.notes article { padding: 20px 28px 0 0; }
-.notes article + article { padding-left: 28px; border-left: 1px solid var(--rule); }
-.notes .role { font: 600 12px/1 var(--f-sans); color: var(--string); }
-.notes h3 { font: 500 21px/1.25 var(--f-serif); margin: 10px 0 8px; }
-.notes p { margin: 0; color: var(--ink-2); }
+.notes { position: relative; background: var(--paper); border-top: 1px solid var(--paper-edge); padding: 72px 40px 80px; display: grid; grid-template-columns: minmax(220px, 300px) 1fr; column-gap: 56px; }
+.notes > * { grid-column: 2; }
+.notes .notes-head { grid-column: 1; grid-row: 1 / span 3; align-self: start; position: sticky; top: 24px; }
+.notes-no { display: block; font: 500 12.5px/1 var(--f-mono); color: var(--string); margin-bottom: 12px; }
+.notes h2 { font: 500 31px/1.15 var(--f-serif); margin: 0; letter-spacing: -.01em; }
+.notes .sub { margin: 0 0 22px; max-width: 640px; color: var(--ink-2); font-size: 15.5px; }
+.judgment { list-style: none; counter-reset: j; margin: 0; padding: 0; max-width: 760px; border-top: 1.5px solid var(--ink); }
+.judgment[start="4"] { counter-reset: j 3; }
+.judgment li { counter-increment: j; position: relative; padding: 18px 0 18px 54px; border-bottom: 1px solid var(--rule); }
+.judgment li::before { content: "[" counter(j) "]"; position: absolute; left: 0; top: 21px; font: 500 13px/1 var(--f-mono); color: var(--muted); }
+.judgment h3 { font: 500 21px/1.3 var(--f-serif); margin: 0 0 6px; }
+.judgment p { margin: 0; color: var(--ink-2); font-size: 15.5px; max-width: 62ch; }
 .notes.regimes { background: var(--paper-2); }
 .obligations { border-top: 1.5px solid var(--ink); }
-.obligations td { font-size: 13.5px; color: var(--ink-2); padding-right: 12px; }
+.obligations td { font-size: 14px; color: var(--ink-2); padding-right: 12px; }
 .obligations th { padding-top: 12px; }
 .closing { position: relative; min-height: 300px; display: grid; place-items: center; overflow: hidden; border-top: 1px solid var(--paper-edge); }
 .closing-board { position: absolute; inset: 0; }
@@ -64,8 +66,9 @@
   .hero .caption { width: 400px; }
   .hero .caption h1 { font-size: 40px; }
   .landing-slip { width: 360px; }
-  .notes .grid3.four { grid-template-columns: repeat(2, 1fr); }
-  .notes .grid3.four article:nth-child(3) { border-left: 0; padding-left: 0; }
+  .notes { grid-template-columns: 1fr; }
+  .notes > *, .notes .notes-head { grid-column: 1; }
+  .notes .notes-head { grid-row: auto; position: static; margin-bottom: 24px; }
 }
 @media (max-width: 760px) {
   .landing .top { padding: 16px 16px; }
@@ -84,8 +87,7 @@
   .hero .sample { right: 16px; bottom: auto; top: 600px; }
   .notes { padding: 48px 16px 56px; }
   .notes h2 { font-size: 27px; }
-  .notes .grid3, .notes .grid3.four { grid-template-columns: 1fr; }
-  .notes article + article { border-left: 0; padding-left: 0; border-top: 1px solid var(--rule); margin-top: 20px; }
+  .judgment li { padding-left: 40px; }
   .obligations thead { display: none; }
   .obligations tr { display: block; border-top: 1px solid var(--rule); padding: 10px 0; }
   .obligations td { display: block; border: 0; padding: 2px 0 !important; }
