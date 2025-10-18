@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addBusinessDays, businessDaysUntil, daysBetween, fmtDate, tranche2Line } from "./dates";
+import { addBusinessDays, businessDaysUntil, daysBetween, dueIn, fmtDate, tranche2Line } from "./dates";
 import { likelihood, ratingLook } from "./format";
 import { permissionsFor } from "./permissions";
 
@@ -14,10 +14,10 @@ describe("dates", () => {
     expect(businessDaysUntil("2025-10-15", new Date(2025, 9, 10))).toBe(3);
   });
   it("formats dates the Kinroot way", () => {
-    expect(fmtDate("2026-03-04")).toBe("4 Mar 2026");
-    expect(fmtDate("2026-03-04", { year: false })).toBe("4 Mar");
+    expect(fmtDate("2025-03-04")).toBe("4 Mar 2025");
+    expect(fmtDate("2025-03-04", { year: false })).toBe("4 Mar");
     expect(fmtDate(null)).toBe("—");
-    expect(daysBetween("2026-01-01", "2026-01-31")).toBe(30);
+    expect(daysBetween("2025-01-01", "2025-01-31")).toBe(30);
   });
 });
 
@@ -42,5 +42,18 @@ describe("permissions", () => {
     const p = permissionsFor("auditor");
     expect(p).toContain("audit:read");
     expect(p.some((x) => x.endsWith(":write") || x.endsWith(":decide"))).toBe(false);
+  });
+});
+
+describe("due in words", () => {
+  const now = new Date(2024, 9, 10);
+  it("counts days, then weeks, then months from today", () => {
+    expect(dueIn("2024-10-09", now)).toBe("overdue");
+    expect(dueIn("2024-10-10", now)).toBe("today");
+    expect(dueIn("2024-10-11", now)).toBe("tomorrow");
+    expect(dueIn("2024-11-04", now)).toBe("in 25 days");
+    expect(dueIn("2024-12-14", now)).toBe("in 9 weeks");
+    expect(dueIn("2025-08-06", now)).toBe("in 10 months");
+    expect(dueIn(null, now)).toBe("—");
   });
 });
