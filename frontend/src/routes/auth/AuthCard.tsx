@@ -1,4 +1,4 @@
-// A single dossier card on the board; the firm's constellation sits behind it, blurred and dimmed.
+// A single file on the board; the firm's constellation sits behind it, blurred and dimmed.
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { seeded } from "../../graph/layout";
@@ -39,12 +39,13 @@ export function AuthCard({ tab, title, children, foot }: { tab: string; title: s
       </header>
       <main className="auth-main">
         <div className="auth-card">
-          <div className="tabs" aria-hidden="true">
-            <span className="tab" aria-selected="true">
+          <div className="folder-tabs auth-tabs" aria-hidden="true">
+            <span className="folder-tab" data-state="active">
               {tab}
             </span>
           </div>
           <div className="auth-paper">
+            <div className="auth-ref">Kinroot · client due diligence and beneficial ownership</div>
             <h1>{title}</h1>
             {children}
           </div>

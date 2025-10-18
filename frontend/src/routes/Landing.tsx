@@ -3,6 +3,8 @@
 import { FolderTree, RefreshCcw, Spline, Users } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { BoardEngine, webglAvailable } from "../graph/engine";
 import { DEMO_PASSWORD, useAuth } from "../lib/auth";
 import { tranche2Line } from "../lib/dates";
@@ -171,17 +173,17 @@ export default function Landing() {
                 }}
               />
               {phase === "typing" && <span className="caret" aria-hidden />}
-              <button className="btn btn-string go" type="submit" aria-label="Trace this client">
+              <Button variant="string" size="sm" className="go" type="submit" aria-label="Trace this client">
                 Trace
-              </button>
+              </Button>
             </form>
             <div className="chips" style={{ opacity: phase === "pre" || phase === "typing" ? 1 : phase === "done" ? 1 : 0 }}>
               <span>Or try</span>
               {SCENARIOS.filter((s) => s.chip).map((s) => (
-                <button key={s.id} className="chip" type="button" aria-pressed={scenario.id === s.id} onClick={() => void run(s)}>
+                <Button key={s.id} size="sm" className="chip" type="button" aria-pressed={scenario.id === s.id} onClick={() => void run(s)}>
                   {CHIP_ICON[s.id]}
                   {s.chip}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -207,9 +209,9 @@ export default function Landing() {
             </ol>
             <div className="foot">
               <p>{scenario.slip.next}</p>
-              <button className="link" onClick={openFiles} style={{ whiteSpace: "nowrap" }}>
+              <Button variant="link" onClick={openFiles}>
                 Open dossier →
-              </button>
+              </Button>
             </div>
           </aside>
 
@@ -220,8 +222,8 @@ export default function Landing() {
             </h1>
             <p>Type a client’s name. Kinroot follows every shareholding, trust and directorship to the people at the end of them, then tells you what to check before you act.</p>
             <div className="cta">
-              <button
-                className="btn btn-string"
+              <Button
+                variant="string"
                 onClick={() => {
                   input.current?.focus();
                   void run(scenario);
@@ -229,10 +231,10 @@ export default function Landing() {
               >
                 <Spline />
                 Trace a client
-              </button>
-              <button className="link" onClick={openFiles} disabled={opening}>
+              </Button>
+              <Button variant="link" onClick={openFiles} disabled={opening}>
                 {opening ? "Opening…" : "Open Harbourline’s files →"}
-              </button>
+              </Button>
             </div>
             <div className="fine">
               <span>
@@ -244,39 +246,42 @@ export default function Landing() {
         </section>
 
         <section className="notes" id="who">
-          <h2>Three people sign off on a client. Each sees the part they need.</h2>
-          <div className="grid3">
-            <article>
-              <div className="role">Fee earners</div>
-              <h3>Open a matter without a week of forms.</h3>
-              <p>Send the client one link. Identity checks, ownership and consent arrive in the dossier, already traced to the people behind it.</p>
-            </article>
-            <article>
-              <div className="role">Compliance officers</div>
-              <h3>Sign off with the reasons in front of you.</h3>
-              <p>Every rating comes with the sentences behind it. Enhanced checks are triggered for you, and nothing proceeds until you sign.</p>
-            </article>
-            <article>
-              <div className="role">Partners</div>
-              <h3>Know the firm’s exposure on one page.</h3>
-              <p>Overdue reviews, high-risk clients and open screening matches, in plain words, for the next partners’ meeting.</p>
-            </article>
+          <div className="notes-head">
+            <span className="notes-no">Part 1</span>
+            <h2>Three people sign off on a client. Each sees the part they need.</h2>
           </div>
+          <ol className="judgment">
+            <li>
+              <h3>Fee earners open a matter without a week of forms.</h3>
+              <p>Send the client one link. Identity checks, ownership and consent arrive in the file, already traced to the people behind it.</p>
+            </li>
+            <li>
+              <h3>Compliance officers sign off with the reasons in front of them.</h3>
+              <p>Every rating comes with the sentences behind it, each citing the link it rests on. Enhanced checks are triggered for you, and nothing proceeds until you sign.</p>
+            </li>
+            <li>
+              <h3>Partners know the firm’s exposure on one page.</h3>
+              <p>Overdue reviews, high-risk clients and open screening matches, in plain words, ready for the next partners’ meeting.</p>
+            </li>
+          </ol>
         </section>
 
         <section className="notes regimes" id="regimes">
-          <h2>Built for Tranche 2 and the UK MLR 2017.</h2>
+          <div className="notes-head">
+            <span className="notes-no">Part 2</span>
+            <h2>Built for Tranche 2 and the UK MLR 2017.</h2>
+          </div>
           <p className="sub">Obligation by obligation, this is where Kinroot does the work. It is designed to support your AML/CTF programme; your firm stays responsible for it.</p>
-          <table className="ledger obligations">
-            <thead>
-              <tr>
-                <th scope="col">Obligation</th>
-                <th scope="col">Australia: AML/CTF Act 2006</th>
-                <th scope="col">United Kingdom: MLR 2017</th>
-                <th scope="col">In Kinroot</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table className="obligations">
+            <TableHeader>
+              <TableRow>
+                <TableHead scope="col">Obligation</TableHead>
+                <TableHead scope="col">Australia: AML/CTF Act 2006</TableHead>
+                <TableHead scope="col">United Kingdom: MLR 2017</TableHead>
+                <TableHead scope="col">In Kinroot</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {[
                 ["Know who you act for", "Customer due diligence before providing a designated service", "Regulation 28 customer due diligence", "Onboarding with identity checks, consent and the client link"],
                 ["Find the real owners", "Beneficial owners at 25% or control", "Beneficial owners over 25% or control", "Pull the thread: compounded ownership through every layer"],
@@ -295,34 +300,33 @@ export default function Landing() {
                   <td>{r[3]}</td>
                 </tr>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </section>
 
         <section className="notes safe" id="safe">
-          <h2>How we keep files safe.</h2>
-          <div className="grid3 four">
-            <article>
-              <div className="role">Where it lives</div>
+          <div className="notes-head">
+            <span className="notes-no">Part 3</span>
+            <h2>How we keep files safe.</h2>
+          </div>
+          <ol className="judgment" start={4}>
+            <li>
               <h3>Australian files stay in Australia.</h3>
               <p>Data for Australian firms is stored in Sydney; UK firms are stored in the UK.</p>
-            </article>
-            <article>
-              <div className="role">Who did what</div>
-              <h3>A tamper-evident activity log.</h3>
-              <p>Every decision is sealed to the one before it, so a changed or missing entry shows up when you verify the chain.</p>
-            </article>
-            <article>
-              <div className="role">Tipping-off</div>
+            </li>
+            <li>
+              <h3>Every decision is sealed to the one before it.</h3>
+              <p>A changed or missing entry in the activity log shows up as soon as anyone verifies the chain.</p>
+            </li>
+            <li>
               <h3>Restricted reports stay restricted.</h3>
-              <p>Only the compliance officer and named people can see that a report exists. Everyone else sees nothing at all.</p>
-            </article>
-            <article>
-              <div className="role">How long</div>
+              <p>Only the compliance officer and named people can see that a report exists. Everyone else sees nothing at all, so nobody tips off the client.</p>
+            </li>
+            <li>
               <h3>Seven years, then a reviewed disposal.</h3>
               <p>Records are kept for the statutory period after the relationship ends, and nothing is deleted without a person approving it.</p>
-            </article>
-          </div>
+            </li>
+          </ol>
         </section>
 
         <section className="closing">
@@ -330,8 +334,8 @@ export default function Landing() {
           <div className="closing-inner">
             <h2>Who is behind your next client?</h2>
             <div className="cta">
-              <button
-                className="btn btn-string"
+              <Button
+                variant="string"
                 onClick={() => {
                   window.scrollTo({ top: 0, behavior: reduced ? "auto" : "smooth" });
                   setTimeout(() => input.current?.focus(), reduced ? 0 : 500);
@@ -339,10 +343,10 @@ export default function Landing() {
               >
                 <Spline />
                 Trace a client
-              </button>
-              <button className="link" onClick={openFiles}>
+              </Button>
+              <Button variant="link" onClick={openFiles}>
                 Open Harbourline’s files →
-              </button>
+              </Button>
             </div>
             <p className="fine2">Kinroot · Sample firm and sample data throughout · Designed to support, not replace, your AML/CTF programme.</p>
           </div>

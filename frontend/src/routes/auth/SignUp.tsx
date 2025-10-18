@@ -5,6 +5,9 @@ import { api } from "../../api/endpoints";
 import type { Country } from "../../api/types";
 import { useAuth } from "../../lib/auth";
 import { AuthCard } from "./AuthCard";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function SignUp() {
   const { setMe } = useAuth();
@@ -40,7 +43,7 @@ export default function SignUp() {
   const field = (k: keyof typeof f, label: string, type = "text", auto?: string) => (
     <label className="field">
       <span>{label}</span>
-      <input className="input" type={type} autoComplete={auto} value={f[k]} onChange={set(k)} aria-invalid={!!errors[k]} aria-describedby={errors[k] ? `err-${k}` : undefined} />
+      <Input type={type} autoComplete={auto} value={f[k]} onChange={set(k)} aria-invalid={!!errors[k]} aria-describedby={errors[k] ? `err-${k}` : undefined} />
       {errors[k] && (
         <span className="note-error" id={`err-${k}`}>
           {errors[k]}
@@ -56,17 +59,22 @@ export default function SignUp() {
         {field("firmName", "Firm name", "text", "organization")}
         <label className="field">
           <span>Where the firm is regulated</span>
-          <select className="select" value={f.country} onChange={set("country")}>
-            <option value="AU">Australia (AML/CTF Act 2006, Tranche 2)</option>
-            <option value="GB">United Kingdom (MLR 2017)</option>
-          </select>
+          <Select value={f.country} onValueChange={(v) => setF({ ...f, country: v as Country })}>
+            <SelectTrigger aria-label="Where the firm is regulated" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="AU">Australia (AML/CTF Act 2006, Tranche 2)</SelectItem>
+              <SelectItem value="GB">United Kingdom (MLR 2017)</SelectItem>
+            </SelectContent>
+          </Select>
         </label>
         {field("password", "Password (12 characters or more)", "password", "new-password")}
         {error && <p className="note-error" role="alert">{error}</p>}
         <div className="row">
-          <button className="btn btn-string" type="submit" disabled={busy}>
+          <Button variant="string" type="submit" disabled={busy}>
             {busy ? "Setting up…" : "Set up the firm"}
-          </button>
+          </Button>
         </div>
       </form>
     </AuthCard>

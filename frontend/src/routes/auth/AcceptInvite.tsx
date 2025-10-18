@@ -6,6 +6,8 @@ import { api } from "../../api/endpoints";
 import { fmtDate } from "../../lib/dates";
 import { useAuth } from "../../lib/auth";
 import { AuthCard } from "./AuthCard";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 export default function AcceptInvite() {
   const { token = "" } = useParams();
@@ -55,21 +57,21 @@ export default function AcceptInvite() {
           <>
             <label className="field">
               <span>Your name</span>
-              <input className="input" autoComplete="name" value={fullName} onChange={(e) => setFullName(e.target.value)} aria-invalid={!!errors.fullName} />
+              <Input autoComplete="name" value={fullName} onChange={(e) => setFullName(e.target.value)} aria-invalid={!!errors.fullName} />
               {errors.fullName && <span className="note-error">{errors.fullName}</span>}
             </label>
             <label className="field">
               <span>Choose a password (12 characters or more)</span>
-              <input className="input" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} aria-invalid={!!errors.password} />
+              <Input type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} aria-invalid={!!errors.password} />
               {errors.password && <span className="note-error">{errors.password}</span>}
             </label>
           </>
         )}
         {error && <p className="note-error" role="alert">{error}</p>}
         <div className="row">
-          <button className="btn btn-string" type="submit" disabled={busy}>
+          <Button variant="string" type="submit" disabled={busy}>
             {busy ? "Joining…" : `Join ${i.orgName.split(" (")[0]}`}
-          </button>
+          </Button>
         </div>
       </form>
     </AuthCard>
