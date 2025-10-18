@@ -49,7 +49,7 @@ The seeded roles match how a small firm runs its AML/CTF program.
 
 | Role | What they get |
 |---|---|
-| **AML/CTF compliance officer** (MLRO in the UK) | A file tray of decisions waiting: rating sign-offs, match reviews, screening hits and alerts. The fuse-or-split queue, screening review with recorded reasons, the disagreement queue for the second opinion, the risk methodology (draft and publish versions), model promotion, restricted cases and SMR drafts, the compliance programme dashboard and retention settings |
+| **AML/CTF compliance officer** (MLRO in the UK) | A docket of decisions waiting, earliest due first: rating sign-offs, match reviews, screening hits and alerts. The fuse-or-split queue, screening review with recorded reasons, the disagreement queue for the second opinion, the risk methodology (draft and publish versions), model promotion, restricted cases and SMR drafts, the compliance programme dashboard and retention settings |
 | **Fee earner** (lawyer, accountant, conveyancer) | Client onboarding for individuals, companies, trusts and partnerships, with an identity checklist, document upload, consent and a demo electronic check. Registry import, a live view of the structure as it fills in, and a one-way "raise a concern" that never reveals the outcome |
 | **Partner** (senior manager) | Senior approval for high-risk and PEP clients (a partner cannot approve their own client), the programme view with overdue reviews and high-risk clients, and the board to drill into any structure |
 | **Independent reviewer** (auditor) | Read-only access to every client, rating and reason, plus the activity log with a one-click check that no entry has been altered |
@@ -57,9 +57,11 @@ The seeded roles match how a small firm runs its AML/CTF program.
 
 Across all of them:
 
-- **Investigation board.** The client book is a constellation of pins clustered by shared officers, owners and
-  addresses. Each client opens into its structure, with the path to each beneficial owner drawn as a red string
-  ("100% × 80% × 62% = 49.6%") and a text ledger of the same data for keyboard and screen-reader users.
+- **A file and its exhibit.** Every screen pairs the written record (a file with a caption, folder tabs and the
+  decision at its foot) with the board it rests on, side by side and resizable. The client book is a constellation
+  of pins clustered by shared officers, owners and addresses. Each client opens into its structure, with the path to
+  each beneficial owner drawn as a red string ("100% × 80% × 62% = 49.6%"), the trail of hops beside it, and a
+  text register of the same data for keyboard and screen-reader users.
 - **Point in time.** Any structure can be shown "as at" a date, or compared with another date to show what changed
   since onboarding.
 - **Investigation assistant.** Ask "how is this person connected to that company?" or "what changed since
@@ -167,7 +169,7 @@ flowchart LR
 | Matching and screening | rapidfuzz, jellyfish (Jaro-Winkler, Double Metaphone, NYSIIS), custom normalisation and blocking |
 | Classical ML | scikit-learn, LightGBM, Optuna, SHAP (exact TreeSHAP), isotonic calibration, MLflow (local tracking and registry) |
 | Assistant | Six permission-checked tools over the graph, screening and risk records; a deterministic offline planner; optional LiteLLM (Groq, Gemini) |
-| Web | React 19, Vite, React Router, TanStack Query, Sigma.js 3 + graphology (ForceAtlas2), Motion, Tailwind CSS 4.1 |
+| Web | React 19, Vite, React Router, TanStack Query and TanStack Table, shadcn/ui on Radix primitives (re-skinned to the paper tokens), Sigma.js 3 + graphology (ForceAtlas2), Motion, Tailwind CSS 4.1; type set in Besley, Ysabeau Office and Sometype Mono |
 | Quality | pytest, Ruff, mypy (Django and DRF plugins), ESLint, Vitest, an evaluation harness with gates, GitHub Actions CI |
 
 ## Machine learning
@@ -281,8 +283,8 @@ Snapshot with every table: [eval/RESULTS.md](eval/RESULTS.md).
 ### Tests and performance
 
 - **Tests:** 434 backend tests (pytest: platform, API, RBAC matrix, tenant isolation, tipping-off, graph, entity
-  resolution, screening, risk, monitoring, assistant, models) and 101 web tests (Vitest: API client, fixture
-  contract, graph transforms and layout, key journeys). Ruff, mypy (Django/DRF plugins), ESLint and `tsc` are clean.
+  resolution, screening, risk, monitoring, assistant, models) and 112 web tests (Vitest: API client, fixture
+  contract, graph transforms and layout, the docket, folder tabs, the queue pager, Find, key journeys). Ruff, mypy (Django/DRF plugins), ESLint and `tsc` are clean.
 - **End-to-end:** every main journey driven in a real browser against the production web build, the API and the
   worker, signed in as each demo role, with motion on and with reduced motion: no console errors, no failed
   requests, no horizontal overflow at 390 px.
@@ -312,13 +314,13 @@ All screens use the synthetic Harbourline sample firm. Images live in [`docs/scr
 
 | | |
 |---|---|
-| ![Landing page: a sample client is traced live and the red string multiplies 100% × 80% × 62% into a 49.6% beneficial owner](docs/screenshots/01-landing-hero.jpg) | ![Home board: the whole client book as pins clustered by shared officers and addresses, with a file tray of the next decisions](docs/screenshots/04-constellation.jpg) |
-| **Trace a client.** The landing page is the product: type a name, watch the owners unfold, see the path to the beneficial owner. | **The client book.** Every client a pin, clustered by shared directors, owners and addresses; the next decisions wait in the tray. |
+| ![Landing page: a sample client is traced live and the red string multiplies 100% × 80% × 62% into a 49.6% beneficial owner](docs/screenshots/01-landing-hero.jpg) | ![Home: the docket of decisions waiting, earliest due first, beside the whole client book as pins clustered by shared officers and addresses](docs/screenshots/04-constellation.jpg) |
+| **Trace a client.** The landing page is the product: type a name, watch the owners unfold, see the path to the beneficial owner. | **The docket and the client book.** Every decision waiting, earliest due first, beside every client as a pin clustered by shared directors, owners and addresses. |
 | ![Client dossier: a trust over a company over an offshore holding, the beneficial owner's chain drawn on the board, and rated reasons citing each link](docs/screenshots/06-dossier-ubo-path.jpg) | ![Before/after overlay: a new 40% holder through a Cayman company, with new and changed links tagged against the onboarding date](docs/screenshots/10-before-after.jpg) |
 | **Who really owns this client.** Each reason for the rating cites the link it rests on (`E-04`, `E-01`). | **What changed since onboarding.** New, ended and changed links are tagged on the board. |
 | ![Fuse or split: two records of the same person scored 100 in 100 but held for a person because their addresses differ, with field-by-field evidence](docs/screenshots/12-fuse-or-split.jpg) | ![Screening review: the client's owner beside a sanctions list entry, compared field by field before a decision](docs/screenshots/13-screening-review.jpg) |
 | **Fuse or split.** Likely duplicates with plain reasons; anything that conflicts waits for a person. | **Screening review.** A possible sanctions match compared field by field; every decision needs a reason. |
-| ![Restricted case: a draft suspicious-matter report behind a restricted band, visible only to the people named on the case](docs/screenshots/15-smr-case.jpg) | ![Ask the board: "How is Gregory Pell linked to our clients?" answered with three cited links drawn on the board](docs/screenshots/16-ask-the-board.jpg) |
+| ![Restricted case: a draft suspicious-matter report in a hatched, locked file visible only to the people named on the case](docs/screenshots/15-smr-case.jpg) | ![Ask the board: "How is Gregory Pell linked to our clients?" answered with three cited links drawn on the board](docs/screenshots/16-ask-the-board.jpg) |
 | **Suspicious-matter reports.** Restricted to the people on the case, so nobody tips off the client. | **Ask the board.** Answers come only from traced paths, and every link they use is numbered and drawn. |
 
 ## Compliance alignment
@@ -392,7 +394,7 @@ backend/         Django project
   assistant/       graph tools, offline planner, optional LiteLLM adapter
   artifacts/models/  committed matcher and risk models, thresholds, calibrators, model cards
   tests/           platform, API, graph, domain and ML tests
-frontend/        React + Vite investigation board (see frontend/DESIGN.md)
+frontend/        React + Vite web app: the file and its exhibit (see frontend/DESIGN.md)
 eval/            evaluation harness (run.py), gates, held-out fixtures and RESULTS.md
 scripts/         OpenSanctions, Companies House and ABN downloaders, graph smoke test, clean
 docs/            problem statement, architecture, API contract, data sources, ADRs
