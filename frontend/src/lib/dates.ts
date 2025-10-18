@@ -30,14 +30,14 @@ export function daysFromToday(n: number, now: Date = new Date()): string {
 export function daysBetween(a: string, b: string): number {
   return Math.round((parseDate(b).getTime() - parseDate(a).getTime()) / DAY);
 }
-/** "14 Nov 2026" */
+/** "10 Oct 2025" */
 export function fmtDate(s: string | null | undefined, opts: { year?: boolean } = {}): string {
   if (!s) return "—";
   const d = parseDate(s);
   const base = `${d.getDate()} ${MONTHS[d.getMonth()]}`;
   return opts.year === false ? base : `${base} ${d.getFullYear()}`;
 }
-/** "14 Nov 10:42" */
+/** "10 Oct 10:42" */
 export function fmtDateTime(s: string): string {
   const d = new Date(s);
   return `${d.getDate()} ${MONTHS[d.getMonth()]} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
@@ -48,6 +48,19 @@ export function relativeDays(s: string, now: Date = new Date()): string {
   if (n === 1) return "tomorrow";
   if (n === -1) return "yesterday";
   return n > 0 ? `in ${n} days` : `${-n} days ago`;
+}
+
+/** When something is due, in words: "overdue", "today", "in 12 days", "in 5 weeks", "in 10 months". */
+export function dueIn(s: string | null | undefined, now: Date = new Date()): string {
+  if (!s) return "—";
+  const n = daysBetween(isoDate(now), s.slice(0, 10));
+  if (n < 0) return "overdue";
+  if (n === 0) return "today";
+  if (n === 1) return "tomorrow";
+  if (n <= 31) return `in ${n} days`;
+  if (n <= 91) return `in ${Math.round(n / 7)} weeks`;
+  const m = Math.round(n / 30.4);
+  return m >= 12 ? `in ${Math.round(m / 12)} year${m >= 18 ? "s" : ""}` : `in ${m} months`;
 }
 
 export const TRANCHE2_COMMENCEMENT = "2026-07-01";

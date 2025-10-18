@@ -1,9 +1,9 @@
-// Phone: everything the spine holds that the bottom bar doesn't.
+// Phone: everything the spine holds that the bottom bar doesn't (also offered as a sheet from the bottom bar).
 import { BellRing, ClipboardCheck, FileLock2, GitMerge, ScrollText, Settings2, ShieldAlert, UserPlus } from "lucide-react";
 import { Link } from "react-router";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "../lib/auth";
-import { Sheet } from "../shell/Drawer";
-import "./sheets.css";
+import { Caption, Folio, FolioBody } from "../shell/Folio";
 
 export default function More() {
   const { can, signOut, me } = useAuth();
@@ -18,22 +18,23 @@ export default function More() {
     { to: "/settings/firm", label: "Settings", icon: <Settings2 /> },
   ].filter(Boolean) as { to: string; label: string; icon: React.ReactNode }[];
   return (
-    <Sheet label="More">
-      <div className="eyebrow">{me?.activeOrg?.name}</div>
-      <h1 className="title">More</h1>
-      <ul className="more-list">
-        {links.map((l) => (
-          <li key={l.to}>
-            <Link to={l.to}>
-              {l.icon}
-              {l.label}
-            </Link>
-          </li>
-        ))}
-      </ul>
-      <button className="btn btn-line" style={{ marginTop: 20 }} onClick={() => void signOut().then(() => location.assign("/sign-in"))}>
-        Sign out
-      </button>
-    </Sheet>
+    <Folio label="More" width="full">
+      <Caption refLine={<span>{me?.activeOrg?.name}</span>} title="More" />
+      <FolioBody>
+        <ul className="more-list">
+          {links.map((l) => (
+            <li key={l.to}>
+              <Link to={l.to}>
+                {l.icon}
+                {l.label}
+              </Link>
+            </li>
+          ))}
+        </ul>
+        <Button style={{ marginTop: 20 }} onClick={() => void signOut().then(() => location.assign("/sign-in"))}>
+          Sign out
+        </Button>
+      </FolioBody>
+    </Folio>
   );
 }

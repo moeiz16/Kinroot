@@ -1,18 +1,19 @@
-// Compliance programme: a printable paper sheet organised by obligation, with numbers inside sentences instead of
-// KPI cards. Selecting a row shows the clients it refers to on the board.
+// Compliance programme: a printable record organised by obligation, with numbers inside sentences instead of KPI
+// cards. Selecting an obligation shows the clients it refers to on the board.
 import { useQuery } from "@tanstack/react-query";
 import { Printer } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
+import { Button } from "@/components/ui/button";
 import { api } from "../api/endpoints";
 import type { Client, Dashboard } from "../api/types";
 import { daysFromToday, fmtDate, today, tranche2Line } from "../lib/dates";
 import { plural } from "../lib/format";
 import { useAuth } from "../lib/auth";
 import { useBoard, useBoardScene } from "../shell/board";
-import { Sheet } from "../shell/Drawer";
+import { AsAt, BoardTools } from "../shell/chrome";
+import { Caption, Folio, FolioBody } from "../shell/Folio";
 import { constellationScene } from "./BoardHome";
-import "./sheets.css";
 
 interface Row {
   id: string;
@@ -70,69 +71,81 @@ export default function Programme() {
 
   const mix = d?.ratingMix ?? { low: 0, medium: 0, high: 0 };
   return (
-    <Sheet label="Compliance programme" width={700}>
-      <div className="sheet-head">
-        <div>
-          <div className="eyebrow">Compliance programme · {me?.activeOrg?.name}</div>
-          <h1 className="title">Where the firm stands</h1>
-        </div>
-        <button className="btn btn-line no-print" onClick={() => window.print()}>
-          <Printer /> Print brief
-        </button>
-      </div>
-      <div className="eyebrow" style={{ marginTop: 18 }}>
-        Partners’ brief
-      </div>
-      <p className="brief">{d ? partnersBrief(d, can("smr:read")) : "Gathering the numbers…"}</p>
-      <div role="list">
-        {rows.map((r) => (
-          <div key={r.id} role="listitem" className={`prog-row${active === r.id ? " active" : ""}`}>
-            <h3>
-              <button className="rowbtn" aria-pressed={active === r.id} onClick={() => setActive(active === r.id ? null : r.id)}>
-                {r.title}
-              </button>
-            </h3>
-            <p>{r.sentence}</p>
-            <span className="owner">{r.owner}</span>
-          </div>
-        ))}
-      </div>
-      <section className="section">
-        <h2>
-          Clients by rating <span className="aside">{live.length} clients</span>
-        </h2>
-        <div className="glyph-strip" role="img" aria-label={`${mix.low} clear, ${mix.medium} review, ${mix.high} high`}>
-          {Array.from({ length: mix.low }, (_, i) => <span key={`l${i}`} className="clear">●</span>)}
-          {Array.from({ length: mix.medium }, (_, i) => <span key={`m${i}`} className="review">◆</span>)}
-          {Array.from({ length: mix.high }, (_, i) => <span key={`h${i}`} className="high">▲</span>)}
-        </div>
-        <p className="note" style={{ marginTop: 8 }}>
-          ● Clear {mix.low} · ◆ Review {mix.medium} · ▲ High {mix.high}
-        </p>
-      </section>
-      {insights.data && (
-        <section className="section">
-          <h2>Patterns worth knowing</h2>
-          <ol className="reasons">
-            {insights.data.map((i) => (
-              <li key={i.id}>
-                <span>
-                  <b style={{ fontWeight: 600 }}>{i.title}.</b> {i.body}{" "}
-                  {i.href?.startsWith("/") && (
-                    <Link className="link" to={i.href}>
-                      Show me
-                    </Link>
-                  )}
-                </span>
-                <span className="w">{i.tone === "risk" ? "▲" : i.tone === "progress" ? "●" : "◆"}</span>
+    <>
+      <Folio label="Compliance programme" width="wide">
+        <Caption
+          refLine={
+            <>
+              <span>Compliance programme</span>
+              <span className="sep">·</span>
+              <b>{me?.activeOrg?.name}</b>
+              <span className="sep">·</span>
+              <span>as at {fmtDate(today())}</span>
+            </>
+          }
+          title="Where the firm stands"
+          tools={
+            <Button className="no-print" onClick={() => window.print()}>
+              <Printer /> Print brief
+            </Button>
+          }
+        />
+        <FolioBody>
+          <h2 className="section-head">Partners’ brief</h2>
+          <p className="brief">{d ? partnersBrief(d, can("smr:read")) : "Gathering the numbers…"}</p>
+          <ol className="obligations-list paras" aria-label="Obligations">
+            {rows.map((r) => (
+              <li key={r.id} className={`para prog-row${active === r.id ? " active" : ""}`}>
+                <h3>
+                  <button className="rowbtn" aria-pressed={active === r.id} onClick={() => setActive(active === r.id ? null : r.id)}>
+                    <b>{r.title}</b>
+                  </button>
+                </h3>
+                <p>{r.sentence}</p>
+                <span className="owner">{r.owner}</span>
               </li>
             ))}
           </ol>
-        </section>
-      )}
-      <p className="note" style={{ marginTop: 24 }}>
-        {d?.regime.name}. {tranche2Line()} Designed to support your AML/CTF programme; the firm remains responsible for it. Printed {fmtDate(today())}.
-      </p>
-    </Sheet>
+          <section className="section">
+            <h2>
+              Clients by rating <span className="aside">{live.length} clients</span>
+            </h2>
+            <div className="glyph-strip" role="img" aria-label={`${mix.low} clear, ${mix.medium} review, ${mix.high} high`}>
+              {Array.from({ length: mix.low }, (_, i) => <span key={`l${i}`} className="clear">●</span>)}
+              {Array.from({ length: mix.medium }, (_, i) => <span key={`m${i}`} className="review">◆</span>)}
+              {Array.from({ length: mix.high }, (_, i) => <span key={`h${i}`} className="high">▲</span>)}
+            </div>
+            <p className="note" style={{ marginTop: 8 }}>
+              ● Clear {mix.low} · ◆ Review {mix.medium} · ▲ High {mix.high}
+            </p>
+          </section>
+          {insights.data && (
+            <section className="section">
+              <h2>Patterns worth knowing</h2>
+              <ol className="reasons">
+                {insights.data.map((i) => (
+                  <li key={i.id}>
+                    <span>
+                      <b style={{ fontWeight: 600 }}>{i.title}.</b> {i.body}{" "}
+                      {i.href?.startsWith("/") && (
+                        <Link className="link" to={i.href}>
+                          Show me
+                        </Link>
+                      )}
+                    </span>
+                    <span className="w">{i.tone === "risk" ? "▲" : i.tone === "progress" ? "●" : "◆"}</span>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
+          <p className="note" style={{ marginTop: 24 }}>
+            {d?.regime.name}. {tranche2Line()} Designed to support your AML/CTF programme; the firm remains responsible for it. Printed {fmtDate(today())}.
+          </p>
+        </FolioBody>
+      </Folio>
+      <AsAt exhibit="Exhibit" title={active ? rows.find((r) => r.id === active)?.title ?? "The client book" : "The client book"} />
+      <BoardTools minimap={false} />
+    </>
   );
 }

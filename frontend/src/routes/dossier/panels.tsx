@@ -3,15 +3,21 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText, Lock, RefreshCcw, Upload } from "lucide-react";
 import { useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
+import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { errorMessage } from "../../api/client";
 import { api } from "../../api/endpoints";
 import type { AuditEntry, BeneficialOwner, Case, Client, DocType, DocumentRec, Edd, PinnedAnswer, RiskAssessment, ScreeningHit } from "../../api/types";
 import { fmtDate, fmtDateTime, relativeDays } from "../../lib/dates";
-import { bytes, COUNTRY, KIND_LABEL, likelihood, ratingLook } from "../../lib/format";
+import { bytes, likelihood, ratingLook } from "../../lib/format";
 import { useAuth } from "../../lib/auth";
 import { RatingTag, Status } from "../../shell/chrome";
 import { HoldBox, SecondOpinionBox } from "./HoldBox";
-import { SignOffBox } from "./SignOffBox";
 import type { Structure } from "./structure";
 
 export interface PanelProps {
@@ -60,7 +66,7 @@ function pathText(o: BeneficialOwner, names: (id: string) => string): ReactNode 
 }
 
 export function SummaryPanel(p: PanelProps) {
-  const { client, structure, risk, edd, docs } = p;
+  const { client, structure, risk, docs } = p;
   const ubo = structure?.ubo;
   const look = ratingLook(client.rating);
   const owners = ubo?.owners.filter((o) => o.isUbo) ?? [];
@@ -68,33 +74,13 @@ export function SummaryPanel(p: PanelProps) {
   const unknownOwnerNode = structure?.nodes.find((n) => n.kind === "unknown");
   const unknownParent = unknownOwnerNode ? structure?.edges.find((e) => e.s === unknownOwnerNode.id)?.t : undefined;
   return (
-    <>
-      <div className="eyebrow">
-        Client dossier <span aria-hidden>·</span> <span className="mono">{client.matterReference ?? client.id.slice(0, 8)}</span> <span aria-hidden>·</span> Fee earner {client.assignedTo?.fullName ?? "unassigned"}
-        {client.sample && (
-          <>
-            <span aria-hidden>·</span> Sample data
-          </>
-        )}
-      </div>
-      <h1 className="title">{client.name}</h1>
-      <div className="meta">
-        {structure?.nodes.find((n) => n.client)?.sub && structure.nodes.find((n) => n.client)!.sub !== "Client" ? `${structure.nodes.find((n) => n.client)!.sub} · ` : ""}
-        {KIND_LABEL[client.kind]} · {COUNTRY[client.jurisdiction] ?? client.jurisdiction}
-        {client.onboardedOn ? ` · Onboarded ${fmtDate(client.onboardedOn)}` : " · Onboarding"}
-      </div>
-      <div className="rating-row">
-        <RatingTag r={client.rating} />
-        {client.status === "blocked" ? <Status tone="high">Work paused: confirmed sanctions match</Status> : <span style={{ fontWeight: 600 }}>{edd?.required ? (edd.status === "approved" ? "Enhanced due diligence complete" : "Enhanced due diligence open") : client.status === "onboarding" ? "Onboarding in progress" : "Standard due diligence"}</span>}
-        {client.nextReviewOn && <span className="meta">Next periodic review {fmtDate(client.nextReviewOn)}</span>}
-      </div>
-
-      <section className="section">
+    <div className="paras">
+      <section className="para">
         <h2>
           Beneficial owners <span className="aside">{ubo?.thresholdPct ?? 25}% or more, or control</span>
         </h2>
-        <table className="ledger">
-          <tbody>
+        <Table>
+          <TableBody>
             {owners.map((o, i) => (
               <tr key={o.partyId} className="rowlink" onClick={() => p.onThread(o.partyId)}>
                 <td className="mark">{i === 0 && (o.effectivePct ?? 0) > 0 && <i aria-hidden />}</td>
@@ -129,12 +115,12 @@ export function SummaryPanel(p: PanelProps) {
                 </td>
               </tr>
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </section>
 
       {risk && (
-        <section className="section">
+        <section className="para">
           <h2>
             Why this client is rated {look.word} <span className="aside mono">{risk.score} / 100</span>
           </h2>
@@ -142,8 +128,7 @@ export function SummaryPanel(p: PanelProps) {
           <MethodLine risk={risk} />
         </section>
       )}
-      <SignOffBox client={client} edd={edd} />
-    </>
+    </div>
   );
 }
 
@@ -192,24 +177,24 @@ export function OwnersPanel(p: PanelProps) {
   const rows = structure.nodes.filter((n) => !n.client).sort((a, b) => a.level - b.level || a.x - b.x);
   return (
     <>
-      <h1 className="title" style={{ fontSize: 24 }}>
+      <h2 className="title" style={{ fontSize: 23 }}>
         Everyone in the structure
-      </h1>
+      </h2>
       <p className="lede" style={{ fontSize: 15 }}>
-        The same structure as the board, as a list. Each link shows where it came from.
+        The same structure as the board, as a register. Each link shows where it came from.
       </p>
-      <table className="ledger owners-ledger" style={{ marginTop: 18 }}>
-        <thead>
-          <tr>
-            <th scope="col">Party</th>
-            <th scope="col">How they connect</th>
-            <th scope="col" className="num">
+      <Table className="owners-ledger" style={{ marginTop: 18 }}>
+        <TableHeader>
+          <TableRow>
+            <TableHead scope="col">Party</TableHead>
+            <TableHead scope="col">How they connect</TableHead>
+            <TableHead scope="col" className="num">
               Share
-            </th>
-            <th scope="col">Checks</th>
-          </tr>
-        </thead>
-        <tbody>
+            </TableHead>
+            <TableHead scope="col">Checks</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {rows.map((n) => {
             const o = owners.get(n.id);
             const links = structure.edges.filter((e) => e.s === n.id);
@@ -248,8 +233,8 @@ export function OwnersPanel(p: PanelProps) {
               </tr>
             );
           })}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </>
   );
 }
@@ -274,30 +259,32 @@ export function ScreeningPanel(p: PanelProps) {
     if (!h) return <Status tone="clear">No match</Status>;
     if (h.status === "pending")
       return (
-        <Link to={`/screening/${h.id}`} className="status high" style={{ textDecoration: "none" }}>
-          <span className="g">▲</span>Possible match · {likelihood(h.score)}
-        </Link>
+        <Badge asChild tone="high">
+          <Link to={`/screening/${h.id}`}>
+            <span className="g">▲</span>Possible match · {likelihood(h.score)}
+          </Link>
+        </Badge>
       );
     return <Status tone={h.status === "true_match" ? "high" : "review"}>{h.status === "true_match" ? (list === "pep" ? "Confirmed PEP" : "Confirmed match") : "Escalated"}</Status>;
   };
   return (
     <>
-      <h1 className="title" style={{ fontSize: 24 }}>
+      <h2 className="title" style={{ fontSize: 23 }}>
         Screening
-      </h1>
+      </h2>
       <div className="meta">
         Last screened {lastScreened ? fmtDate(lastScreened) : "not yet"} · re-screened automatically on every list update
       </div>
-      <table className="ledger" style={{ marginTop: 18 }}>
-        <thead>
-          <tr>
-            <th scope="col">Party</th>
-            <th scope="col">Sanctions lists</th>
-            <th scope="col">PEP lists</th>
-            <th scope="col">Adverse media</th>
-          </tr>
-        </thead>
-        <tbody>
+      <Table style={{ marginTop: 18 }}>
+        <TableHeader>
+          <TableRow>
+            <TableHead scope="col">Party</TableHead>
+            <TableHead scope="col">Sanctions lists</TableHead>
+            <TableHead scope="col">PEP lists</TableHead>
+            <TableHead scope="col">Adverse media</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {parties.map((n) => (
             <tr key={n.id}>
               <td className="who">
@@ -313,13 +300,13 @@ export function ScreeningPanel(p: PanelProps) {
               </td>
             </tr>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
       {can("screening:run") && (
         <div style={{ marginTop: 18, display: "flex", gap: 12, alignItems: "center" }}>
-          <button className="btn btn-line" onClick={() => run.mutate()} disabled={run.isPending}>
+          <Button onClick={() => run.mutate()} disabled={run.isPending}>
             <RefreshCcw /> {run.isPending ? "Screening…" : "Screen again now"}
-          </button>
+          </Button>
           {msg && <span role="status">{msg}</span>}
         </div>
       )}
@@ -338,7 +325,8 @@ export function RiskPanel(p: PanelProps) {
     mutationFn: () => api.clients.override(client.id, override!.rating, override!.reason),
     onSuccess: () => {
       setOverride(null);
-      setMsg("Rating changed. Your reason is in the activity log.");
+      setMsg(null);
+      toast("Rating changed. Your reason is in the activity log.");
       void qc.invalidateQueries({ queryKey: ["risk", client.id] });
       void qc.invalidateQueries({ queryKey: ["client", client.id] });
     },
@@ -351,10 +339,9 @@ export function RiskPanel(p: PanelProps) {
   if (!risk) return <p className="muted">This client has not been rated yet. Finish onboarding to see the first rating.</p>;
   return (
     <>
-      <div className="eyebrow">Risk · {client.name}</div>
-      <h1 className="title" style={{ fontSize: 26 }}>
+      <h2 className="title" style={{ fontSize: 25 }}>
         Rated {ratingLook(risk.override?.rating ?? risk.rating).word}, {risk.score} out of 100
-      </h1>
+      </h2>
       <div className="meta">
         Assessed {fmtDate(risk.assessedAt.slice(0, 10))} · thresholds Clear &lt; 30 ≤ Review &lt; 60 ≤ High
       </div>
@@ -376,8 +363,8 @@ export function RiskPanel(p: PanelProps) {
               Triggered because {t.message.charAt(0).toLowerCase() + t.message.slice(1)}
             </p>
           ))}
-          <table className="ledger">
-            <tbody>
+          <Table>
+            <TableBody>
               {edd.measures.map((m) => (
                 <tr key={m.key}>
                   <td className="who">
@@ -388,60 +375,66 @@ export function RiskPanel(p: PanelProps) {
                     {m.status === "done" ? (
                       <Status tone="clear">Done</Status>
                     ) : m.key !== "senior_approval" && can("edd:manage") ? (
-                      <button className="btn btn-line btn-sm" onClick={() => measure.mutate(m.key)}>
+                      <Button size="sm" onClick={() => measure.mutate(m.key)}>
                         Mark as received
-                      </button>
+                      </Button>
                     ) : (
                       <Status tone="review">Waiting</Status>
                     )}
                   </td>
                 </tr>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </section>
       )}
-      <SignOffBox client={client} edd={edd} />
       <SecondOpinionBox client={client} risk={risk} />
       <HoldBox client={client} />
       {can("risk:override") && (
         <section className="section">
           <h2>Change the rating</h2>
-          {!override ? (
-            <button className="btn btn-line" onClick={() => setOverride({ rating: client.rating ?? "medium", reason: "" })}>
-              Set the rating by hand
-            </button>
-          ) : (
-            <div style={{ display: "grid", gap: 10 }}>
-              <div role="radiogroup" aria-label="New rating" style={{ display: "flex", gap: 6 }}>
-                {(["low", "medium", "high"] as const).map((r) => (
-                  <button key={r} role="radio" aria-checked={override.rating === r} className={`btn btn-sm ${override.rating === r ? "btn-ink" : "btn-line"}`} onClick={() => setOverride({ ...override, rating: r })}>
-                    {ratingLook(r).glyph} {ratingLook(r).word}
-                  </button>
-                ))}
-              </div>
-              <label className="field">
-                <span>Reason (lowering a rating needs at least 20 characters)</span>
-                <textarea className="textarea" value={override.reason} onChange={(e) => setOverride({ ...override, reason: e.target.value })} />
-              </label>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button className="btn btn-string" onClick={() => ov.mutate()} disabled={ov.isPending}>
-                  Save the rating
-                </button>
-                <button className="btn btn-quiet" onClick={() => setOverride(null)}>
+          <Dialog open={!!override} onOpenChange={(o) => setOverride(o ? { rating: client.rating ?? "medium", reason: "" } : null)}>
+            <DialogTrigger asChild>
+              <Button>Set the rating by hand</Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[520px]">
+              <DialogHeader>
+                <DialogTitle>Set the rating for {client.name}</DialogTitle>
+                <DialogDescription>The firm’s rules stay on record beside your rating. Lowering a rating needs a reason of at least 20 characters.</DialogDescription>
+              </DialogHeader>
+              {override && (
+                <div className="grid gap-3.5">
+                  <ToggleGroup type="single" aria-label="New rating" value={override.rating} onValueChange={(v) => v && setOverride({ ...override, rating: v as "low" | "medium" | "high" })} className="justify-start">
+                    {(["low", "medium", "high"] as const).map((r) => (
+                      <ToggleGroupItem key={r} value={r} className="px-3">
+                        {ratingLook(r).glyph} {ratingLook(r).word}
+                      </ToggleGroupItem>
+                    ))}
+                  </ToggleGroup>
+                  <label className="field">
+                    <span>Reason</span>
+                    <Textarea value={override.reason} onChange={(e) => setOverride({ ...override, reason: e.target.value })} />
+                  </label>
+                  {msg && <p className="note-error" role="alert">{msg}</p>}
+                </div>
+              )}
+              <DialogFooter>
+                <Button variant="quiet" onClick={() => setOverride(null)}>
                   Cancel
-                </button>
-              </div>
-            </div>
-          )}
-          {msg && <p role="status">{msg}</p>}
+                </Button>
+                <Button variant="string" onClick={() => ov.mutate()} disabled={ov.isPending}>
+                  Save the rating
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </section>
       )}
       {history.data && history.data.length > 1 && (
         <section className="section">
           <h2>Earlier ratings</h2>
-          <table className="ledger">
-            <tbody>
+          <Table>
+            <TableBody>
               {history.data.slice(1).map((h) => (
                 <tr key={h.id}>
                   <td className="mono" style={{ width: 120 }}>{fmtDate(h.assessedAt.slice(0, 10))}</td>
@@ -451,8 +444,8 @@ export function RiskPanel(p: PanelProps) {
                   <td className="num">{h.score} / 100</td>
                 </tr>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </section>
       )}
     </>
@@ -471,7 +464,8 @@ export function DocumentsPanel(p: PanelProps) {
   const upload = useMutation({
     mutationFn: (f: File) => api.clients.upload(client.id, f, client.partyId, "other"),
     onSuccess: (d) => {
-      setMsg(`${d.fileName} added.`);
+      setMsg(null);
+      toast(`${d.fileName} added.`);
       void qc.invalidateQueries({ queryKey: ["documents", client.id] });
     },
     onError: (e) => setMsg(errorMessage(e)),
@@ -482,9 +476,9 @@ export function DocumentsPanel(p: PanelProps) {
   };
   return (
     <>
-      <h1 className="title" style={{ fontSize: 24 }}>
+      <h2 className="title" style={{ fontSize: 23 }}>
         Documents
-      </h1>
+      </h2>
       <div className="meta">Kept until 7 years after the relationship ends</div>
       <ul className="doc-list">
         {docs.map((d) => (
@@ -518,9 +512,9 @@ export function DocumentsPanel(p: PanelProps) {
           <Upload aria-hidden />
           <span>
             Drop an identity document or register extract here, or{" "}
-            <button className="link" onClick={() => inputRef.current?.click()}>
+            <Button variant="link" onClick={() => inputRef.current?.click()}>
               choose a file
-            </button>
+            </Button>
             . PDF, PNG or JPG up to 10 MB.
           </span>
           <input ref={inputRef} type="file" accept=".pdf,.png,.jpg,.jpeg" hidden onChange={(e) => take(e.target.files)} />
@@ -554,9 +548,9 @@ export function TimelinePanel(p: PanelProps & { audit: AuditEntry[]; pins?: Pinn
   events.sort((a, b) => b.date.localeCompare(a.date));
   return (
     <>
-      <h1 className="title" style={{ fontSize: 24 }}>
+      <h2 className="title" style={{ fontSize: 23 }}>
         Timeline
-      </h1>
+      </h2>
       <p className="lede" style={{ fontSize: 15 }}>
         The same structure told as dated events, newest first.
       </p>
@@ -594,22 +588,24 @@ export function TimelinePanel(p: PanelProps & { audit: AuditEntry[]; pins?: Pinn
 export function RestrictedPanel({ caseRec }: { caseRec: Case }) {
   return (
     <div className="restricted-panel">
-      <div className="restricted-band" style={{ margin: "-26px -30px 20px" }}>
+      <div className="restricted-band">
         <Lock size={14} aria-hidden /> Restricted. Do not discuss this with the client or anyone outside this list.
       </div>
       <div className="eyebrow">Case · visible to {caseRec.access?.map((a) => a.fullName).join(" and ") ?? "the compliance officer"}</div>
-      <h1 className="title" style={{ fontSize: 24 }}>
+      <h2 className="title" style={{ fontSize: 23 }}>
         {caseRec.title.split(" · ")[0]}
-      </h1>
+      </h2>
       <p className="meta">
         Opened {fmtDate(caseRec.openedAt.slice(0, 10))} by {caseRec.openedBy} · report due {fmtDate(caseRec.deadlineOn)} ({relativeDays(caseRec.deadlineOn)})
       </p>
       <p className="lede" style={{ fontSize: 15 }}>
         Work on this file continues as normal. Steps that could alert the client wait for the compliance officer’s go-ahead.
       </p>
-      <Link className="btn btn-ink" to={`/reports/${caseRec.id}`} style={{ marginTop: 16 }}>
-        <Lock /> Open the case file
-      </Link>
+      <Button asChild variant="ink" style={{ marginTop: 16 }}>
+        <Link to={`/reports/${caseRec.id}`}>
+          <Lock /> Open the case file
+        </Link>
+      </Button>
     </div>
   );
 }

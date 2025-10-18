@@ -1,9 +1,16 @@
-// Onboarding: the form lives in the drawer and the board builds the structure live as owners are added (each new
-// party unfolds under the pin). Steps are folder tabs, not a stepper bar.
+// Onboarding: the form is the folio of a new client file and the board builds the structure live as owners are
+// added (each new party unfolds under the pin). Steps are folder tabs, not a stepper bar; Back and Continue sit in
+// the decision block at the foot.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BadgeCheck, Link2, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody } from "@/components/ui/table";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ApiError, errorMessage } from "../api/client";
 import { api } from "../api/endpoints";
 import type { Client, ClientKind, Onboarding, Service } from "../api/types";
@@ -13,11 +20,10 @@ import { initials } from "../graph/transforms";
 import { today } from "../lib/dates";
 import { KIND_LABEL, SERVICE_LABEL } from "../lib/format";
 import { useBoardHandlers, useBoardScene } from "../shell/board";
-import { BoardTools, RatingTag, Status } from "../shell/chrome";
-import { Drawer } from "../shell/Drawer";
+import { AsAt, BoardTools, RatingTag, Status } from "../shell/chrome";
+import { Caption, Decision, Folio, FolioTabs } from "../shell/Folio";
 import { ReasonList } from "./dossier/panels";
 import { useStructure } from "./dossier/structure";
-import "./sheets.css";
 
 type Role = "owner" | "director" | "trustee" | "appointor" | "partner" | "beneficiary" | "unit_holder";
 const ROLES: Record<ClientKind, Role[]> = {
@@ -237,8 +243,11 @@ export default function Onboard() {
 
   return (
     <>
+      <AsAt exhibit="Exhibit" title={c.name ? `${c.name} as entered` : "The structure as you enter it"} />
       <BoardTools minimap={false} />
-      <Drawer label="Onboard a client" tabs={STEPS} active={step} onTab={(s) => (client || s === "client" ? setStep(s) : undefined)} onClose={() => nav("/board")}>
+      <Folio label="Onboard a client" width="normal">
+      <Caption refLine={<span>New client file{client?.matterReference ? ` · ${client.matterReference}` : ""} · {KIND_LABEL[c.kind]}</span>} title={c.name || "Who is the client?"} stamps={client ? <Status tone="review">File opened · not yet submitted</Status> : undefined} />
+      <FolioTabs label="Onboard a client" tabs={STEPS} active={step} onTab={(s) => (client || s === "client" ? setStep(s) : undefined)} onEscape={() => nav("/board")}>
         {err && (
           <p className="note-error" role="alert" style={{ marginBottom: 14 }}>
             {err}
@@ -246,39 +255,39 @@ export default function Onboard() {
         )}
         {step === "client" && (
           <>
-            <h1 className="title" style={{ fontSize: 26 }}>
+            <h2 className="title" style={{ fontSize: 24 }}>
               Who is the client?
-            </h1>
-            <div role="radiogroup" aria-label="Client type" className="kind-pick">
+            </h2>
+            <ToggleGroup type="single" aria-label="Client type" className="kind-pick" value={c.kind} onValueChange={(k) => k && !client && setC({ ...c, kind: k as ClientKind })}>
               {(Object.keys(KIND_LABEL) as ClientKind[]).map((k) => (
-                <button key={k} role="radio" aria-checked={c.kind === k} className={`btn btn-sm ${c.kind === k ? "btn-ink" : "btn-line"}`} onClick={() => !client && setC({ ...c, kind: k })} disabled={!!client && c.kind !== k}>
+                <ToggleGroupItem key={k} value={k} disabled={!!client && c.kind !== k}>
                   {KIND_LABEL[k]}
-                </button>
+                </ToggleGroupItem>
               ))}
-            </div>
+            </ToggleGroup>
             <div style={{ display: "grid", gap: 14, marginTop: 16 }}>
               <label className="field">
                 <span>{c.kind === "individual" ? "Full name" : "Legal name"}</span>
-                <input className="input" value={c.name} onChange={(e) => setC({ ...c, name: e.target.value })} disabled={!!client} />
+                <Input value={c.name} onChange={(e) => setC({ ...c, name: e.target.value })} disabled={!!client} />
               </label>
               {c.kind === "individual" ? (
                 <>
                   <label className="field">
                     <span>Date of birth</span>
-                    <input className="input" type="date" value={c.birthDate} onChange={(e) => setC({ ...c, birthDate: e.target.value })} disabled={!!client} />
+                    <Input type="date" value={c.birthDate} onChange={(e) => setC({ ...c, birthDate: e.target.value })} disabled={!!client} />
                   </label>
                   <label className="field">
                     <span>Residential address</span>
-                    <input className="input" value={c.street} placeholder="Street" onChange={(e) => setC({ ...c, street: e.target.value })} disabled={!!client} />
+                    <Input value={c.street} placeholder="Street" onChange={(e) => setC({ ...c, street: e.target.value })} disabled={!!client} />
                   </label>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 120px", gap: 10 }}>
                     <label className="field">
                       <span>Suburb</span>
-                      <input className="input" value={c.suburb} onChange={(e) => setC({ ...c, suburb: e.target.value })} disabled={!!client} />
+                      <Input value={c.suburb} onChange={(e) => setC({ ...c, suburb: e.target.value })} disabled={!!client} />
                     </label>
                     <label className="field">
                       <span>Postcode</span>
-                      <input className="input mono" inputMode="numeric" maxLength={4} value={c.postcode} onChange={(e) => setC({ ...c, postcode: e.target.value })} disabled={!!client} />
+                      <Input className="mono" inputMode="numeric" maxLength={4} value={c.postcode} onChange={(e) => setC({ ...c, postcode: e.target.value })} disabled={!!client} />
                     </label>
                   </div>
                 </>
@@ -286,15 +295,22 @@ export default function Onboard() {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 120px", gap: 10 }}>
                   <label className="field">
                     <span>{c.kind === "company" ? "ACN" : "ABN"}</span>
-                    <input className="input mono" value={c.identifier} onChange={(e) => setC({ ...c, identifier: e.target.value })} disabled={!!client} />
+                    <Input className="mono" value={c.identifier} onChange={(e) => setC({ ...c, identifier: e.target.value })} disabled={!!client} />
                   </label>
                   <label className="field">
                     <span>State</span>
-                    <select className="select" value={c.state} onChange={(e) => setC({ ...c, state: e.target.value })} disabled={!!client}>
-                      {["NSW", "VIC", "QLD", "WA", "SA", "TAS", "ACT", "NT"].map((s) => (
-                        <option key={s}>{s}</option>
-                      ))}
-                    </select>
+                    <Select value={c.state} onValueChange={(v) => setC({ ...c, state: v })} disabled={!!client}>
+                      <SelectTrigger aria-label="State" className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {["NSW", "VIC", "QLD", "WA", "SA", "TAS", "ACT", "NT"].map((s) => (
+                          <SelectItem key={s} value={s}>
+                            {s}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </label>
                 </div>
               )}
@@ -303,7 +319,7 @@ export default function Onboard() {
                 <div className="svc-grid">
                   {(["property_transaction", "conveyancing", "managing_client_funds", "company_formation", "trust_formation", "tax_advice"] as Service[]).map((s) => (
                     <label key={s} className="check">
-                      <input type="checkbox" checked={c.services.includes(s)} disabled={!!client} onChange={() => setC({ ...c, services: c.services.includes(s) ? c.services.filter((x) => x !== s) : [...c.services, s] })} />
+                      <Checkbox checked={c.services.includes(s)} disabled={!!client} onCheckedChange={() => setC({ ...c, services: c.services.includes(s) ? c.services.filter((x) => x !== s) : [...c.services, s] })} />
                       {SERVICE_LABEL[s]}
                     </label>
                   ))}
@@ -311,31 +327,29 @@ export default function Onboard() {
               </fieldset>
               <label className="field">
                 <span>How you met them</span>
-                <select className="select" value={c.channel} onChange={(e) => setC({ ...c, channel: e.target.value as Client["channel"] })} disabled={!!client}>
-                  <option value="face_to_face">In person</option>
-                  <option value="remote">Remotely</option>
-                  <option value="intermediary">Through an intermediary</option>
-                </select>
+                <Select value={c.channel} onValueChange={(v) => setC({ ...c, channel: v as Client["channel"] })} disabled={!!client}>
+                  <SelectTrigger aria-label="How you met them" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="face_to_face">In person</SelectItem>
+                    <SelectItem value="remote">Remotely</SelectItem>
+                    <SelectItem value="intermediary">Through an intermediary</SelectItem>
+                  </SelectContent>
+                </Select>
               </label>
               <label className="field">
                 <span>Matter reference (optional)</span>
-                <input className="input mono" value={c.matterReference} onChange={(e) => setC({ ...c, matterReference: e.target.value })} disabled={!!client} />
+                <Input className="mono" value={c.matterReference} onChange={(e) => setC({ ...c, matterReference: e.target.value })} disabled={!!client} />
               </label>
-            </div>
-            <div className="decide">
-              <div className="row" style={{ justifyContent: "flex-end" }}>
-                <button className="btn btn-string" onClick={() => create.mutate()} disabled={create.isPending}>
-                  {client ? "Continue →" : "Open the file and continue →"}
-                </button>
-              </div>
             </div>
           </>
         )}
         {step === "people" && (
           <>
-            <h1 className="title" style={{ fontSize: 26 }}>
+            <h2 className="title" style={{ fontSize: 24 }}>
               Who owns or controls {c.kind === "trust" ? "the trust" : c.kind === "partnership" ? "the partnership" : "the company"}?
-            </h1>
+            </h2>
             <p className="note">Add everyone who holds a share or interest, and everyone who controls it. Kinroot works out who the beneficial owners are.</p>
             <div className="party-cards">
               {parties.map((p) => (
@@ -343,54 +357,59 @@ export default function Onboard() {
                   <div className="pc-head">
                     <span className="pc-kind">{p.kind === "person" ? "○ Person" : p.kind === "trust" ? "◰ Trust" : "■ Company"}</span>
                     {!p.serverId && (
-                      <button className="iconbtn" aria-label={`Remove ${p.name || "this party"}`} onClick={() => setParties((ps) => ps.filter((x) => x.key !== p.key))}>
+                      <Button variant="quiet" size="icon" aria-label={`Remove ${p.name || "this party"}`} onClick={() => setParties((ps) => ps.filter((x) => x.key !== p.key))}>
                         <Trash2 />
-                      </button>
+                      </Button>
                     )}
                   </div>
                   <div className="pc-grid">
                     <label className="field">
                       <span>Name</span>
-                      <input className="input" value={p.name} onChange={(e) => set(p.key, { name: e.target.value })} onBlur={() => void checkDuplicate(p)} disabled={!!p.serverId} />
+                      <Input value={p.name} onChange={(e) => set(p.key, { name: e.target.value })} onBlur={() => void checkDuplicate(p)} disabled={!!p.serverId} />
                     </label>
                     <label className="field">
                       <span>Role</span>
-                      <select className="select" value={p.role} onChange={(e) => set(p.key, { role: e.target.value as Role })} disabled={!!p.serverId}>
-                        {ROLES[c.kind].map((r) => (
-                          <option key={r} value={r}>
-                            {ROLE_LABEL[r]}
-                          </option>
-                        ))}
-                      </select>
+                      <Select value={p.role} onValueChange={(v) => set(p.key, { role: v as Role })} disabled={!!p.serverId}>
+                        <SelectTrigger aria-label="Role" className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ROLES[c.kind].map((r) => (
+                            <SelectItem key={r} value={r}>
+                              {ROLE_LABEL[r]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </label>
                     {HOLDS.includes(p.role) && (
                       <label className="field">
                         <span>Share %</span>
-                        <input className="input mono" type="number" min={0} max={100} value={p.pct ?? ""} onChange={(e) => set(p.key, { pct: e.target.value ? Number(e.target.value) : undefined })} disabled={!!p.serverId} />
+                        <Input className="mono" type="number" min={0} max={100} value={p.pct ?? ""} onChange={(e) => set(p.key, { pct: e.target.value ? Number(e.target.value) : undefined })} disabled={!!p.serverId} />
                       </label>
                     )}
                     {p.kind === "person" && (
                       <label className="field">
                         <span>Date of birth</span>
-                        <input className="input" type="date" value={p.birthDate ?? ""} onChange={(e) => set(p.key, { birthDate: e.target.value })} disabled={!!p.serverId} />
+                        <Input type="date" value={p.birthDate ?? ""} onChange={(e) => set(p.key, { birthDate: e.target.value })} disabled={!!p.serverId} />
                       </label>
                     )}
                     {p.kind === "person" && (
                       <label className="field pc-wide">
                         <span>Residential address</span>
-                        <input className="input" value={p.street ?? ""} placeholder="Street" onChange={(e) => set(p.key, { street: e.target.value })} disabled={!!p.serverId} />
+                        <Input value={p.street ?? ""} placeholder="Street" onChange={(e) => set(p.key, { street: e.target.value })} disabled={!!p.serverId} />
                       </label>
                     )}
                     {p.kind === "person" && (
                       <label className="field">
                         <span>Suburb</span>
-                        <input className="input" value={p.suburb ?? ""} onChange={(e) => set(p.key, { suburb: e.target.value })} disabled={!!p.serverId} />
+                        <Input value={p.suburb ?? ""} onChange={(e) => set(p.key, { suburb: e.target.value })} disabled={!!p.serverId} />
                       </label>
                     )}
                     {p.kind === "person" && (
                       <label className="field">
                         <span>Postcode</span>
-                        <input className="input mono" inputMode="numeric" maxLength={4} value={p.postcode ?? ""} onChange={(e) => set(p.key, { postcode: e.target.value })} disabled={!!p.serverId} />
+                        <Input className="mono" inputMode="numeric" maxLength={4} value={p.postcode ?? ""} onChange={(e) => set(p.key, { postcode: e.target.value })} disabled={!!p.serverId} />
                       </label>
                     )}
                   </div>
@@ -398,15 +417,15 @@ export default function Onboard() {
                     <div className="dup-note">
                       Looks like a person already on file: <b>{p.dupOf.name}</b>.{" "}
                       {p.serverId ? (
-                        <button
-                          className="link"
+                        <Button
+                          variant="link"
                           onClick={async () => {
                             const cand = await api.resolution.propose(p.dupOf!.id, p.serverId!);
                             nav(`/fuse/${cand.id}`);
                           }}
                         >
                           Review the match
-                        </button>
+                        </Button>
                       ) : (
                         <span className="muted">You can review the match once this step is saved.</span>
                       )}
@@ -416,36 +435,26 @@ export default function Onboard() {
               ))}
             </div>
             <div className="row" style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
-              <button className="btn btn-line" onClick={() => addParty("person")}>
+              <Button onClick={() => addParty("person")}>
                 <Plus /> Add a person
-              </button>
-              <button className="btn btn-line" onClick={() => addParty("company")}>
+              </Button>
+              <Button onClick={() => addParty("company")}>
                 <Plus /> Add a company or trust
-              </button>
+              </Button>
             </div>
             <p className="note" style={{ marginTop: 14, display: "flex", gap: 6, alignItems: "center" }}>
               <Link2 size={14} aria-hidden /> Coming soon: send the client a secure link to fill in their own owners and documents.
             </p>
-            <div className="decide">
-              <div className="row" style={{ justifyContent: "space-between" }}>
-                <button className="btn btn-quiet" onClick={() => setStep("client")}>
-                  Back
-                </button>
-                <button className="btn btn-string" onClick={() => saveParties.mutate()} disabled={saveParties.isPending || !parties.length}>
-                  Continue →
-                </button>
-              </div>
-            </div>
           </>
         )}
         {step === "identity" && (
           <>
-            <h1 className="title" style={{ fontSize: 26 }}>
+            <h2 className="title" style={{ fontSize: 24 }}>
               Check identity
-            </h1>
+            </h2>
             <p className="note">A document or electronic check for each person and entity. In this sample the check against the issuer is simulated.</p>
-            <table className="ledger" style={{ marginTop: 14 }}>
-              <tbody>
+            <Table style={{ marginTop: 14 }}>
+              <TableBody>
                 {toVerify.map((p) => (
                   <tr key={p.key}>
                     <td className="who">
@@ -460,39 +469,29 @@ export default function Onboard() {
                       ) : "partial" in p && p.partial ? (
                         <Status tone="review">Partly matched: date of birth or address missing</Status>
                       ) : (
-                        <button className="btn btn-line btn-sm" disabled={!p.partyId || verify.isPending} onClick={() => p.partyId && verify.mutate({ key: p.key, partyId: p.partyId })}>
+                        <Button size="sm" disabled={!p.partyId || verify.isPending} onClick={() => p.partyId && verify.mutate({ key: p.key, partyId: p.partyId })}>
                           Check against the issuer
-                        </button>
+                        </Button>
                       )}
                     </td>
                   </tr>
                 ))}
-              </tbody>
-            </table>
-            <div className="decide">
-              <div className="row" style={{ justifyContent: "space-between" }}>
-                <button className="btn btn-quiet" onClick={() => setStep("consent")}>
-                  Back
-                </button>
-                <button className="btn btn-string" onClick={() => toReview.mutate()} disabled={toReview.isPending}>
-                  Continue →
-                </button>
-              </div>
-            </div>
+              </TableBody>
+            </Table>
           </>
         )}
         {step === "consent" && (
           <>
-            <h1 className="title" style={{ fontSize: 26 }}>
+            <h2 className="title" style={{ fontSize: 24 }}>
               Collection notice and consent
-            </h1>
+            </h2>
             <div className="notice">
               We collect personal information to verify identity and meet our obligations under the AML/CTF Act 2006. We may check it with the document issuer or an electronic verification service. We handle it under the Privacy Act 1988 and keep it for 7 years after our relationship ends. You can ask to see or correct it at any time.
             </div>
             <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
               {c.kind === "individual" && (
                 <label className="check">
-                  <input type="checkbox" checked={clientConsent} onChange={(e) => setClientConsent(e.target.checked)} />
+                  <Checkbox checked={clientConsent} onCheckedChange={(v) => setClientConsent(v === true)} />
                   {c.name} has read the notice and consents to the identity check.
                 </label>
               )}
@@ -500,20 +499,10 @@ export default function Onboard() {
                 .filter((p) => p.kind === "person")
                 .map((p) => (
                   <label key={p.key} className="check">
-                    <input type="checkbox" checked={!!p.consent} onChange={(e) => set(p.key, { consent: e.target.checked })} />
+                    <Checkbox checked={!!p.consent} onCheckedChange={(v) => set(p.key, { consent: v === true })} />
                     {p.name} has read the notice and consents to the identity check.
                   </label>
                 ))}
-            </div>
-            <div className="decide">
-              <div className="row" style={{ justifyContent: "space-between" }}>
-                <button className="btn btn-quiet" onClick={() => setStep(c.kind === "individual" ? "client" : "people")}>
-                  Back
-                </button>
-                <button className="btn btn-string" onClick={() => consent.mutate()} disabled={consent.isPending}>
-                  Record consent and continue →
-                </button>
-              </div>
             </div>
           </>
         )}
@@ -521,9 +510,9 @@ export default function Onboard() {
           <>
             {!submitted ? (
               <>
-                <h1 className="title" style={{ fontSize: 26 }}>
+                <h2 className="title" style={{ fontSize: 24 }}>
                   Ready to trace
-                </h1>
+                </h2>
                 <p className="note">Kinroot screens everyone, traces the beneficial owners and gives the first rating with its reasons.</p>
                 <ul className="checklist">
                   {(checklist?.items ?? []).map((i) => (
@@ -532,23 +521,13 @@ export default function Onboard() {
                     </li>
                   ))}
                 </ul>
-                <div className="decide">
-                  <div className="row" style={{ justifyContent: "space-between" }}>
-                    <button className="btn btn-quiet" onClick={() => setStep("identity")}>
-                      Back
-                    </button>
-                    <button className="btn btn-string" onClick={() => submit.mutate()} disabled={submit.isPending}>
-                      {submit.isPending ? "Tracing…" : "Create the file and trace"}
-                    </button>
-                  </div>
-                </div>
               </>
             ) : (
               <>
                 <div className="eyebrow">First rating</div>
-                <h1 className="title" style={{ fontSize: 26 }}>
+                <h2 className="title" style={{ fontSize: 24 }}>
                   {submitted.name}
-                </h1>
+                </h2>
                 <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 8 }}>
                   <RatingTag r={submitted.rating} />
                   {risk.data && <span className="mono">{risk.data.score} / 100</span>}
@@ -559,16 +538,66 @@ export default function Onboard() {
                     <ReasonList risk={risk.data} structure={structure} onCite={() => undefined} />
                   </section>
                 )}
-                <div className="decide">
-                  <button className="btn btn-ink" onClick={() => nav(`/clients/${submitted.id}/summary`)}>
-                    Open the dossier
-                  </button>
-                </div>
               </>
             )}
           </>
         )}
-      </Drawer>
+      </FolioTabs>
+      <Decision label="Next step">
+        <div className="row" style={{ justifyContent: step === "client" ? "flex-end" : "space-between" }}>
+          {step === "client" && (
+            <Button variant="string" onClick={() => create.mutate()} disabled={create.isPending}>
+              {client ? "Continue →" : "Open the file and continue →"}
+            </Button>
+          )}
+          {step === "people" && (
+            <>
+              <Button variant="quiet" onClick={() => setStep("client")}>
+                Back
+              </Button>
+              <Button variant="string" onClick={() => saveParties.mutate()} disabled={saveParties.isPending || !parties.length}>
+                Continue →
+              </Button>
+            </>
+          )}
+          {step === "consent" && (
+            <>
+              <Button variant="quiet" onClick={() => setStep(c.kind === "individual" ? "client" : "people")}>
+                Back
+              </Button>
+              <Button variant="string" onClick={() => consent.mutate()} disabled={consent.isPending}>
+                Record consent and continue →
+              </Button>
+            </>
+          )}
+          {step === "identity" && (
+            <>
+              <Button variant="quiet" onClick={() => setStep("consent")}>
+                Back
+              </Button>
+              <Button variant="string" onClick={() => toReview.mutate()} disabled={toReview.isPending}>
+                Continue →
+              </Button>
+            </>
+          )}
+          {step === "review" &&
+            (!submitted ? (
+              <>
+                <Button variant="quiet" onClick={() => setStep("identity")}>
+                  Back
+                </Button>
+                <Button variant="string" onClick={() => submit.mutate()} disabled={submit.isPending}>
+                  {submit.isPending ? "Tracing…" : "Create the file and trace"}
+                </Button>
+              </>
+            ) : (
+              <Button variant="ink" onClick={() => nav(`/clients/${submitted.id}/summary`)}>
+                Open the dossier
+              </Button>
+            ))}
+        </div>
+      </Decision>
+      </Folio>
     </>
   );
 }

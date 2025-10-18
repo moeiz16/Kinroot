@@ -1,4 +1,5 @@
-import type { Address, Client, Rating } from "../api/types";
+import type { Address, Case, Client, Rating } from "../api/types";
+import { businessDaysUntil } from "./dates";
 
 export interface StatusLook {
   cls: "clear" | "review" | "high" | "neutral" | "restricted" | "unknown";
@@ -48,4 +49,13 @@ export function listSourceLabel(source: string | null | undefined): string {
   if (s.startsWith("bundled") || s.includes("sample")) return "Sample list · fictional entries";
   if (s.includes("opensanctions")) return "OpenSanctions";
   return source!.replace(/[@_-]+/g, " ").trim();
+}
+
+/** The restricted report clock: AUSTRAC's 3 business days, computed from today at runtime. */
+export function deadlineLook(c: Case): { tone: "high" | "review" | "neutral"; text: string } {
+  if (c.smrStatus === "submitted") return { tone: "neutral", text: "Filed" };
+  const n = businessDaysUntil(c.deadlineOn);
+  if (n < 0) return { tone: "high", text: `Overdue by ${-n} day${n === -1 ? "" : "s"}` };
+  if (n === 0) return { tone: "high", text: "Due today (3-day limit)" };
+  return { tone: n <= 1 ? "high" : "review", text: `Due in ${n} business day${n === 1 ? "" : "s"} (3-day limit)` };
 }

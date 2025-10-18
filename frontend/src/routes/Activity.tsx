@@ -3,18 +3,21 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Download, Lock, ShieldCheck } from "lucide-react";
 import { useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { api } from "../api/endpoints";
 import type { AuditEntry, AuditVerify } from "../api/types";
 import { fmtDateTime } from "../lib/dates";
 import { prefersReduced } from "../lib/theme";
 import { useAuth } from "../lib/auth";
 import { Status } from "../shell/chrome";
-import { Sheet } from "../shell/Drawer";
+import { Caption, Folio, FolioBody } from "../shell/Folio";
 import { NotAvailable } from "./NotFound";
-import "./sheets.css";
 
 const ACTIONS = [
-  { v: "", label: "Every action" },
+  { v: "all", label: "Every action" },
   { v: "client", label: "Client files" },
   { v: "screening", label: "Screening" },
   { v: "resolution", label: "Fuse or split" },
@@ -30,14 +33,14 @@ export function toCsv(rows: AuditEntry[]): string {
 
 export default function Activity() {
   const { can } = useAuth();
-  const [action, setAction] = useState("");
+  const [action, setAction] = useState("all");
   const [from, setFrom] = useState("");
   const [checked, setChecked] = useState(0);
   const [result, setResult] = useState<AuditVerify | null>(null);
   const [verifying, setVerifying] = useState(false);
   const q = useInfiniteQuery({
     queryKey: ["audit", action, from],
-    queryFn: ({ pageParam }) => api.audit.list({ action: action || undefined, from: from || undefined, page: pageParam, pageSize: 40 }),
+    queryFn: ({ pageParam }) => api.audit.list({ action: action === "all" ? undefined : action, from: from || undefined, page: pageParam, pageSize: 40 }),
     initialPageParam: 1,
     getNextPageParam: (last) => (last.page < last.totalPages ? last.page + 1 : undefined),
     enabled: can("audit:read"),
@@ -67,56 +70,58 @@ export default function Activity() {
   };
 
   return (
-    <Sheet label="Activity log" wide>
-      <div className="sheet-head">
-        <div>
-          <div className="eyebrow">Sealed record of every decision</div>
-          <h1 className="title">Activity log</h1>
+    <Folio label="Activity log" width="full">
+      <Caption
+        refLine={<span>Sealed record of every decision · {total.toLocaleString("en-AU")} entries</span>}
+        title="Activity log"
+        tools={
+          <>
+            <Button onClick={exportCsv}>
+              <Download /> Export
+            </Button>
+            <Button variant="ink" onClick={verify} disabled={verifying}>
+              <ShieldCheck /> {verifying ? "Checking the seals…" : "Verify the chain"}
+            </Button>
+          </>
+        }
+      />
+      <FolioBody>
+        <div className="sheet-tools">
+          <label className="sort">
+            <span className="muted">Action</span>
+            <Select value={action} onValueChange={setAction}>
+              <SelectTrigger size="sm" aria-label="Action" className="w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {ACTIONS.map((a) => (
+                  <SelectItem key={a.v} value={a.v}>
+                    {a.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </label>
+          <label className="sort">
+            <span className="muted">From</span>
+            <Input type="date" className="h-8 w-[170px] text-[13.5px]" value={from} onChange={(e) => setFrom(e.target.value)} />
+          </label>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn btn-line" onClick={exportCsv}>
-            <Download /> Export
-          </button>
-          <button className="btn btn-ink" onClick={verify} disabled={verifying}>
-            <ShieldCheck /> {verifying ? "Checking the seals…" : "Verify the chain"}
-          </button>
-        </div>
-      </div>
-      <div className="sheet-tools">
-        <label className="sort">
-          <span className="muted">Action</span>
-          <select className="select" value={action} onChange={(e) => setAction(e.target.value)}>
-            {ACTIONS.map((a) => (
-              <option key={a.v} value={a.v}>
-                {a.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="sort">
-          <span className="muted">From</span>
-          <input type="date" className="input" style={{ width: 160, height: 34 }} value={from} onChange={(e) => setFrom(e.target.value)} />
-        </label>
-        <span className="muted" style={{ fontSize: 12.5 }}>
-          {total.toLocaleString("en-AU")} entries
-        </span>
-      </div>
-      <div className="ledger-sheet" style={{ marginTop: 16 }}>
-        <table className="ledger">
-          <thead>
-            <tr>
-              <th scope="col" style={{ width: 120 }}>When</th>
-              <th scope="col" style={{ width: 150 }}>Who</th>
-              <th scope="col">What</th>
-              <th scope="col" style={{ width: 120 }}>Seal</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table className="activity" aria-label="Activity log entries">
+          <TableHeader>
+            <TableRow>
+              <TableHead scope="col" style={{ width: 130 }}>When</TableHead>
+              <TableHead scope="col" style={{ width: 170 }}>Who</TableHead>
+              <TableHead scope="col">What</TableHead>
+              <TableHead scope="col" style={{ width: 120 }}>Seal</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {rows.map((r, i) => {
               const restricted = !!r.metadata.restricted;
               return (
                 <tr key={r.id}>
-                  <td className="mono" style={{ fontSize: 12.5 }}>{fmtDateTime(r.createdAt)}</td>
+                  <td className="mono" style={{ fontSize: 13 }}>{fmtDateTime(r.createdAt)}</td>
                   <td>{r.actorName}</td>
                   <td>
                     {r.label}
@@ -139,8 +144,8 @@ export default function Activity() {
                 </tr>
               );
             })}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
         {result && (
           <div className="verify-line" role="status">
             {result.valid ? (
@@ -155,14 +160,14 @@ export default function Activity() {
           </div>
         )}
         {q.hasNextPage && (
-          <button className="btn btn-line" style={{ marginTop: 16 }} onClick={() => void q.fetchNextPage()}>
+          <Button style={{ marginTop: 16 }} onClick={() => void q.fetchNextPage()}>
             Show older entries
-          </button>
+          </Button>
         )}
         <p className="note" style={{ marginTop: 16, display: "flex", gap: 6, alignItems: "center" }}>
           <Lock size={12} aria-hidden /> Entries about restricted cases appear only for people who can see those cases. They stay in the chain for everyone.
         </p>
-      </div>
-    </Sheet>
+      </FolioBody>
+    </Folio>
   );
 }

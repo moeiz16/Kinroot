@@ -1,29 +1,23 @@
-// Phone: the file tray as a list (the "Waiting" tab of the bottom bar).
+// Phone: the docket on its own (the "Waiting" tab of the bottom bar).
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router";
+import { useMemo } from "react";
 import { api } from "../api/endpoints";
-import { Sheet } from "../shell/Drawer";
-import { trayHref } from "./BoardHome";
-import "./sheets.css";
+import { useAuth } from "../lib/auth";
+import { Caption, Folio, FolioBody } from "../shell/Folio";
+import { Docket, docketRows } from "./BoardHome";
 
 export default function Waiting() {
+  const { can } = useAuth();
   const dash = useQuery({ queryKey: ["dashboard"], queryFn: api.dashboard });
-  const tray = dash.data?.fileTray ?? [];
+  const cases = useQuery({ queryKey: ["cases"], queryFn: api.cases.list, enabled: can("smr:read") });
+  const rows = useMemo(() => docketRows(dash.data?.fileTray ?? [], cases.data?.items ?? []), [dash.data, cases.data]);
+  const caption = `${rows.length} waiting for you`;
   return (
-    <Sheet label="Waiting for you">
-      <h1 className="title">{tray.length} waiting for you</h1>
-      <ul className="client-rows">
-        {tray.map((t) => (
-          <li key={t.id}>
-            <Link to={trayHref(t)} className="client-row" style={{ gridTemplateColumns: "1fr" }}>
-              <span>
-                <span className="cr-name">{t.title}</span>
-                <span className="cr-meta">{t.subtitle}</span>
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </Sheet>
+    <Folio label="Waiting for you" width="full">
+      <Caption refLine={<span>The docket · earliest due first</span>} title={caption} />
+      <FolioBody>
+        <Docket rows={rows} caption={caption} />
+      </FolioBody>
+    </Folio>
   );
 }

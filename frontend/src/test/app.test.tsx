@@ -166,10 +166,20 @@ describe("records and settings", () => {
   });
 });
 
-describe("tray", () => {
-  it("lists the next decisions for the compliance officer", async () => {
+describe("docket", () => {
+  it("lists the next decisions for the compliance officer, earliest due first", async () => {
     renderApp("/board", "u-daniel");
-    const tray = await screen.findByRole("list", { name: /waiting for you/ }, T);
-    await waitFor(() => expect(within(tray).getAllByRole("listitem").length).toBeGreaterThan(2));
+    const docket = await screen.findByRole("table", { name: /waiting for you/ }, T);
+    await waitFor(() => expect(within(docket).getAllByRole("row").length).toBeGreaterThan(3));
+    expect(within(docket).getByRole("columnheader", { name: /Due/ })).toBeInTheDocument();
+  });
+  it("puts the restricted report clock on the compliance officer's docket only", async () => {
+    renderApp("/board", "u-daniel");
+    expect(await screen.findByText("Report (restricted)", {}, T)).toBeInTheDocument();
+  });
+  it("never shows the report clock to a fee earner", async () => {
+    renderApp("/board", "u-tom");
+    await screen.findByRole("table", { name: /waiting for you|Nothing waiting/ }, T);
+    expect(screen.queryByText("Report (restricted)")).toBeNull();
   });
 });

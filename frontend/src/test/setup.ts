@@ -16,6 +16,17 @@ globalThis.ResizeObserver ??= class {
   disconnect() {}
 } as unknown as typeof ResizeObserver;
 window.matchMedia ??= ((q: string) => ({ matches: false, media: q, onchange: null, addEventListener: vi.fn(), removeEventListener: vi.fn(), addListener: vi.fn(), removeListener: vi.fn(), dispatchEvent: vi.fn() })) as unknown as typeof window.matchMedia;
+// Radix primitives (select, menus, tooltips) call these; jsdom does not implement them.
+Element.prototype.scrollIntoView ??= function () {};
+Element.prototype.hasPointerCapture ??= () => false;
+Element.prototype.releasePointerCapture ??= function () {};
+// jsdom lays nothing out, so every element sits at (0, 0). The folio's resize handle hit-tests pointer events
+// against its rectangle; keep it off-screen so test clicks reach the controls underneath.
+const rect = Element.prototype.getBoundingClientRect;
+Element.prototype.getBoundingClientRect = function (this: Element) {
+  if (this.hasAttribute("data-panel-resize-handle-id")) return { x: -500, y: -500, left: -500, top: -500, right: -490, bottom: -490, width: 10, height: 10, toJSON: () => ({}) } as DOMRect;
+  return rect.call(this);
+};
 Object.defineProperty(document, "fonts", { value: { ready: Promise.resolve() }, configurable: true });
 
 beforeEach(() => {

@@ -1,18 +1,23 @@
-// Client book: a paper index sheet slides from the spine; the board on the right shows only the clients in the filter.
+// Client book: a register of every client in the folio (sortable, filterable); the exhibit shows only the clients
+// in the current filter, and hovering a row selects its pin.
 import { useQuery } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { createColumnHelper, flexRender, getCoreRowModel, getSortedRowModel, useReactTable, type SortingState } from "@tanstack/react-table";
+import { ArrowDownUp, Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { api } from "../api/endpoints";
 import type { Client } from "../api/types";
-import { daysFromToday, fmtDate, today } from "../lib/dates";
+import { daysFromToday, dueIn, fmtDate, today } from "../lib/dates";
 import { KIND_LABEL } from "../lib/format";
 import { useAuth } from "../lib/auth";
 import { useBoard, useBoardHandlers, useBoardScene } from "../shell/board";
-import { RatingTag } from "../shell/chrome";
-import { Sheet } from "../shell/Drawer";
+import { AsAt, BoardTools, FindTrigger, RatingTag } from "../shell/chrome";
+import { Caption, Folio, FolioBody } from "../shell/Folio";
 import { constellationScene } from "./BoardHome";
-import "./sheets.css";
 
 type Filter = "needs" | "review" | "clear" | "onboarding" | "exited";
 export function bucket(c: Client): Filter {
@@ -64,6 +69,9 @@ function statusLine(c: Client): string {
   return c.eddRequired ? "Enhanced due diligence" : "Standard due diligence";
 }
 
+const RANK: Record<string, number> = { high: 0, medium: 1, low: 2 };
+const col = createColumnHelper<Client>();
+
 export default function Clients() {
   const { can } = useAuth();
   const nav = useNavigate();
@@ -72,7 +80,7 @@ export default function Clients() {
   const initial = params.get("filter");
   const [filter, setFilter] = useState<Filter | "all">(FILTERS.some((f) => f.id === initial) ? (initial as Filter) : "all");
   const [q, setQ] = useState("");
-  const [sort, setSort] = useState<"review" | "name" | "risk">("review");
+  const [sorting, setSorting] = useState<SortingState>([{ id: "review", desc: false }]);
   const clients = useQuery({ queryKey: ["clients", "all"], queryFn: () => api.clients.list({ pageSize: 200 }) });
   const payload = useQuery({ queryKey: ["constellation"], queryFn: api.graph.constellation });
   const clusters = useQuery({ queryKey: ["clusters"], queryFn: () => api.graph.clusters() });
@@ -81,9 +89,53 @@ export default function Clients() {
   const rows = useMemo(() => {
     let list = all.filter((c) => (filter === "all" ? c.status !== "exited" : bucket(c) === filter));
     if (q.trim()) list = list.filter((c) => c.name.toLowerCase().includes(q.trim().toLowerCase()));
-    const rank = { high: 0, medium: 1, low: 2 } as Record<string, number>;
-    return [...list].sort((a, b) => (sort === "name" ? a.name.localeCompare(b.name) : sort === "risk" ? (rank[a.rating ?? ""] ?? 3) - (rank[b.rating ?? ""] ?? 3) : (a.nextReviewOn ?? "9999").localeCompare(b.nextReviewOn ?? "9999")));
-  }, [all, filter, q, sort]);
+    return list;
+  }, [all, filter, q]);
+  const columns = useMemo(
+    () => [
+      col.accessor((c) => RANK[c.rating ?? ""] ?? 3, { id: "rating", header: "Rating", cell: (c) => <RatingTag r={c.row.original.rating} small /> }),
+      col.accessor("name", {
+        header: "Client",
+        cell: (c) => (
+          <span className="who">
+            <Link to={`/clients/${c.row.original.id}/summary`} className="cr-name">
+              {c.getValue()}
+            </Link>
+            <small>
+              {KIND_LABEL[c.row.original.kind]} · {c.row.original.jurisdiction === "AU" ? "Australia" : c.row.original.jurisdiction} · {c.row.original.assignedTo?.fullName ?? "Unassigned"}
+            </small>
+            <small className="cr-status">{statusLine(c.row.original)}</small>
+          </span>
+        ),
+      }),
+      col.accessor((c) => c.structure.layers, {
+        id: "layers",
+        header: "Structure",
+        cell: (c) => (
+          <span className="cr-structure">
+            <StructureGlyph layers={c.row.original.structure.layers} parties={c.row.original.structure.parties} />
+            <span className="mono">{c.getValue() === 0 ? "Individual" : `${c.getValue()} ${c.getValue() === 1 ? "layer" : "layers"}`}</span>
+          </span>
+        ),
+      }),
+      col.accessor((c) => c.nextReviewOn ?? "9999", {
+        id: "review",
+        header: "Next review",
+        cell: (c) => {
+          const d = c.row.original.nextReviewOn;
+          const overdue = d && d < today();
+          const words = dueIn(d);
+          return (
+            <span className={`mono ${overdue ? "overdue" : ""}`} title={d ? fmtDate(d) : undefined}>
+              {d ? words.charAt(0).toUpperCase() + words.slice(1) : "—"}
+            </span>
+          );
+        },
+      }),
+    ],
+    [],
+  );
+  const table = useReactTable({ data: rows, columns, state: { sorting }, onSortingChange: setSorting, getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel() });
   const built = useMemo(() => (payload.data && clients.data ? constellationScene(payload.data, clients.data.items, clusters.data ?? [], [], "risk") : null), [payload.data, clients.data, clusters.data]);
   useBoardScene(built?.scene ?? null);
   const visible = rows.map((c) => c.partyId).join("|");
@@ -92,72 +144,81 @@ export default function Clients() {
     return () => clearTimeout(t);
   }, [visible, board.version > 0]); // eslint-disable-line react-hooks/exhaustive-deps
   useBoardHandlers({ onActivate: (id) => { const c = all.find((x) => x.partyId === id); if (c) nav(`/clients/${c.id}/summary`); } });
+  const live = all.filter((c) => c.status !== "exited").length;
 
   return (
-    <Sheet label="Clients" width={640}>
-      <div className="sheet-head">
-        <h1 className="title">
-          Clients <span className="mono muted" style={{ fontSize: 18 }}>· {all.filter((c) => c.status !== "exited").length}</span>
-        </h1>
-        {can("clients:onboard") && (
-          <Link to="/onboard" className="btn btn-string">
-            <Plus /> Onboard a client
-          </Link>
-        )}
-      </div>
-      <div className="sheet-tools">
-        <input className="input" placeholder="Find a client" aria-label="Find a client" value={q} onChange={(e) => setQ(e.target.value)} style={{ maxWidth: 260 }} />
-        <label className="sort">
-          <span className="muted">Sort</span>
-          <select className="select" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
-            <option value="review">Next review</option>
-            <option value="risk">Rating</option>
-            <option value="name">Name</option>
-          </select>
-        </label>
-      </div>
-      <div className="filters" role="group" aria-label="Filter clients">
-        <button aria-pressed={filter === "all"} onClick={() => setFilter("all")}>
-          All
-        </button>
-        {FILTERS.map((f) => (
-          <button key={f.id} aria-pressed={filter === f.id} onClick={() => setFilter(f.id)}>
-            {f.label} <span className="mono">({counts[f.id] ?? 0})</span>
-          </button>
-        ))}
-      </div>
-      <ul className="client-rows" aria-label="Client list">
-        {rows.map((c) => {
-          const overdue = c.nextReviewOn && c.nextReviewOn < today();
-          return (
-            <li key={c.id}>
-              <Link
-                to={`/clients/${c.id}/summary`}
-                className="client-row"
-                onMouseEnter={() => board.engine()?.setSelected(c.partyId)}
-                onFocus={() => board.engine()?.setSelected(c.partyId)}
-              >
-                <div className="cr-rating">
-                  <RatingTag r={c.rating} small />
-                </div>
-                <div className="cr-main">
-                  <span className="cr-name">{c.name}</span>
-                  <span className="cr-meta">
-                    {KIND_LABEL[c.kind]} · {c.jurisdiction === "AU" ? "Australia" : c.jurisdiction} · {c.assignedTo?.fullName ?? "Unassigned"}
-                  </span>
-                  <span className="cr-status">{statusLine(c)}</span>
-                </div>
-                <div className="cr-side">
-                  <StructureGlyph layers={c.structure.layers} parties={c.structure.parties} />
-                  <span className="mono muted">{c.structure.layers === 0 ? "Individual" : `${c.structure.layers} ${c.structure.layers === 1 ? "layer" : "layers"}`}</span>
-                  <span className={`mono ${overdue ? "overdue" : "muted"}`}>{c.nextReviewOn ? (overdue ? `Review overdue` : `Review ${fmtDate(c.nextReviewOn)}`) : "—"}</span>
-                </div>
-              </Link>
-            </li>
-          );
-        })}
-        {!rows.length && <li className="muted" style={{ padding: "18px 0" }}>No clients match.</li>}
-      </ul>
-    </Sheet>
+    <>
+      <Folio label="Clients" width="wide">
+        <Caption
+          refLine={<span>Client book · {live} clients · {counts.needs ?? 0} need you</span>}
+          title="Clients"
+          tools={
+            can("clients:onboard") && (
+              <Button asChild variant="string">
+                <Link to="/onboard">
+                  <Plus /> Onboard a client
+                </Link>
+              </Button>
+            )
+          }
+        />
+        <FolioBody>
+          <div className="sheet-tools">
+            <Input placeholder="Find a client" aria-label="Find a client" value={q} onChange={(e) => setQ(e.target.value)} className="max-w-[280px]" />
+            <ToggleGroup type="single" value={filter} onValueChange={(v) => v && setFilter(v as Filter | "all")} aria-label="Filter clients" className="facets">
+              <ToggleGroupItem value="all">All</ToggleGroupItem>
+              {FILTERS.map((f) => (
+                <ToggleGroupItem key={f.id} value={f.id}>
+                  {f.label} <span className="mono">{counts[f.id] ?? 0}</span>
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          </div>
+          <Table className="client-book" aria-label="Client list">
+            <TableHeader>
+              {table.getHeaderGroups().map((g) => (
+                <TableRow key={g.id}>
+                  {g.headers.map((h) => (
+                    <TableHead key={h.id} className={h.column.id === "layers" ? "hide-sm" : undefined} aria-sort={h.column.getIsSorted() === "asc" ? "ascending" : h.column.getIsSorted() === "desc" ? "descending" : undefined}>
+                      <button type="button" className="sort-head" onClick={h.column.getToggleSortingHandler()}>
+                        {flexRender(h.column.columnDef.header, h.getContext())}
+                        <ArrowDownUp aria-hidden />
+                      </button>
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows.map((r) => (
+                <TableRow
+                  key={r.id}
+                  className="rowlink"
+                  onClick={(e) => (e.target as HTMLElement).closest("a") || nav(`/clients/${r.original.id}/summary`)}
+                  onMouseEnter={() => board.engine()?.setSelected(r.original.partyId)}
+                  onFocus={() => board.engine()?.setSelected(r.original.partyId)}
+                >
+                  {r.getVisibleCells().map((c) => (
+                    <TableCell key={c.id} className={c.column.id === "layers" ? "hide-sm" : undefined}>
+                      {flexRender(c.column.columnDef.cell, c.getContext())}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+              {!rows.length && (
+                <TableRow>
+                  <TableCell colSpan={4} className="muted">
+                    No clients match.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </FolioBody>
+      </Folio>
+      <AsAt exhibit="Exhibit" title="Clients in this view" />
+      <FindTrigger />
+      <BoardTools minimap />
+    </>
   );
 }

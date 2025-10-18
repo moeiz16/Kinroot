@@ -1,100 +1,15 @@
-// Floating board chrome: Find pill, As at / Compared with stamp, zoom + thread + focus tools, minimap, legend.
-// All of it floats over the visible part of the board and never covers the work.
-import { useQuery } from "@tanstack/react-query";
+// Exhibit chrome: the exhibit label with its As at / Compared with stamp, the evidence trail, the find trigger,
+// zoom + thread + focus tools, minimap and legend. All of it floats over the board and never covers the work.
 import { CalendarRange, Focus, Lock, Minus, Plus, Scan, Search, Spline } from "lucide-react";
-import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { useNavigate } from "react-router";
-import { api } from "../api/endpoints";
-import type { GraphNode } from "../api/types";
+import { useMemo, useState, type ReactNode } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { fmtDate } from "../lib/dates";
 import { ratingLook } from "../lib/format";
 import { PHONE, useMedia } from "../lib/useMedia";
 import { useBoard } from "./board";
-
-/** Position helpers relative to the visible board (excluding drawer/sheet). */
-export function visibleCenter(occ: { left: number; right: number }): CSSProperties {
-  return { left: `calc(${occ.left}px + (100% - ${occ.left + occ.right}px) / 2)`, transform: "translateX(-50%)" };
-}
-
-export function FindPill({ width = 400, top = 16, offset = 0, phoneVisible = false }: { width?: number; top?: number; offset?: number; phoneVisible?: boolean }) {
-  const phone = useMedia(PHONE);
-  const board = useBoard();
-  const nav = useNavigate();
-  const [q, setQ] = useState("");
-  const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(0);
-  const input = useRef<HTMLInputElement>(null);
-  const listId = useId();
-  const { data = [] } = useQuery({ queryKey: ["search", q], queryFn: () => api.graph.search(q, 8), enabled: q.trim().length > 1 });
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement;
-      if (e.key === "/" && !["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName) && !t.isContentEditable) {
-        e.preventDefault();
-        input.current?.focus();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-  const go = (n: GraphNode) => {
-    setOpen(false);
-    setQ("");
-    if (n.clientId) nav(`/clients/${n.clientId}/summary`);
-    else nav(`/ask?q=${encodeURIComponent(`How is ${n.label} linked to our clients?`)}`);
-  };
-  const w = Math.min(width, 9999);
-  const occ = board.occlusion;
-  if (phone && !phoneVisible) return null;
-  return (
-    <div className="chrome find-wrap" style={{ top: phone ? Math.max(top, 70) : top, width: `min(${w}px, calc(100% - ${occ.left + occ.right + 32}px))`, ...visibleCenter(occ), ...(offset && !phone ? { transform: `translateX(-50%) translateX(${offset}px)` } : {}) }}>
-      <div className="find" role="combobox" aria-expanded={open && data.length > 0} aria-haspopup="listbox" aria-owns={listId}>
-        <Search aria-hidden />
-        <input
-          ref={input}
-          value={q}
-          aria-label="Find a person, company or trust"
-          aria-autocomplete="list"
-          aria-controls={listId}
-          placeholder="Find a person, company or trust"
-          onChange={(e) => {
-            setQ(e.target.value);
-            setOpen(true);
-            setActive(0);
-          }}
-          onFocus={() => setOpen(true)}
-          onBlur={() => setTimeout(() => setOpen(false), 150)}
-          onKeyDown={(e) => {
-            if (e.key === "ArrowDown") setActive((a) => Math.min(data.length - 1, a + 1));
-            else if (e.key === "ArrowUp") setActive((a) => Math.max(0, a - 1));
-            else if (e.key === "Enter" && data[active]) go(data[active]!);
-            else if (e.key === "Escape") {
-              setQ("");
-              input.current?.blur();
-            }
-          }}
-        />
-        <span className="kbd" aria-hidden>
-          /
-        </span>
-      </div>
-      {open && data.length > 0 && (
-        <div className="find-results" role="listbox" id={listId}>
-          {data.map((n, i) => (
-            <button key={n.id} role="option" aria-selected={i === active} onMouseDown={(e) => e.preventDefault()} onClick={() => go(n)}>
-              <KindGlyph kind={n.kind} />
-              <span style={{ flex: 1, minWidth: 0 }}>
-                <b style={{ display: "block", fontWeight: 600 }}>{n.label}</b>
-                <small className="muted">{n.clientId ? "Client" : n.kind === "person" ? "Person" : n.kind === "trust" ? "Trust" : "Company"}</small>
-              </span>
-              {n.clientId && <RatingTag r={n.riskRating} small />}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
+import { openFind } from "./CommandPalette";
 
 export function KindGlyph({ kind, size = 14 }: { kind: string; size?: number }) {
   const s = size;
@@ -106,62 +21,111 @@ export function KindGlyph({ kind, size = 14 }: { kind: string; size?: number }) 
 
 export function RatingTag({ r, small, word }: { r: "low" | "medium" | "high" | null | undefined; small?: boolean; word?: string }) {
   const l = ratingLook(r);
+  const tone = l.cls === "neutral" ? "neutral" : l.cls;
   return (
-    <span className={`status ${l.cls}`} style={small ? { padding: "4px 6px", fontSize: 11.5 } : undefined}>
+    <Badge tone={tone as "clear"} className={small ? "px-1.5 py-1 text-[12px]" : undefined}>
       <span className="g" aria-hidden>
         {l.glyph}
       </span>
       {word ?? l.word}
-    </span>
+    </Badge>
   );
 }
 
-export function Status({ tone, glyph, children }: { tone: "clear" | "review" | "high" | "neutral" | "restricted" | "unknown"; glyph?: string; children: ReactNode }) {
+export type Tone = "clear" | "review" | "high" | "neutral" | "restricted" | "unknown";
+/** Status language: glyph + word + tint (DESIGN.md §9). */
+export function Status({ tone, glyph, children }: { tone: Tone; glyph?: string; children: ReactNode }) {
   const g = glyph ?? { clear: "●", review: "◆", high: "▲", neutral: "○", restricted: "", unknown: "?" }[tone];
   return (
-    <span className={`status ${tone}`}>
+    <Badge tone={tone}>
       <span className="g" aria-hidden>
         {tone === "restricted" && !glyph ? <Lock size={11} strokeWidth={2.2} /> : g}
       </span>
       {children}
-    </span>
+    </Badge>
   );
 }
 
-export function AsAt({ asAt, compare, compareLabel, onToggle, onPick, top = 16 }: { asAt: string; compare: string | null; compareLabel?: string; onToggle?: () => void; onPick?: (d: string) => void; top?: number }) {
-  const board = useBoard();
+/** Opens the command palette from the exhibit (also `/` and ⌘K anywhere). */
+export function FindTrigger() {
+  const phone = useMedia(PHONE);
+  if (phone) return null;
+  return (
+    <button type="button" className="chrome find-trigger" style={{ top: 16, right: 16 }} onClick={() => openFind()} aria-label="Find a person, company or trust">
+      <Search aria-hidden />
+      Find a person, company or trust
+      <span className="kbd" aria-hidden>
+        /
+      </span>
+    </button>
+  );
+}
+
+/** The exhibit label. With a date it is the point-in-time stamp: As at today, compared with an earlier date. */
+export function AsAt({ exhibit = "Exhibit A", title, asAt, compare, compareLabel, onToggle, onPick, top = 16 }: { exhibit?: string; title?: string; asAt?: string; compare?: string | null; compareLabel?: string; onToggle?: () => void; onPick?: (d: string) => void; top?: number }) {
   const [picking, setPicking] = useState(false);
   return (
-    <div className="chrome asat" role="group" aria-label="Point in time" style={{ top, left: board.occlusion.left + 16 }}>
+    <div className="chrome exhibit-label" role="group" aria-label={asAt ? "Point in time" : "Exhibit"} style={{ top, left: 16 }}>
       <div>
-        <span className="k">As at</span>
-        <span className="v">{fmtDate(asAt)}</span>
+        <span className="k">{exhibit}</span>
+        <span className="x">{title ?? "The structure"}</span>
       </div>
-      <button type="button" aria-pressed={!!compare} onClick={onToggle} title={compare ? "Hide changes" : "Show what changed"}>
-        <span className="k">Compared with</span>
-        <span className="v">{compare ? `${fmtDate(compare)}${compareLabel ? ` · ${compareLabel}` : ""}` : "Off"}</span>
-      </button>
-      <div style={{ justifyContent: "center", position: "relative" }}>
-        <button className="iconbtn" aria-label="Change the compare date" onClick={() => setPicking((p) => !p)}>
-          <CalendarRange />
+      {asAt && (
+        <div className="x-wide">
+          <span className="k">As at</span>
+          <span className="v">{fmtDate(asAt)}</span>
+        </div>
+      )}
+      {asAt && onToggle && (
+        <button type="button" aria-pressed={!!compare} onClick={onToggle} title={compare ? "Hide changes" : "Show what changed"}>
+          <span className="k">Compared with</span>
+          <span className="v">{compare ? `${fmtDate(compare)}${compareLabel ? ` · ${compareLabel}` : ""}` : "Off"}</span>
         </button>
-        {picking && (
-          <input
-            type="date"
-            className="input"
-            aria-label="Compare with date"
-            style={{ position: "absolute", top: 44, left: 0, width: 170, zIndex: 3 }}
-            defaultValue={compare ?? undefined}
-            max={asAt}
-            onChange={(e) => {
-              if (e.target.value) {
-                onPick?.(e.target.value);
-                setPicking(false);
-              }
-            }}
-          />
-        )}
-      </div>
+      )}
+      {asAt && onPick && (
+        <div style={{ justifyContent: "center" }}>
+          <Popover open={picking} onOpenChange={setPicking}>
+            <PopoverTrigger asChild>
+              <button type="button" className="grid size-[30px] place-items-center text-muted hover:text-ink" aria-label="Change the compare date">
+                <CalendarRange size={16} />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-[220px] p-3">
+              <label className="field">
+                <span>Compare with</span>
+                <Input
+                  type="date"
+                  aria-label="Compare with date"
+                  defaultValue={compare ?? undefined}
+                  max={asAt}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      onPick(e.target.value);
+                      setPicking(false);
+                    }
+                  }}
+                />
+              </label>
+            </PopoverContent>
+          </Popover>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The evidence trail: the last thread pulled, as a hop log from the person to the client. */
+export function Trail({ hops, end, top = 76 }: { hops: string[]; end?: string; top?: number }) {
+  if (hops.length < 2) return null;
+  return (
+    <div className="chrome trail" role="note" aria-label={`Trail: ${hops.join(", then ")}${end ? `, ${end}` : ""}`} style={{ top, left: 16 }}>
+      <span className="k">Trail</span>
+      {hops.map((h, i) => (
+        <span key={i} className="hop">
+          {h}
+        </span>
+      ))}
+      {end && <span className="end">{end}</span>}
     </div>
   );
 }
@@ -173,12 +137,12 @@ export function BoardTools({ onThread, threadLabel = "Pull the thread from the s
   const [open, setOpen] = useState(false);
   if (phone && !open)
     return (
-      <button className="chrome more-tools" aria-label="Board tools" aria-expanded={false} onClick={() => setOpen(true)} style={{ right: 12, bottom: board.occlusion.bottom + 64 }}>
+      <button className="chrome more-tools" aria-label="Board tools" aria-expanded={false} onClick={() => setOpen(true)} style={{ right: 12, bottom: 16 }}>
         ⋯
       </button>
     );
   return (
-    <div className="chrome tools" style={phone ? { right: 12, bottom: board.occlusion.bottom + 64 } : { left: board.occlusion.left + 16, bottom: board.occlusion.bottom + 16 }} onBlur={(e) => phone && !e.currentTarget.contains(e.relatedTarget as Node) && setOpen(false)}>
+    <div className="chrome tools" style={phone ? { right: 12, bottom: 16 } : { left: 16, bottom: 16 }} onBlur={(e) => phone && !e.currentTarget.contains(e.relatedTarget as Node) && setOpen(false)}>
       <div className="toolgroup">
         <button aria-label="Zoom in" onClick={() => board.engine()?.zoomBy(1.4)}>
           <Plus />
@@ -255,7 +219,6 @@ export function Minimap() {
 }
 
 export function Legend({ items = ["person", "company", "trust", "owns", "controls", "string"] }: { items?: string[] }) {
-  const board = useBoard();
   const all: Record<string, ReactNode> = {
     person: (
       <span key="p">
@@ -294,17 +257,7 @@ export function Legend({ items = ["person", "company", "trust", "owns", "control
     ),
   };
   return (
-    <div
-      className="chrome legend"
-      aria-label="Legend"
-      style={
-        // Centred under the visible board when there is room; otherwise tucked to the right so it never covers the
-        // zoom group and minimap at the bottom-left.
-        typeof window !== "undefined" && window.innerWidth - board.occlusion.left - board.occlusion.right < 1080
-          ? { bottom: board.occlusion.bottom + 16, right: board.occlusion.right + 16 }
-          : { bottom: board.occlusion.bottom + 16, left: `calc(${board.occlusion.left}px + (100% - ${board.occlusion.left + board.occlusion.right}px) / 2 + 60px)`, transform: "translateX(-50%)" }
-      }
-    >
+    <div className="chrome legend" aria-label="Legend" style={{ bottom: 16, right: 16 }}>
       {items.map((k) => all[k])}
     </div>
   );

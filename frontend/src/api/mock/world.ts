@@ -705,10 +705,10 @@ function auditRows(clients: Client[]): AuditEntry[] {
   }
   const tail: [number, string, string, string, string | null, string | null, Record<string, unknown>][] = [
     [6, "Daniel Cho", "signoff.approved", "Signed off the PEP measures for Hon. Julian Whitfield", "client", "c-whitfield-julian", {}],
-    [5, "Daniel Cho", "case.opened", "Opened case SMR-2026-003", "case", "case-aurelian", { restricted: true }],
+    [5, "Daniel Cho", "case.opened", "Opened case SMR-2025-003", "case", "case-aurelian", { restricted: true }],
     [4, "Tom Nguyen", "concern.raised", "Raised an internal concern", "concern", "con-1", {}],
     [3, "System", "alert.raised", "Sanctions list update: possible match for Aurelian Shipping Pty Ltd", "client", "c-aurelian-shipping", {}],
-    [2, "Daniel Cho", "case.updated", "Updated the draft report for case SMR-2026-003", "case", "case-aurelian", { restricted: true }],
+    [2, "Daniel Cho", "case.updated", "Updated the draft report for case SMR-2025-003", "case", "case-aurelian", { restricted: true }],
     [1, "Aisha Karim", "document.requested", "Requested Cayman Crest's register of members from Ironbark Ventures", "client", "c-ironbark-ventures", {}],
     [0, "Daniel Cho", "resolution.kept_apart", "Kept Murray Chen and Murray Cheng apart", "party", "p-murray-chen", {}],
   ];
@@ -786,7 +786,7 @@ function buildHarbourline(): World {
         id: "case-aurelian",
         clientId: "c-aurelian-shipping",
         clientName: "Aurelian Shipping Pty Ltd",
-        title: "SMR-2026-003 · Aurelian Shipping Pty Ltd",
+        title: "SMR-2025-003 · Aurelian Shipping Pty Ltd",
         status: "open",
         grounds: "Funds for the property settlement were routed through Aurelian Maritime FZE, which closely matches a sanctioned entity. The client asked twice to bring settlement forward and to pay the deposit from a third-party account.",
         accessLevel: "full",
@@ -804,7 +804,7 @@ function buildHarbourline(): World {
         id: "case-older",
         clientId: "c-coastal-conveyancing",
         clientName: "Coastal Conveyancing Co",
-        title: "SMR-2026-001 · Coastal Conveyancing Co",
+        title: "SMR-2025-001 · Coastal Conveyancing Co",
         status: "reported",
         grounds: "Trust account receipts split into amounts just under the reporting threshold over nine days.",
         accessLevel: "full",

@@ -3,6 +3,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PauseCircle, PlayCircle } from "lucide-react";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { errorMessage } from "../../api/client";
 import { api } from "../../api/endpoints";
 import type { Client, RiskAssessment } from "../../api/types";
@@ -59,17 +61,17 @@ export function HoldBox({ client }: { client: Client }) {
       )}
       <label className="field" style={{ marginTop: 10 }}>
         <span>{active.length ? "Note for releasing" : "Note for pausing"} (kept in the activity log)</span>
-        <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder={active.length ? "Why the steps can go ahead" : "Why the steps should wait"} />
+        <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder={active.length ? "Why the steps can go ahead" : "Why the steps should wait"} />
       </label>
       <div className="row" style={{ display: "flex", gap: 8, marginTop: 10 }}>
         {active.length ? (
-          <button className="btn btn-line" disabled={!note.trim() || release.isPending} onClick={() => release.mutate()}>
+          <Button disabled={!note.trim() || release.isPending} onClick={() => release.mutate()}>
             <PlayCircle /> Let steps go ahead
-          </button>
+          </Button>
         ) : (
-          <button className="btn btn-line" disabled={!note.trim() || place.isPending} onClick={() => place.mutate()}>
+          <Button disabled={!note.trim() || place.isPending} onClick={() => place.mutate()}>
             <PauseCircle /> Pause client-facing steps
-          </button>
+          </Button>
         )}
       </div>
       {msg && (
@@ -118,13 +120,13 @@ export function SecondOpinionBox({ client, risk }: { client: Client; risk: RiskA
       </p>
       <label className="field">
         <span>Reason (at least 10 characters)</span>
-        <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="What you checked and why" />
+        <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="What you checked and why" />
       </label>
       <div className="row" style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
         {OUTCOMES.map((o) => (
-          <button key={o.id} className={`btn ${o.id === "keep_rules" ? "btn-ink" : "btn-line"}`} disabled={note.trim().length < 10 || resolve.isPending} onClick={() => resolve.mutate(o.id)}>
+          <Button key={o.id} variant={o.id === "keep_rules" ? "ink" : "line"} disabled={note.trim().length < 10 || resolve.isPending} onClick={() => resolve.mutate(o.id)}>
             {o.label}
-          </button>
+          </Button>
         ))}
       </div>
       {msg && (

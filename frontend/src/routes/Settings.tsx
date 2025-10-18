@@ -1,20 +1,27 @@
-// Settings: a paper sheet with folder tabs along its top. Firm · Members · Risk method · Screening lists ·
-// Retention · Notifications.
+// Settings: a full-width folio with folder tabs. Firm · Members · Risk method · Screening lists · Retention ·
+// Notifications.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, Lock, UserPlus, X } from "lucide-react";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
+import { toast } from "sonner";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableHead, TableHeader } from "@/components/ui/table";
 import { ApiError, errorMessage } from "../api/client";
 import { api } from "../api/endpoints";
 import type { Role } from "../api/types";
-import { fmtDate, relativeDays } from "../lib/dates";
+import { dueIn, fmtDate, relativeDays } from "../lib/dates";
 import { ROLE_LABELS } from "../lib/permissions";
 import { listSourceLabel, ratingLook } from "../lib/format";
 import { applyTheme, useTheme } from "../lib/theme";
 import { useAuth } from "../lib/auth";
 import { Status } from "../shell/chrome";
-import { Sheet } from "../shell/Drawer";
-import "./sheets.css";
+import { Caption, Folio, FolioTabs } from "../shell/Folio";
 
 const SECTIONS = [
   { id: "firm", label: "Firm" },
@@ -28,21 +35,15 @@ const SECTIONS = [
 export default function Settings() {
   const { section = "firm" } = useParams();
   const nav = useNavigate();
+  const { me } = useAuth();
   const members = useQuery({ queryKey: ["members"], queryFn: api.org.members });
   return (
-    <Sheet label="Settings" width={760}>
-      <div className="tabs settings-tabs" role="tablist" aria-label="Settings sections" style={{ padding: "0 0 0 2px", margin: "-8px -32px 0", paddingLeft: 30, borderBottom: "1px solid var(--paper-edge)" }}>
-        {SECTIONS.map((s) => (
-          <button key={s.id} role="tab" className="tab" aria-selected={s.id === section} onClick={() => nav(`/settings/${s.id}`)}>
-            {s.label}
-            {s.id === "members" && members.data && <span className="n">{members.data.length}</span>}
-          </button>
-        ))}
-      </div>
-      <div style={{ paddingTop: 24 }} role="tabpanel">
-        {section === "members" ? <Members /> : section === "risk-method" ? <RiskMethod /> : section === "screening-lists" ? <Lists /> : section === "retention" ? <Retention /> : section === "notifications" ? <Notifications /> : <Firm />}
-      </div>
-    </Sheet>
+    <Folio label="Settings" width="full">
+      <Caption refLine={<span>Settings · {me?.activeOrg?.name}</span>} title="The firm’s settings" />
+      <FolioTabs label="Settings" tabs={SECTIONS.map((x) => ({ ...x, count: x.id === "members" ? members.data?.length : undefined }))} active={section} onTab={(id) => nav(`/settings/${id}`)}>
+        <div className="settings-body">{section === "members" ? <Members /> : section === "risk-method" ? <RiskMethod /> : section === "screening-lists" ? <Lists /> : section === "retention" ? <Retention /> : section === "notifications" ? <Notifications /> : <Firm />}</div>
+      </FolioTabs>
+    </Folio>
   );
 }
 
@@ -53,18 +54,18 @@ function Firm() {
   const members = useQuery({ queryKey: ["members"], queryFn: api.org.members });
   const [name, setName] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
-  const save = useMutation({ mutationFn: () => api.org.patch({ name: name! }), onSuccess: () => { setMsg("Saved."); void qc.invalidateQueries({ queryKey: ["org"] }); void qc.invalidateQueries({ queryKey: ["me"] }); }, onError: (e) => setMsg(errorMessage(e)) });
+  const save = useMutation({ mutationFn: () => api.org.patch({ name: name! }), onSuccess: () => { toast("Saved."); void qc.invalidateQueries({ queryKey: ["org"] }); void qc.invalidateQueries({ queryKey: ["me"] }); }, onError: (e) => setMsg(errorMessage(e)) });
   const o = org.data;
   if (!o) return null;
   const co = members.data?.find((m) => m.role === "compliance_officer");
   return (
     <>
-      <h1 className="title">The firm</h1>
-      <table className="ledger" style={{ marginTop: 14 }}>
-        <tbody>
+      <h2 className="title">The firm</h2>
+      <Table style={{ marginTop: 14 }}>
+        <TableBody>
           <tr>
             <th scope="row" style={{ width: 200, paddingTop: 12 }}>Name</th>
-            <td>{can("org:admin") ? <input className="input" value={name ?? o.name} onChange={(e) => setName(e.target.value)} aria-label="Firm name" /> : o.name}</td>
+            <td>{can("org:admin") ? <Input value={name ?? o.name} onChange={(e) => setName(e.target.value)} aria-label="Firm name" /> : o.name}</td>
           </tr>
           <tr><th scope="row">Regulated under</th><td>{o.regime.name}</td></tr>
           <tr><th scope="row">Jurisdiction</th><td>{o.country === "AU" ? "Australia" : "United Kingdom"}</td></tr>
@@ -78,12 +79,12 @@ function Firm() {
               <span className="stamp-preview">{o.name.replace(/\(.*\)/, "").trim().split(" ").map((w) => w[0]).slice(0, 2).join("")}</span>
             </td>
           </tr>
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
       {can("org:admin") && name !== null && (
-        <button className="btn btn-string" style={{ marginTop: 16 }} onClick={() => save.mutate()}>
+        <Button variant="string" style={{ marginTop: 16 }} onClick={() => save.mutate()}>
           Save the firm’s details
-        </button>
+        </Button>
       )}
       {msg && <p role="status">{msg}</p>}
       <p className="note" style={{ marginTop: 18 }}>Signed in as {me?.user.email}.</p>
@@ -120,61 +121,80 @@ function Members() {
   return (
     <>
       <div className="sheet-head">
-        <h1 className="title">Members</h1>
+        <h2 className="title">Members</h2>
         {can("members:manage") && (
-          <button className="btn btn-string" onClick={() => setInviting(!inviting)}>
-            <UserPlus /> Invite someone
-          </button>
+          <Dialog
+            open={inviting}
+            onOpenChange={(o) => {
+              setInviting(o);
+              if (!o) setLink(null);
+            }}
+          >
+            <DialogTrigger asChild>
+              <Button variant="string">
+                <UserPlus /> Invite someone
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[520px]">
+              <DialogHeader>
+                <DialogTitle>Invite someone to the firm</DialogTitle>
+                <DialogDescription>They join with the role you choose. Access to restricted reports is never part of a role.</DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-3 sm:grid-cols-[1fr_200px]">
+                <label className="field">
+                  <span>Email</span>
+                  <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} aria-invalid={!!err} />
+                </label>
+                <label className="field">
+                  <span>Role</span>
+                  <Select value={role} onValueChange={(v) => setRole(v as Role)}>
+                    <SelectTrigger aria-label="Role" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(ROLE_LABELS) as Role[]).map((r) => (
+                        <SelectItem key={r} value={r}>
+                          {ROLE_LABELS[r]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </label>
+              </div>
+              {err && <p className="note-error">{err}</p>}
+              {link && (
+                <div>
+                  <p style={{ margin: "0 0 6px" }}>Send this link to them. It is shown once and works for 7 days.</p>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <Input className="mono text-[12.5px]" readOnly value={link} aria-label="Invitation link" />
+                    <Button onClick={() => void navigator.clipboard?.writeText(link)}>
+                      <Copy /> Copy
+                    </Button>
+                  </div>
+                </div>
+              )}
+              <DialogFooter>
+                <Button variant="quiet" onClick={() => setInviting(false)}>
+                  Close
+                </Button>
+                <Button variant="ink" onClick={() => invite.mutate()} disabled={invite.isPending}>
+                  Create the invitation
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         )}
       </div>
-      {inviting && (
-        <div className="signoff" style={{ marginTop: 16 }}>
-          <h3>Invite someone to the firm</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 220px", gap: 10 }}>
-            <label className="field">
-              <span>Email</span>
-              <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} aria-invalid={!!err} />
-            </label>
-            <label className="field">
-              <span>Role</span>
-              <select className="select" value={role} onChange={(e) => setRole(e.target.value as Role)}>
-                {(Object.keys(ROLE_LABELS) as Role[]).map((r) => (
-                  <option key={r} value={r}>
-                    {ROLE_LABELS[r]}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          {err && <p className="note-error" style={{ marginTop: 10 }}>{err}</p>}
-          <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
-            <button className="btn btn-ink" onClick={() => invite.mutate()} disabled={invite.isPending}>
-              Create the invitation
-            </button>
-          </div>
-          {link && (
-            <div style={{ marginTop: 14 }}>
-              <p style={{ margin: "0 0 6px" }}>Send this link to them. It is shown once and works for 7 days.</p>
-              <div style={{ display: "flex", gap: 8 }}>
-                <input className="input mono" readOnly value={link} aria-label="Invitation link" style={{ fontSize: 12 }} />
-                <button className="btn btn-line" onClick={() => void navigator.clipboard?.writeText(link)}>
-                  <Copy /> Copy
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-      <table className="ledger" style={{ marginTop: 18 }}>
-        <thead>
+      <Table style={{ marginTop: 18 }}>
+        <TableHeader>
           <tr>
-            <th scope="col">Name</th>
-            <th scope="col">Role</th>
-            <th scope="col">Can see reports</th>
-            <th scope="col">Training due</th>
+            <TableHead scope="col">Name</TableHead>
+            <TableHead scope="col">Role</TableHead>
+            <TableHead scope="col">Can see reports</TableHead>
+            <TableHead scope="col">Training due</TableHead>
           </tr>
-        </thead>
-        <tbody>
+        </TableHeader>
+        <TableBody>
           {(members.data ?? []).map((m) => (
             <tr key={m.id}>
               <td className="who">
@@ -183,28 +203,35 @@ function Members() {
               </td>
               <td>
                 {can("members:manage") && m.userId !== me?.user.id ? (
-                  <select className="select" style={{ height: 32 }} value={m.role} aria-label={`Role for ${m.fullName}`} onChange={(e) => changeRole.mutate({ id: m.id, role: e.target.value as Role })}>
-                    {(Object.keys(ROLE_LABELS) as Role[]).map((r) => (
-                      <option key={r} value={r}>
-                        {ROLE_LABELS[r]}
-                      </option>
-                    ))}
-                  </select>
+                  <Select value={m.role} onValueChange={(v) => changeRole.mutate({ id: m.id, role: v as Role })}>
+                    <SelectTrigger size="sm" aria-label={`Role for ${m.fullName}`} className="w-[210px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(ROLE_LABELS) as Role[]).map((r) => (
+                        <SelectItem key={r} value={r}>
+                          {ROLE_LABELS[r]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 ) : (
                   m.roleLabel
                 )}
               </td>
               <td>{m.role === "compliance_officer" ? <Status tone="restricted">Yes</Status> : <span className="muted">—</span>}</td>
-              <td className="mono" style={{ fontSize: 12.5 }}>{m.trainingDueOn ? fmtDate(m.trainingDueOn) : "—"}</td>
+              <td className="mono" style={{ fontSize: 13 }} title={m.trainingDueOn ? fmtDate(m.trainingDueOn) : undefined}>
+                {m.trainingDueOn ? dueIn(m.trainingDueOn) : "—"}
+              </td>
             </tr>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
       {can("members:manage") && !!invites.data?.length && (
         <section className="section">
           <h2>Pending invitations ({invites.data.length})</h2>
-          <table className="ledger">
-            <tbody>
+          <Table>
+            <TableBody>
               {invites.data.map((i) => (
                 <tr key={i.id}>
                   <td className="who">
@@ -212,14 +239,14 @@ function Members() {
                     <small>{ROLE_LABELS[i.role]} · expires {relativeDays(i.expiresAt.slice(0, 10))}</small>
                   </td>
                   <td style={{ textAlign: "right" }}>
-                    <button className="btn btn-quiet btn-sm" onClick={() => revoke.mutate(i.id)}>
+                    <Button variant="quiet" size="sm" onClick={() => revoke.mutate(i.id)}>
                       <X /> Revoke
-                    </button>
+                    </Button>
                   </td>
                 </tr>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </section>
       )}
       <p className="note" style={{ marginTop: 16, display: "flex", gap: 6, alignItems: "center" }}>
@@ -237,12 +264,12 @@ function RiskMethod() {
   const current = m.data?.find((x) => x.status === "published");
   return (
     <>
-      <h1 className="title">Risk method</h1>
+      <h2 className="title">Risk method</h2>
       <p className="lede" style={{ fontSize: 15.5 }}>
         The firm’s rules decide every rating. A second opinion checks each one; when they disagree, the client goes to the compliance officer and the rules stay the decision of record.
       </p>
-      <table className="ledger" style={{ marginTop: 16 }}>
-        <tbody>
+      <Table style={{ marginTop: 16 }}>
+        <TableBody>
           {(m.data ?? []).map((x) => (
             <tr key={x.id}>
               <td className="who">
@@ -254,15 +281,27 @@ function RiskMethod() {
               </td>
               <td style={{ textAlign: "right" }}>
                 {x.status === "draft" && can("methodology:manage") && (
-                  <button className="btn btn-line btn-sm" onClick={() => window.confirm(`Publish ${x.version}? Every client will be re-rated with it.`) && publish.mutate(x.id)}>
-                    Publish
-                  </button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button size="sm">Publish</Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Publish {x.version}?</AlertDialogTitle>
+                        <AlertDialogDescription>Every client will be re-rated with it. The current version is retired and kept on record.</AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Not yet</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => publish.mutate(x.id)}>Publish</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 )}
               </td>
             </tr>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
       {current && (
         <section className="section">
           <h2>
@@ -296,8 +335,8 @@ function Differences() {
         Where the second opinion differs <span className="aside">{items.length ? `${items.length} open` : "None open"}</span>
       </h2>
       {items.length ? (
-        <table className="ledger">
-          <tbody>
+        <Table>
+          <TableBody>
             {items.map((d) => (
               <tr key={d.id}>
                 <td className="who">
@@ -307,14 +346,14 @@ function Differences() {
                   </small>
                 </td>
                 <td style={{ textAlign: "right" }}>
-                  <button className="link" onClick={() => nav(`/clients/${d.clientId}/risk`)}>
+                  <Button variant="link" onClick={() => nav(`/clients/${d.clientId}/risk`)}>
                     {can("risk:override") ? "Settle it →" : "Open →"}
-                  </button>
+                  </Button>
                 </td>
               </tr>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       ) : (
         <p className="muted" style={{ fontSize: 13.5 }}>
           The rules and the second-opinion check agree on every client.
@@ -364,8 +403,8 @@ function Registry() {
           <p className="muted" style={{ margin: "0 0 8px", fontSize: 13 }}>
             {CHECK_NAME[m.name]?.lede}
           </p>
-          <table className="ledger">
-            <tbody>
+          <Table>
+            <TableBody>
               {m.versions.map((v) => (
                 <tr key={v.version}>
                   <td className="who">
@@ -382,30 +421,30 @@ function Registry() {
                     {v.stage === "champion" ? (
                       <Status tone="clear">In use</Status>
                     ) : can("models:promote") ? (
-                      <button className="btn btn-line btn-sm" onClick={() => setPicking({ name: m.name, version: v.version })}>
+                      <Button size="sm" onClick={() => setPicking({ name: m.name, version: v.version })}>
                         Use this version
-                      </button>
+                      </Button>
                     ) : (
                       <Status tone="neutral">{v.stage === "retired" ? "Retired" : "Standby"}</Status>
                     )}
                   </td>
                 </tr>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
           {picking?.name === m.name && (
             <div style={{ marginTop: 10 }}>
               <label className="field">
                 <span>Why switch? (at least 10 characters, kept in the activity log)</span>
-                <input className="input" value={note} onChange={(e) => setNote(e.target.value)} />
+                <Input value={note} onChange={(e) => setNote(e.target.value)} />
               </label>
               <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                <button className="btn btn-ink btn-sm" disabled={note.trim().length < 10 || promote.isPending} onClick={() => promote.mutate()}>
+                <Button variant="ink" size="sm" disabled={note.trim().length < 10 || promote.isPending} onClick={() => promote.mutate()}>
                   Switch for this firm
-                </button>
-                <button className="btn btn-quiet btn-sm" onClick={() => setPicking(null)}>
+                </Button>
+                <Button variant="quiet" size="sm" onClick={() => setPicking(null)}>
                   Cancel
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -428,16 +467,16 @@ function Lists() {
   const rescreen = useMutation({ mutationFn: api.screening.rescreen, onSuccess: () => setMsg("Every client is being screened again. Alerts appear for anything new."), onError: (e) => setMsg(errorMessage(e)) });
   return (
     <>
-      <h1 className="title">Screening lists</h1>
-      <table className="ledger" style={{ marginTop: 14 }}>
-        <thead>
+      <h2 className="title">Screening lists</h2>
+      <Table style={{ marginTop: 14 }}>
+        <TableHeader>
           <tr>
-            <th scope="col">List</th>
-            <th scope="col">Version</th>
-            <th scope="col" className="num">Entries</th>
+            <TableHead scope="col">List</TableHead>
+            <TableHead scope="col">Version</TableHead>
+            <TableHead scope="col" className="num">Entries</TableHead>
           </tr>
-        </thead>
-        <tbody>
+        </TableHeader>
+        <TableBody>
           {(lists.data ?? []).map((l) => (
             <tr key={l.list}>
               <td className="who">
@@ -458,8 +497,8 @@ function Lists() {
             <td className="muted">—</td>
             <td className="num">—</td>
           </tr>
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
       <section className="section" style={{ marginTop: 22 }}>
         <h2>Sources</h2>
         <ul className="sources">
@@ -476,9 +515,7 @@ function Lists() {
         {settings.data?.screening.autoRescreenOnListUpdate ? "Every client is screened again automatically when a list changes." : "Clients are screened when they are onboarded and at each review."} Names count as a possible match from {Math.round((settings.data?.screening.fuzzyThreshold ?? 0.82) * 100)} in 100.
       </p>
       {can("monitoring:manage") && (
-        <button className="btn btn-line" onClick={() => rescreen.mutate()}>
-          Screen every client now
-        </button>
+        <Button onClick={() => rescreen.mutate()}>Screen every client now</Button>
       )}
       {msg && <p role="status">{msg}</p>}
     </>
@@ -495,7 +532,7 @@ function Retention() {
   const uk = me?.activeOrg?.country === "GB";
   return (
     <>
-      <h1 className="title">Retention</h1>
+      <h2 className="title">Retention</h2>
       <p className="lede" style={{ fontSize: 15.5 }}>
         Records are kept for {years} years after the client relationship ends ({uk ? "UK MLR 2017, regulation 40" : "AML/CTF Act record keeping"}). Nothing is deleted automatically: a person reviews the disposal list and approves it.
       </p>
@@ -504,8 +541,8 @@ function Retention() {
           <h2>
             Due for disposal <span className="aside">dry run</span>
           </h2>
-          <table className="ledger">
-            <tbody>
+          <Table>
+            <TableBody>
               {(preview.data?.items ?? []).map((i) => (
                 <tr key={i.id}>
                   <td className="who">
@@ -520,11 +557,11 @@ function Retention() {
                   <td className="muted">Nothing is due.</td>
                 </tr>
               )}
-            </tbody>
-          </table>
-          <button className="btn btn-line" style={{ marginTop: 14 }} onClick={() => run.mutate()}>
+            </TableBody>
+          </Table>
+          <Button style={{ marginTop: 14 }} onClick={() => run.mutate()}>
             Run a dry run
-          </button>
+          </Button>
           {msg && <p role="status">{msg}</p>}
         </section>
       )}
@@ -544,41 +581,51 @@ function Notifications() {
     mutationFn: (patch: Partial<typeof n>) => api.settings.patch({ notifications: { ...n, ...patch } }),
     onSuccess: (s) => {
       qc.setQueryData(["settings"], s);
-      setMsg("Saved.");
+      toast("Saved.");
     },
     onError: (e) => setMsg(errorMessage(e)),
   });
   return (
     <>
-      <h1 className="title">Notifications</h1>
+      <h2 className="title">Notifications</h2>
       <p className="lede" style={{ fontSize: 15.5 }}>What Kinroot tells the firm about by email, and when.</p>
       <div style={{ display: "grid", gap: 14, marginTop: 16, maxWidth: 520 }}>
         <label className="field">
           <span>Urgent alerts (a possible sanctions match, a confirmed match)</span>
-          <select className="select" value={n.criticalAlerts} disabled={!canEdit} onChange={(e) => save.mutate({ criticalAlerts: e.target.value as typeof n.criticalAlerts })}>
-            <option value="immediate">Straight away</option>
-            <option value="daily">In a daily summary</option>
-            <option value="off">Don’t email</option>
-          </select>
+          <Select value={n.criticalAlerts} disabled={!canEdit} onValueChange={(v) => save.mutate({ criticalAlerts: v as typeof n.criticalAlerts })}>
+            <SelectTrigger aria-label="Urgent alerts" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="immediate">Straight away</SelectItem>
+              <SelectItem value="daily">In a daily summary</SelectItem>
+              <SelectItem value="off">Don’t email</SelectItem>
+            </SelectContent>
+          </Select>
         </label>
         <label className="field">
           <span>Remind fee earners before a periodic review is due (days)</span>
-          <input className="input mono" type="number" min={1} max={120} value={n.reviewReminderDays} disabled={!canEdit} onChange={(e) => save.mutate({ reviewReminderDays: Number(e.target.value) })} />
+          <Input className="mono" type="number" min={1} max={120} value={n.reviewReminderDays} disabled={!canEdit} onChange={(e) => save.mutate({ reviewReminderDays: Number(e.target.value) })} />
         </label>
         <label className="check">
-          <input type="checkbox" checked={n.signoffRequests} disabled={!canEdit} onChange={(e) => save.mutate({ signoffRequests: e.target.checked })} />
+          <Checkbox checked={n.signoffRequests} disabled={!canEdit} onCheckedChange={(v) => save.mutate({ signoffRequests: v === true })} />
           Email the compliance officer and partners when a file waits for their sign-off
         </label>
         <label className="check">
-          <input type="checkbox" checked={n.weeklyDigest} disabled={!canEdit} onChange={(e) => save.mutate({ weeklyDigest: e.target.checked })} />
+          <Checkbox checked={n.weeklyDigest} disabled={!canEdit} onCheckedChange={(v) => save.mutate({ weeklyDigest: v === true })} />
           Send the partners’ brief every week on
-          <select className="select" style={{ width: 140, height: 30, marginLeft: 6 }} value={n.digestDay} disabled={!canEdit || !n.weeklyDigest} onChange={(e) => save.mutate({ digestDay: e.target.value as typeof n.digestDay })} aria-label="Digest day">
-            {["monday", "tuesday", "wednesday", "thursday", "friday"].map((d) => (
-              <option key={d} value={d}>
-                {d[0]!.toUpperCase() + d.slice(1)}
-              </option>
-            ))}
-          </select>
+          <Select value={n.digestDay} disabled={!canEdit || !n.weeklyDigest} onValueChange={(v) => save.mutate({ digestDay: v as typeof n.digestDay })}>
+            <SelectTrigger size="sm" aria-label="Digest day" className="ml-1.5 w-[140px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {["monday", "tuesday", "wednesday", "thursday", "friday"].map((d) => (
+                <SelectItem key={d} value={d}>
+                  {d[0]!.toUpperCase() + d.slice(1)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </label>
       </div>
       {!canEdit && <p className="note" style={{ marginTop: 12 }}>The firm administrator or compliance officer changes these.</p>}
@@ -586,7 +633,7 @@ function Notifications() {
       <section className="section">
         <h2>The board</h2>
         <label className="check">
-          <input type="checkbox" checked={theme === "dark"} onChange={() => applyTheme(theme === "dark" ? "light" : "dark", true)} />
+          <Checkbox checked={theme === "dark"} onCheckedChange={() => applyTheme(theme === "dark" ? "light" : "dark", true)} />
           Use the dark board on this device
         </label>
       </section>
