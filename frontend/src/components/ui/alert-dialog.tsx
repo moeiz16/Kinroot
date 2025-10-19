@@ -144,7 +144,7 @@ function AlertDialogMedia({
 
 function AlertDialogAction({
   className,
-  variant = "string",
+  variant = "primary",
   size = "default",
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Action> &

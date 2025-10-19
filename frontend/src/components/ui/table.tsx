@@ -23,7 +23,7 @@ function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
 }
 
 function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
-  return <tr data-slot="table-row" className={cn("data-[state=selected]:bg-paper-2", className)} {...props} />
+  return <tr data-slot="table-row" className={cn("data-[state=selected]:bg-moss-tint", className)} {...props} />
 }
 
 function TableHead({ className, ...props }: React.ComponentProps<"th">) {

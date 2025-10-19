@@ -2,7 +2,7 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { Tabs as TabsPrimitive } from "radix-ui"
 
-// Folder tabs: notched paper tabs that sit above the folio. The active tab is paper-white and 4 px taller.
+// Section words: Syne capitals over the record, a moss bar under the active one (styles in index.css).
 function Tabs({ className, ...props }: React.ComponentProps<typeof TabsPrimitive.Root>) {
   return <TabsPrimitive.Root data-slot="tabs" className={cn("flex flex-col", className)} {...props} />
 }
@@ -11,7 +11,7 @@ function TabsList({ className, ...props }: React.ComponentProps<typeof TabsPrimi
   return (
     <TabsPrimitive.List
       data-slot="tabs-list"
-      className={cn("folder-tabs", className)}
+      className={cn("section-words", className)}
       {...props}
     />
   )
@@ -21,7 +21,7 @@ function TabsTrigger({ className, ...props }: React.ComponentProps<typeof TabsPr
   return (
     <TabsPrimitive.Trigger
       data-slot="tabs-trigger"
-      className={cn("folder-tab", className)}
+      className={cn("section-word", className)}
       {...props}
     />
   )

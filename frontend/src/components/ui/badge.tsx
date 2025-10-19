@@ -5,17 +5,17 @@ import { Slot } from "radix-ui"
 
 // Status language: a glyph, a word and a tint. Never colour alone.
 const badgeVariants = cva(
-  "inline-flex w-fit shrink-0 items-center gap-1.5 rounded-[2px] px-2 py-[5px] font-sans text-[12.5px] leading-none font-semibold whitespace-nowrap no-underline [&>svg]:pointer-events-none [&>svg]:size-3",
+  "inline-flex w-fit shrink-0 items-center gap-1.5 rounded-sm px-2 py-[5px] font-sans text-[12.5px] leading-none font-semibold whitespace-nowrap no-underline [&>svg]:pointer-events-none [&>svg]:size-3",
   {
     variants: {
       tone: {
-        clear: "bg-clear-tint text-clear",
+        clear: "bg-moss-tint text-moss-ink",
         review: "bg-review-tint text-review",
         high: "bg-high-tint text-high",
-        neutral: "bg-paper-2 text-ink-2",
-        restricted: "hatch text-restricted",
-        unknown: "border border-dashed border-rule-strong text-muted",
-        ink: "bg-ink text-canvas",
+        neutral: "bg-sunk text-ink-2",
+        restricted: "hatch text-ink",
+        unknown: "border-dashed! text-muted",
+        ink: "bg-ink text-paper",
       },
     },
     defaultVariants: { tone: "neutral" },
