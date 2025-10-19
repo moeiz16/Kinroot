@@ -1,20 +1,23 @@
-// The board engine. Sigma 3 owns the camera, the coordinate space (custom bbox, so unfolding never rescales the
-// view), hit-testing and the WebGL ownership arrows; nodes are transparent in WebGL at their real radius so
-// arrowheads stop at the shape. An evidence layer (absolutely positioned HTML + one SVG, synced on afterRender)
-// draws node shapes and labels (focusable buttons), dashed control edges, labels, tags and the red string.
+// The chart engine. Sigma 3 is kept as the camera only (pan, pinch, zoom, custom bbox so rising plates never
+// rescale the view). Everything you see is Kinroot's own drawing, synced to the camera after every render:
+//  - plates: focusable HTML buttons shaped by kind (company box, trust oval, person circle, partnership box with a
+//    flow-through triangle, dashed unknown, stacked companies, list entry), labels inside, after structure-chart use;
+//  - lines: one SVG, elbowed with rounded corners and a small head into the subject (owns solid, controls dashed,
+//    unknown dotted), % tags on the owner's drop, layer rules with mono labels behind;
+//  - the trace: a thick moss line that climbs from the client to the owner, elbow by elbow, with a counter;
+//  - the zip seam between two candidate records (graft to fuse, cleave to split).
 import Graph from "graphology";
 import Sigma from "sigma";
-import { createEdgeArrowProgram } from "sigma/rendering";
 import { extents } from "./layout";
 import type { BEdge, BNode, Scene, StringSpec } from "./model";
 
 const SVGNS = "http://www.w3.org/2000/svg";
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
-/** Unfold spring as an easing curve (≈ stiffness 220, damping 22, 6% overshoot). */
-export const easeUnfold = (t: number) => 1 + 2.2 * Math.pow(t - 1, 3) + 1.2 * Math.pow(t - 1, 2);
-/** String snapping taut: damped oscillation 1 − e^(−6t)·cos 9t. */
-export const easeTaut = (t: number) => 1 - Math.exp(-6 * t) * Math.cos(9 * t);
+/** Rise spring as an easing curve (≈ stiffness 240, damping 24, 5% overshoot). */
+export const easeRise = (t: number) => 1 + 2.2 * Math.pow(t - 1, 3) + 1.2 * Math.pow(t - 1, 2);
+/** The climb: quick out of the client, settling into the owner. */
+export const easeClimb = (t: number) => 1 - Math.pow(1 - t, 2.4);
 const easeQuadInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 
 export interface Insets {
@@ -29,11 +32,13 @@ export interface EngineOptions {
   onThread?: (id: string) => void;
   onFocusNode?: (id: string | null) => void;
   onChange?: () => void;
-  /** called after every evidence-layer sync (camera move, animation frame) */
+  /** called after every sync (camera move, animation frame) */
   onSync?: () => void;
   ariaLabel?: string;
   /** extra space reserved around the content when fitting it (px, layout units) */
   pad?: { x: number; y: number };
+  /** draw layer rules with labels behind a structure (default true) */
+  layers?: boolean;
 }
 
 interface RNode extends BNode {
@@ -42,30 +47,85 @@ interface RNode extends BNode {
   vy: number;
   scale: number;
   shown: boolean;
+  /** element box (unscaled) */
+  w: number;
+  h: number;
+  /** pins: the shape's half size, the anchor */
+  r: number;
 }
+type Pt = { x: number; y: number };
 interface REdge extends BEdge {
-  bow?: number;
   path?: SVGPathElement;
   lbl?: HTMLElement;
   tagEl?: HTMLElement;
   citeEl?: HTMLElement;
   onString?: boolean;
+  exitOff: number;
+  entryOff: number;
+  labelRow: number;
+  pts: Pt[];
 }
-interface RString {
+interface RTrace {
   spec: StringSpec;
   under: SVGPathElement;
   line: SVGPathElement;
-  knot?: SVGCircleElement;
+  head?: SVGCircleElement;
+  counter?: HTMLElement;
   tag?: HTMLElement;
-  slack: number;
   progress: number;
 }
 
 function css(name: string): string {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || "#3A4146";
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || "#1B1D13";
 }
-function radius(n: BNode): number {
-  return n.pin ? 14 : n.client ? 23 : n.kind === "list" ? 22 : 19;
+const PLATE_W = 176;
+function pinRadius(n: BNode): number {
+  return n.client ? 10 : n.kind === "address" ? 5 : 6;
+}
+function esc(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+}
+function wait(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+function pctOf(e: BEdge | undefined): number | null {
+  if (!e) return null;
+  if (e.pct != null) return e.pct;
+  const m = e.label?.match(/^(\d+(?:\.\d+)?)%$/);
+  return m ? Number(m[1]) : null;
+}
+function fmtPct(n: number): string {
+  const r = Math.round(n * 100) / 100;
+  return `${Number.isInteger(r) ? r : Number(r.toFixed(1))}%`;
+}
+/** A polyline with rounded corners. */
+export function rounded(pts: Pt[], r: number): string {
+  if (!pts.length) return "";
+  let d = `M${pts[0]!.x},${pts[0]!.y}`;
+  for (let i = 1; i < pts.length; i++) {
+    const p = pts[i]!;
+    const prev = pts[i - 1]!;
+    const next = pts[i + 1];
+    if (!next) {
+      d += ` L${p.x},${p.y}`;
+      break;
+    }
+    const l1 = Math.hypot(p.x - prev.x, p.y - prev.y) || 1;
+    const l2 = Math.hypot(next.x - p.x, next.y - p.y) || 1;
+    const rr = Math.min(r, l1 / 2, l2 / 2);
+    const a = { x: p.x - ((p.x - prev.x) / l1) * rr, y: p.y - ((p.y - prev.y) / l1) * rr };
+    const b = { x: p.x + ((next.x - p.x) / l2) * rr, y: p.y + ((next.y - p.y) / l2) * rr };
+    d += ` L${a.x},${a.y} Q${p.x},${p.y} ${b.x},${b.y}`;
+  }
+  return d;
+}
+function polyLength(pts: Pt[]): number {
+  let s = 0;
+  for (let i = 1; i < pts.length; i++) s += Math.hypot(pts[i]!.x - pts[i - 1]!.x, pts[i]!.y - pts[i - 1]!.y);
+  return s;
+}
+function dedupe(pts: Pt[]): Pt[] {
+  return pts.filter((p, i) => i === 0 || Math.hypot(p.x - pts[i - 1]!.x, p.y - pts[i - 1]!.y) > 0.5);
 }
 
 export class BoardEngine {
@@ -74,33 +134,35 @@ export class BoardEngine {
   private graph = new Graph({ type: "directed", multi: true });
   private sigma: Sigma;
   private svg: SVGSVGElement;
+  private gRules: SVGGElement;
   private gEdges: SVGGElement;
   private gSeam: SVGGElement;
-  private gString: SVGGElement;
+  private gTrace: SVGGElement;
   private hLabels: HTMLElement;
   private hNodes: HTMLElement;
   private overlay: HTMLElement;
   private nodes = new Map<string, RNode>();
   private edges = new Map<string, REdge>();
-  private strings: RString[] = [];
+  private traces: RTrace[] = [];
   private insets: Insets = { top: 0, right: 0, bottom: 0, left: 0 };
-  private center = { x: 0, y: 0 }; // content centre in layout px
-  private base = 1; // layout px → viewport px at camera ratio 1
+  private center = { x: 0, y: 0 };
+  private base = 1;
   private selected: string | null = null;
   private dimSet: Set<string> | null = null;
   private hoverId: string | null = null;
   private focusMode = false;
-  private seam: { a: string; b: string; chip: HTMLElement; ghost: HTMLElement; stitches: number; onFuse?: () => void } | null = null;
-  private colors = { own: "#3A4146", faint: "#B9C0BE" };
+  private seam: { a: string; b: string; chip: HTMLElement; ghost: HTMLElement; zip: number; onFuse?: () => void } | null = null;
   private destroyed = false;
   private raf = 0;
   private sceneKey = "";
   private content = { w: 0, h: 0 };
+  private pins = false;
+  private rows: { y: number; label: string }[] = [];
 
   constructor(host: HTMLElement, opts: EngineOptions = {}) {
     this.host = host;
     this.opts = opts;
-    host.classList.add("board");
+    host.classList.add("chart");
     host.innerHTML = "";
     const sHost = document.createElement("div");
     sHost.className = "sigma-host";
@@ -109,49 +171,55 @@ export class BoardEngine {
     this.svg = document.createElementNS(SVGNS, "svg");
     this.svg.setAttribute("aria-hidden", "true");
     this.svg.innerHTML =
-      '<defs><marker id="kr-ah-ctrl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--edge-ctrl)"/></marker>' +
-      '<marker id="kr-ah-unk" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--faint)"/></marker>' +
-      '<marker id="kr-ah-own" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--edge-own)"/></marker></defs>';
+      '<defs><marker id="kr-head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 1 L10 5 L0 9 z" fill="context-stroke"/></marker>' +
+      '<marker id="kr-head-own" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 1 L10 5 L0 9 z" fill="var(--line-own)"/></marker>' +
+      '<marker id="kr-head-ctrl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 1 L10 5 L0 9 z" fill="var(--line-ctrl)"/></marker>' +
+      '<marker id="kr-head-unk" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 1 L10 5 L0 9 z" fill="var(--muted)"/></marker></defs>';
+    this.gRules = document.createElementNS(SVGNS, "g");
+    this.gRules.setAttribute("class", "rules");
     this.gEdges = document.createElementNS(SVGNS, "g");
     this.gSeam = document.createElementNS(SVGNS, "g");
-    this.gString = document.createElementNS(SVGNS, "g");
-    this.svg.append(this.gEdges, this.gSeam, this.gString);
+    this.gTrace = document.createElementNS(SVGNS, "g");
+    this.svg.append(this.gRules, this.gEdges, this.gSeam, this.gTrace);
     this.hLabels = document.createElement("div");
     this.hLabels.className = "h-labels";
     this.hNodes = document.createElement("div");
     this.hNodes.className = "h-nodes";
     this.hNodes.setAttribute("role", "group");
-    this.hNodes.setAttribute("aria-label", opts.ariaLabel ?? "Ownership board. Use the arrow keys to move between connected parties.");
+    this.hNodes.setAttribute("aria-label", opts.ariaLabel ?? "Structure chart. Use the arrow keys to move between linked parties.");
     this.overlay.append(this.svg, this.hLabels, this.hNodes);
     host.append(sHost, this.overlay);
-    this.readColors();
 
     this.sigma = new Sigma(this.graph, sHost, {
       renderLabels: false,
       renderEdgeLabels: false,
       enableEdgeEvents: false,
-      defaultEdgeType: "arrow",
       stagePadding: 0,
-      zIndex: true,
       minCameraRatio: 0.35,
       maxCameraRatio: 3,
       zoomToSizeRatioFunction: () => 1,
-      edgeProgramClasses: { arrow: createEdgeArrowProgram({ lengthToThicknessRatio: 4.2, widenessToThicknessRatio: 3.4 }) },
-      nodeReducer: (key, attr) => {
-        const n = this.nodes.get(key);
-        return { ...attr, hidden: !n?.shown, size: n ? radius(n) * this.nodeScale() + 1 : 1, color: "rgba(0,0,0,0)" };
-      },
-      edgeReducer: (key, attr) => {
-        const e = this.edges.get(key);
-        const a = e && this.nodes.get(e.s);
-        const b = e && this.nodes.get(e.t);
-        const hidden = !e || e.kind !== "own" || !!e.removed || !!e.curve || !!e.onString || !a?.shown || !b?.shown;
-        const dimmed = e && this.isDimmed(e.s) && this.isDimmed(e.t);
-        return { ...attr, hidden, size: 1.6, color: dimmed ? this.colors.faint : this.colors.own };
-      },
+      nodeReducer: (_key, attr) => ({ ...attr, hidden: true }),
     });
     this.sigma.on("afterRender", () => this.sync());
     this.sigma.getCamera().on("updated", () => this.scheduleChange());
+    // The chart lives in a scrolling page: a plain wheel scrolls the page, ⌘/Ctrl + wheel (and trackpad pinch) zooms;
+    // one finger scrolls the page on touch screens, two fingers pan and pinch.
+    const sigmaLayer = sHost;
+    host.addEventListener(
+      "wheel",
+      (e) => {
+        if (!e.ctrlKey && !e.metaKey && sigmaLayer.contains(e.target as Node)) e.stopPropagation();
+      },
+      { capture: true },
+    );
+    for (const type of ["touchstart", "touchmove", "touchend"] as const)
+      host.addEventListener(
+        type,
+        (e) => {
+          if ((e as TouchEvent).touches.length < 2 && type !== "touchend" && sigmaLayer.contains(e.target as Node)) e.stopPropagation();
+        },
+        { capture: true, passive: true },
+      );
   }
 
   // ------------------------------------------------------------ scene
@@ -165,16 +233,21 @@ export class BoardEngine {
     this.nodes.clear();
     this.edges.clear();
     this.gEdges.innerHTML = "";
+    this.gRules.innerHTML = "";
     this.hLabels.innerHTML = "";
     this.hNodes.innerHTML = "";
+    this.pins = scene.nodes.length > 0 && scene.nodes.every((n) => n.pin);
+    this.host.classList.toggle("is-book", this.pins);
     const animate = (unfold && !this.opts.reduced && !same) || hold;
-    // Same scene, new parties (e.g. an owner added while onboarding): only the newcomers unfold.
     const fresh = same && !this.opts.reduced && prevIds.size ? scene.nodes.filter((n) => !prevIds.has(n.id)).map((n) => n.id) : [];
-    for (const n of scene.nodes) this.addNode(n, (!animate || n.level === 0) && !fresh.includes(n.id));
+    const clientLevel = Math.min(...scene.nodes.map((n) => n.level));
+    for (const n of scene.nodes) this.addNode(n, (!animate || n.level === clientLevel) && !fresh.includes(n.id));
     for (const e of scene.edges) this.addEdge(e);
+    this.spreadPorts();
+    this.buildRows();
     const ext = extents(scene.nodes);
-    this.center = { x: (ext.minX + ext.maxX) / 2 + 60, y: (ext.minY + ext.maxY) / 2 };
-    const pad = this.opts.pad ?? { x: 230, y: 120 };
+    this.center = { x: (ext.minX + ext.maxX) / 2, y: (ext.minY + ext.maxY) / 2 };
+    const pad = this.opts.pad ?? (this.pins ? { x: 220, y: 60 } : { x: PLATE_W + 40, y: 116 });
     this.content = { w: ext.maxX - ext.minX + pad.x, h: ext.maxY - ext.minY + pad.y };
     this.sigma.getCamera().setState({ x: 0.5, y: 0.5, ratio: 1, angle: 0 });
     this.applyBBox();
@@ -183,160 +256,197 @@ export class BoardEngine {
     else if (fresh.length) await this.unfoldGroup([...this.nodes.values()].filter((n) => fresh.includes(n.id)));
   }
 
-  /** Unfold every hidden layer, hop by hop (620 ms each, 90 ms apart). */
+  /** Rise every hidden layer, nearest the client first (560 ms each, 70 ms apart). */
   async unfoldAll(): Promise<void> {
     const key = this.sceneKey;
     const levels = [...new Set([...this.nodes.values()].filter((n) => !n.shown).map((n) => n.level))].sort((a, b) => a - b);
     for (const lvl of levels) {
       if (this.destroyed || this.sceneKey !== key) return;
       if (this.opts.reduced) {
-        [...this.nodes.values()].filter((n) => n.level === lvl).forEach((n) => {
-          n.shown = true;
-          n.el.style.opacity = n.removed ? "0.35" : "1";
-        });
+        [...this.nodes.values()]
+          .filter((n) => n.level === lvl)
+          .forEach((n) => {
+            n.shown = true;
+            n.el.style.opacity = n.removed ? "0.4" : "1";
+          });
         continue;
       }
-      await this.unfold(lvl);
-      await wait(90);
+      await this.unfoldGroup([...this.nodes.values()].filter((n) => n.level === lvl));
+      await wait(70);
     }
-    this.sigma.refresh();
     this.sync();
   }
 
-  /** Where a node sits on screen right now (viewport px), for things pinned to it. */
-  nodeViewport(id: string): { x: number; y: number } | null {
+  nodeViewport(id: string): Pt | null {
     const n = this.nodes.get(id);
     return n ? this.vp(n) : null;
   }
   setNodeLabel(id: string, label: string): void {
     const n = this.nodes.get(id);
-    const b = n?.el.querySelector(".lbl b");
+    const b = n?.el.querySelector(".pl-name");
     if (n && b) {
       n.label = label;
       b.textContent = label;
+      this.measure(n);
     }
   }
   setNodeSub(id: string, sub: string): void {
-    const small = this.nodes.get(id)?.el.querySelector(".lbl small");
-    if (small) small.textContent = sub;
+    const n = this.nodes.get(id);
+    const small = n?.el.querySelector(".pl-sub");
+    if (n && small) {
+      small.textContent = sub;
+      this.measure(n);
+    }
   }
 
   private addNode(n: BNode, shown: boolean) {
     const el = document.createElement("div");
-    const kindClass = n.kind === "company" ? "entity" : n.kind === "trust" || n.kind === "partnership" ? `arrangement ${n.kind}` : n.kind;
-    el.className = `node ${kindClass}${n.client ? " client" : ""}${n.pin ? " pin-node" : ""}${n.cand ? " cand" : ""}${n.leftLabel ? " left" : ""}${n.removed ? " removed" : ""}${n.rating ? ` r-${n.rating}` : ""}`;
+    const kind = n.kind === "company" ? "company" : n.kind;
+    el.className = `${n.pin ? "pin" : "plate"} k-${kind}${n.client ? " client" : ""}${n.cand ? " cand" : ""}${n.removed ? " removed" : ""}${n.since ? " since" : ""}${n.ubo ? " is-ubo" : ""}${n.rating ? ` r-${n.rating}` : ""}`;
     el.tabIndex = 0;
     el.setAttribute("role", "button");
     el.setAttribute("aria-label", n.aria + (n.since ? `, ${n.since.replace("+ ", "")}` : "") + (n.removed ? `, ${n.removed.replace("– ", "")}` : ""));
     el.dataset.id = n.id;
-    const rating = n.rating ? `<span class="rglyph r-${n.rating}" aria-hidden="true">${n.rating === "high" ? "▲" : n.rating === "medium" ? "◆" : "●"}</span>` : "";
-    const flags = n.flags.map((f) => `<span class="flag ${f.level}">${esc(f.text)}</span>`).join("");
-    el.innerHTML =
-      `${n.client && !n.pin ? '<span class="pin" aria-hidden="true"></span>' : ""}<div class="shape" aria-hidden="true">${esc(n.glyph)}${n.pep ? '<span class="pep">PEP</span>' : ""}${rating}</div>` +
-      `<div class="lbl"><b>${esc(n.label)}</b>${n.sub ? `<small>${esc(n.sub)}</small>` : ""}${flags}${n.since ? `<span class="since">${esc(n.since)}</span>` : ""}${n.rec ? `<span class="rec">${esc(n.rec)}</span>` : ""}${n.tag ? `<span class="ptag">${esc(n.tag)}</span>` : ""}</div>` +
-      `${n.badge ? `<span class="nbadge" aria-hidden="true">${n.badge}</span>` : ""}`;
-    el.style.opacity = shown ? (n.removed ? "0.35" : "1") : "0";
+    const rating = n.rating ? `<span class="pl-rating r-${n.rating}" aria-hidden="true">${n.rating === "high" ? "▲" : n.rating === "medium" ? "◆" : "●"}</span>` : "";
+    if (n.pin) {
+      el.innerHTML = `<span class="pin-shape" aria-hidden="true">${n.client ? rating : ""}</span><span class="pin-name">${esc(n.label)}</span>${n.flags.map((f) => `<span class="pin-flag ${f.level}">${esc(f.text)}</span>`).join("")}${n.tag ? `<span class="pin-tag">${esc(n.tag)}</span>` : ""}`;
+    } else {
+      const flags = n.flags.length ? `<span class="pl-flags">${n.flags.map((f) => `<span class="flag ${f.level}">${esc(f.text)}</span>`).join("")}</span>` : "";
+      const tabs = [n.since ? `<span class="pl-tab since">${esc(n.since)}</span>` : "", n.removed ? `<span class="pl-tab gone">${esc(n.removed)}</span>` : "", n.rec ? `<span class="pl-tab rec">${esc(n.rec)}</span>` : "", n.tag ? `<span class="pl-tab tag">${esc(n.tag)}</span>` : ""].join("");
+      const head = n.kind === "person" ? `<span class="pl-face" aria-hidden="true">${esc(n.glyph)}${n.pep ? '<span class="pl-pep">PEP</span>' : ""}</span>` : n.pep ? '<span class="pl-pep">PEP</span>' : "";
+      const mark = n.kind === "unknown" ? `<span class="pl-q" aria-hidden="true">${esc(n.glyph || "?")}</span>` : n.kind === "list" ? '<span class="pl-list" aria-hidden="true">LIST</span>' : "";
+      el.innerHTML = `${head}<span class="pl-body">${mark}<span class="pl-name">${esc(n.label)}</span>${n.sub ? `<span class="pl-sub">${esc(n.sub)}</span>` : ""}${flags}</span>${rating}${tabs ? `<span class="pl-tabs">${tabs}</span>` : ""}${n.badge ? `<span class="pl-badge" aria-hidden="true">${n.badge}</span>` : ""}`;
+    }
+    el.style.opacity = shown ? (n.removed ? "0.4" : "1") : "0";
     el.addEventListener("click", () => this.opts.onActivate?.(n.id));
     el.addEventListener("keydown", (ev) => this.onKey(ev, n.id));
-    el.addEventListener("focus", () => {
-      this.opts.onFocusNode?.(n.id);
-    });
+    el.addEventListener("focus", () => this.opts.onFocusNode?.(n.id));
     el.addEventListener("pointerenter", () => this.hover(n.id));
     el.addEventListener("pointerleave", () => this.hover(null));
     this.hNodes.appendChild(el);
-    const rn: RNode = { ...n, el, vx: n.x, vy: n.y, scale: 1, shown };
+    const rn: RNode = { ...n, el, vx: n.x, vy: n.y, scale: 1, shown, w: PLATE_W, h: 58, r: pinRadius(n) };
+    this.measure(rn);
     this.nodes.set(n.id, rn);
-    this.graph.addNode(n.id, { x: n.x, y: -n.y, size: radius(n), color: "rgba(0,0,0,0)", label: n.label, zIndex: 1 });
+    this.graph.addNode(n.id, { x: n.x, y: -n.y, size: 1, color: "rgba(0,0,0,0)", zIndex: 1 });
+  }
+
+  private measure(n: RNode) {
+    const w = n.el.offsetWidth;
+    const h = n.el.offsetHeight;
+    if (w && h) {
+      n.w = w;
+      n.h = h;
+    } else if (!n.pin) {
+      n.w = PLATE_W;
+      n.h = n.kind === "person" ? 92 : 58;
+    }
   }
 
   private addEdge(e: BEdge) {
     if (!this.nodes.has(e.s) || !this.nodes.has(e.t)) return;
-    const re: REdge = { ...e };
-    // A link that skips a row would cut through the parties between: it bows out instead.
-    const na = this.nodes.get(e.s)!;
-    const nb = this.nodes.get(e.t)!;
-    const skips = !e.curve && Math.abs(na.y - nb.y) > 240 && e.kind !== "faint" && e.kind !== "possible";
-    if (skips) re.bow = 70 * (na.x >= nb.x ? -1 : 1);
-    const svgDrawn = e.kind !== "own" || e.removed || e.curve || skips;
-    if (svgDrawn) {
-      const p = document.createElementNS(SVGNS, "path");
-      p.setAttribute("fill", "none");
-      const style =
-        e.kind === "ctrl"
-          ? { stroke: "var(--edge-ctrl)", dash: "6 4", marker: "kr-ah-ctrl", w: "1.5" }
-          : e.kind === "unknown"
-            ? { stroke: "var(--faint)", dash: "2 4", marker: "kr-ah-unk", w: "1.5" }
-            : e.kind === "faint"
-              ? { stroke: "var(--edge-faint)", dash: "", marker: "", w: "1" }
-              : e.kind === "possible"
-                ? { stroke: "var(--string)", dash: "3 3", marker: "", w: "1.5" }
-                : { stroke: "var(--edge-own)", dash: e.removed ? "6 4" : "", marker: "kr-ah-own", w: "1.6" };
-      p.setAttribute("stroke", style.stroke);
-      p.setAttribute("stroke-width", style.w);
-      if (style.dash) p.setAttribute("stroke-dasharray", style.dash);
-      if (style.marker) p.setAttribute("marker-end", `url(#${style.marker})`);
-      this.gEdges.appendChild(p);
-      re.path = p;
-    } else {
-      this.graph.addEdgeWithKey(e.id, e.s, e.t, { size: 1.6, type: "arrow" });
-    }
-    if (e.label) {
+    const re: REdge = { ...e, exitOff: 0, entryOff: 0, labelRow: 0, pts: [] };
+    const p = document.createElementNS(SVGNS, "path");
+    p.setAttribute("fill", "none");
+    p.setAttribute("stroke-linejoin", "round");
+    const style =
+      e.kind === "ctrl"
+        ? { cls: "ln-ctrl", marker: "kr-head-ctrl" }
+        : e.kind === "unknown"
+          ? { cls: "ln-unk", marker: "kr-head-unk" }
+          : e.kind === "faint"
+            ? { cls: "ln-faint", marker: "" }
+            : e.kind === "possible"
+              ? { cls: "ln-possible", marker: "" }
+              : { cls: "ln-own", marker: "kr-head-own" };
+    p.setAttribute("class", `${style.cls}${e.removed ? " gone" : ""}${e.added ? " added" : ""}`);
+    if (style.marker && !this.pins) p.setAttribute("marker-end", `url(#${style.marker})`);
+    this.gEdges.appendChild(p);
+    re.path = p;
+    if (e.label && !this.pins) {
       const l = document.createElement("div");
-      l.className = "elabel " + (e.kind === "ctrl" ? "ctrl" : e.kind === "unknown" ? "unknown" : e.kind === "possible" ? "possible" : "") + (e.curve ? " loop" : "");
+      l.className = "ln-label " + (e.kind === "ctrl" ? "ctrl" : e.kind === "unknown" ? "unknown" : e.kind === "possible" ? "possible" : "own") + (e.curve ? " loop" : "");
       l.textContent = e.label;
       this.hLabels.appendChild(l);
       re.lbl = l;
     }
     if (e.added || e.removed) {
       const t = document.createElement("div");
-      t.className = "etag" + (e.removed ? " gone" : "");
+      t.className = "ln-tag" + (e.removed ? " gone" : "");
       t.textContent = e.added ?? e.removed ?? "";
       this.hLabels.appendChild(t);
       re.tagEl = t;
     }
     if (e.cite) {
       const c = document.createElement("div");
-      c.className = "ecite";
+      c.className = "ln-cite";
       c.textContent = String(e.cite);
       this.hLabels.appendChild(c);
       re.citeEl = c;
     }
-    // Parallel links between the same two parties (owns and controls) bow apart so neither hides the other.
-    const twins = [...this.edges.values()].filter((x) => (x.s === e.s && x.t === e.t) || (x.s === e.t && x.t === e.s));
-    if (twins.length && svgDrawn) {
-      re.bow = (re.bow ?? 0) + 52 * twins.length;
-      // and their labels sit at different points along the link, so "38%" and "Director" never stack
-      re.labelAt ??= 0.34;
-      for (const tw of twins) if (tw.labelAt === undefined && !tw.bow) tw.labelAt = 0.66;
-    }
     this.edges.set(e.id, re);
   }
 
-  private unfold(level: number, dur = 620) {
-    return this.unfoldGroup([...this.nodes.values()].filter((n) => n.level === level), dur);
+  /** Spread the lines leaving a plate (and arriving at one) along its edge, ordered so they don't cross. */
+  private spreadPorts() {
+    if (this.pins) return;
+    const live = [...this.edges.values()].filter((e) => !e.curve && e.kind !== "faint");
+    const byS = new Map<string, REdge[]>();
+    const byT = new Map<string, REdge[]>();
+    for (const e of live) {
+      byS.set(e.s, [...(byS.get(e.s) ?? []), e]);
+      byT.set(e.t, [...(byT.get(e.t) ?? []), e]);
+    }
+    const x = (id: string) => this.nodes.get(id)!.x;
+    for (const [id, list] of byS) {
+      list.sort((a, b) => x(a.t) - x(b.t) || (a.kind === "ctrl" ? 1 : 0) - (b.kind === "ctrl" ? 1 : 0));
+      const half = (this.nodes.get(id)!.kind === "person" ? 18 : this.nodes.get(id)!.w / 2 - 22) || 60;
+      const gap = Math.min(30, (half * 2) / Math.max(1, list.length - 1));
+      list.forEach((e, i) => {
+        e.exitOff = clamp((i - (list.length - 1) / 2) * gap, -half, half);
+        e.labelRow = list.length > 1 ? i : 0;
+      });
+    }
+    for (const [id, list] of byT) {
+      list.sort((a, b) => x(a.s) - x(b.s));
+      const half = (this.nodes.get(id)!.kind === "person" ? 16 : this.nodes.get(id)!.w / 2 - 18) || 60;
+      const gap = Math.min(26, (half * 2) / Math.max(1, list.length - 1));
+      list.forEach((e, i) => (e.entryOff = clamp((i - (list.length - 1) / 2) * gap, -half, half)));
+    }
   }
 
-  private async unfoldGroup(group: RNode[], dur = 620) {
+  /** Rows of the structure for the layer rules and the depth gauge: the client's row is CLIENT, then LAYER 1… */
+  private buildRows() {
+    this.rows = [];
+    if (this.pins) return;
+    const ys = [...new Set([...this.nodes.values()].map((n) => Math.round(n.y)))].sort((a, b) => b - a);
+    const clientY = [...this.nodes.values()].find((n) => n.client)?.y;
+    const baseIdx = clientY != null ? ys.indexOf(Math.round(clientY)) : 0;
+    this.rows = ys.map((y, i) => ({ y, label: i === baseIdx ? "Client" : i > baseIdx ? `Layer ${i - baseIdx}` : `Below ${baseIdx - i}` }));
+    for (const r of this.rows) {
+      const g = document.createElementNS(SVGNS, "g");
+      g.innerHTML = `<line class="rule-line"/><text class="rule-label">${esc(r.label.toUpperCase())}</text>`;
+      this.gRules.appendChild(g);
+    }
+  }
+
+  private async unfoldGroup(group: RNode[], dur = 560) {
     group.forEach((n) => (n.shown = true));
-    this.sigma.refresh();
     await this.tween(dur, (t) => {
-      const k = easeUnfold(t);
+      const k = easeRise(t);
       for (const n of group) {
         const from = n.from ? this.nodes.get(n.from) : undefined;
         const fx = from ? from.x : n.x;
-        const fy = from ? from.y : n.y;
+        const fy = from ? from.y : n.y + 40;
         n.vx = lerp(fx, n.x, k);
         n.vy = lerp(fy, n.y, k);
-        n.scale = lerp(0.6, 1, Math.min(1, t * 1.6));
-        n.el.style.opacity = String(Math.min(1, t / 0.45) * (n.removed ? 0.35 : 1));
-        this.graph.mergeNodeAttributes(n.id, { x: n.vx, y: -n.vy });
+        n.scale = lerp(0.7, 1, Math.min(1, t * 1.6));
+        n.el.style.opacity = String(Math.min(1, t / 0.4) * (n.removed ? 0.4 : 1));
       }
     });
     for (const n of group) {
       n.vx = n.x;
       n.vy = n.y;
       n.scale = 1;
-      this.graph.mergeNodeAttributes(n.id, { x: n.x, y: -n.y });
     }
     this.sync();
   }
@@ -357,28 +467,29 @@ export class BoardEngine {
     });
   }
 
-  /** Fit the content into the visible part of the board (the host minus floating chrome and the drawer). */
+  /** Fit the content into the visible part of the chart (the host minus its chrome). */
   private applyBBox() {
     const W = this.host.clientWidth || 1;
     const H = this.host.clientHeight || 1;
     const vw = Math.max(80, W - this.insets.left - this.insets.right);
     const vh = Math.max(80, H - this.insets.top - this.insets.bottom);
-    // Phones get a smaller floor so a whole client book still fits across the screen.
-    const s = clamp(Math.min(vw / Math.max(1, this.content.w), vh / Math.max(1, this.content.h)), W < 640 ? 0.24 : 0.3, 1);
+    // Plates stay legible: below this the structure overflows the frame and the depth gauge pans it.
+    const s = clamp(Math.min(vw / Math.max(1, this.content.w), vh / Math.max(1, this.content.h)), this.pins ? (W < 640 ? 0.3 : 0.4) : W < 640 ? 0.5 : 0.56, 1.05);
     this.base = s;
     const vcx = this.insets.left + vw / 2;
     const vcy = this.insets.top + vh / 2;
     const L = this.center.x - vcx / s;
-    const T = this.center.y - vcy / s;
+    // A structure taller than the frame keeps its foot (the client) in view; the gauge pans up to the owners.
+    const T = !this.pins && this.content.h * s > vh + 1 ? this.center.y + this.content.h / 2 - (this.insets.top + vh) / s : this.center.y - vcy / s;
     this.sigma.setCustomBBox({ x: [L, L + W / s], y: [-(T + H / s), -T] });
     this.sigma.refresh();
   }
 
   resize(): void {
     this.sigma.resize();
+    for (const n of this.nodes.values()) this.measure(n);
     this.applyBBox();
   }
-
   zoomBy(factor: number): void {
     const cam = this.sigma.getCamera();
     if (this.opts.reduced) cam.setState({ ratio: clamp(cam.ratio / factor, 0.35, 3) });
@@ -389,91 +500,157 @@ export class BoardEngine {
     if (this.opts.reduced) cam.setState({ x: 0.5, y: 0.5, ratio: 1 });
     else void cam.animate({ x: 0.5, y: 0.5, ratio: 1 }, { duration: 450, easing: "quadraticInOut" });
   }
-  /** Fly the camera to a node (Fly to, 450 ms). */
-  flyTo(id: string, ratio = 0.8): void {
-    const n = this.nodes.get(id);
-    if (!n) return;
-    const p = this.sigma.graphToViewport({ x: n.x, y: -n.y });
+  private flyToPoint(x: number, y: number, ratio: number) {
+    const p = this.sigma.graphToViewport({ x, y: -y });
     const W = this.host.clientWidth;
     const H = this.host.clientHeight;
     const cam = this.sigma.getCamera();
     const vcx = this.insets.left + (W - this.insets.left - this.insets.right) / 2;
     const vcy = this.insets.top + (H - this.insets.top - this.insets.bottom) / 2;
     const target = this.sigma.viewportToFramedGraph({ x: p.x + (W / 2 - vcx), y: p.y + (H / 2 - vcy) });
-    const state = { x: target.x, y: target.y, ratio: Math.min(cam.ratio, ratio) };
+    const state = { x: target.x, y: target.y, ratio };
     if (this.opts.reduced) cam.setState(state);
     else void cam.animate(state, { duration: 450, easing: "quadraticInOut" });
   }
+  /** Fly the camera to a party (450 ms). */
+  flyTo(id: string, ratio = 0.8): void {
+    const n = this.nodes.get(id);
+    if (n) this.flyToPoint(n.x, n.y, Math.min(this.sigma.getCamera().ratio, ratio));
+  }
+  /** Pan to a layer of the structure (the depth gauge). */
+  flyToRow(y: number): void {
+    this.flyToPoint(this.center.x, y, this.sigma.getCamera().ratio);
+  }
 
   private nodeScale(): number {
-    return clamp(this.base / this.sigma.getCamera().ratio, 0.5, 1.5);
+    return clamp(this.base / this.sigma.getCamera().ratio, 0.45, 1.4);
   }
-  private vp(n: RNode) {
+  private vp(n: RNode): Pt {
     return this.sigma.graphToViewport({ x: n.vx, y: -n.vy });
   }
 
-  // ------------------------------------------------------------ evidence layer sync
+  // ------------------------------------------------------------ sync
   private sync() {
     if (this.destroyed) return;
     const k = this.nodeScale();
+    this.host.style.setProperty("--k", k.toFixed(3));
     for (const n of this.nodes.values()) {
       const p = this.vp(n);
-      const r = radius(n);
       const s = k * n.scale;
-      const dx = n.leftLabel ? n.el.offsetWidth - r : r;
-      n.el.style.transform = `translate(${p.x - dx}px, ${p.y - r}px) scale(${s})`;
-      n.el.style.transformOrigin = `${dx}px ${r}px`;
+      if (n.pin) {
+        n.el.style.transform = `translate(${p.x - n.r}px, ${p.y - n.r}px) scale(${s})`;
+        n.el.style.transformOrigin = `${n.r}px ${n.r}px`;
+      } else {
+        n.el.style.transform = `translate(${p.x - n.w / 2}px, ${p.y - n.h / 2}px) scale(${s})`;
+        n.el.style.transformOrigin = `${n.w / 2}px ${n.h / 2}px`;
+      }
       n.el.classList.toggle("dim", this.isDimmed(n.id));
       n.el.classList.toggle("selected", this.selected === n.id);
       n.el.classList.toggle("compact", k < 0.6);
     }
+    const W = this.host.clientWidth;
+    this.rows.forEach((r, i) => {
+      const g = this.gRules.children[i] as SVGGElement | undefined;
+      if (!g) return;
+      const y = this.sigma.graphToViewport({ x: 0, y: -r.y }).y;
+      const line = g.firstElementChild as SVGLineElement;
+      const text = g.lastElementChild as SVGTextElement;
+      line.setAttribute("x1", "0");
+      line.setAttribute("x2", String(W));
+      line.setAttribute("y1", String(y));
+      line.setAttribute("y2", String(y));
+      text.setAttribute("x", String(Math.max(14, this.insets.left - 84)));
+      text.setAttribute("y", String(y - 7));
+    });
     for (const e of this.edges.values()) this.syncEdge(e, k);
-    this.drawStrings();
+    this.drawTraces();
     this.drawSeam();
     this.opts.onSync?.();
+  }
+
+  /** Top and bottom attach points of a plate on screen. */
+  private ends(n: RNode, k: number): { top: number; bottom: number; left: number; right: number; c: Pt } {
+    const c = this.vp(n);
+    const s = k * n.scale;
+    return { top: c.y - (n.h / 2) * s, bottom: c.y + (n.h / 2) * s, left: c.x - (n.w / 2) * s, right: c.x + (n.w / 2) * s, c };
+  }
+
+  private route(e: REdge, k: number): Pt[] {
+    const a = this.nodes.get(e.s)!;
+    const b = this.nodes.get(e.t)!;
+    if (this.pins) {
+      const pa = this.vp(a);
+      const pb = this.vp(b);
+      const d = Math.hypot(pb.x - pa.x, pb.y - pa.y) || 1;
+      const ra = (a.r + 2) * k;
+      const rb = (b.r + 2) * k;
+      return [
+        { x: pa.x + ((pb.x - pa.x) / d) * ra, y: pa.y + ((pb.y - pa.y) / d) * ra },
+        { x: pb.x - ((pb.x - pa.x) / d) * rb, y: pb.y - ((pb.y - pa.y) / d) * rb },
+      ];
+    }
+    const A = this.ends(a, k);
+    const B = this.ends(b, k);
+    if (e.curve) {
+      // A circular holding: out of the owner's right side, round the outside, into the subject's right side.
+      const out = Math.max(A.right, B.right) + 34 * k;
+      return [
+        { x: A.right, y: A.c.y },
+        { x: out, y: A.c.y },
+        { x: out, y: B.c.y },
+        { x: B.right + 2, y: B.c.y },
+      ];
+    }
+    const sAbove = A.c.y <= B.c.y;
+    const sx = A.c.x + e.exitOff * k;
+    const tx = B.c.x + e.entryOff * k;
+    const sy = sAbove ? A.bottom : A.top;
+    const ty = sAbove ? B.top - 2 : B.bottom + 2;
+    if (Math.abs(A.c.y - B.c.y) < 4) {
+      // same row (fuse candidates, list entries): a straight line between facing sides
+      const right = A.c.x < B.c.x;
+      return [
+        { x: right ? A.right : A.left, y: A.c.y },
+        { x: right ? B.left - 2 : B.right + 2, y: B.c.y },
+      ];
+    }
+    const busY = sAbove ? ty - 24 * k : ty + 24 * k;
+    if (Math.abs(sx - tx) < 1.5) return [{ x: sx, y: sy }, { x: tx, y: ty }];
+    return dedupe([{ x: sx, y: sy }, { x: sx, y: busY }, { x: tx, y: busY }, { x: tx, y: ty }]);
   }
 
   private syncEdge(e: REdge, k: number) {
     const a = this.nodes.get(e.s)!;
     const b = this.nodes.get(e.t)!;
     const vis = a.shown && b.shown;
-    const pa = this.vp(a);
-    const pb = this.vp(b);
-    const t = trimmed(pa, pb, (radius(a) + 2) * k, (radius(b) + 3) * k);
-    let mid = { x: lerp(t.x1, t.x2, e.labelAt ?? 0.5), y: lerp(t.y1, t.y2, e.labelAt ?? 0.5) };
+    e.pts = this.route(e, k);
     if (e.path) {
-      if (e.curve) {
-        // A back edge (circular holding) bows out to the right of both parties.
-        const bow = Math.max(90, Math.abs(pa.y - pb.y) * 0.6) * k;
-        const side = pb.x < pa.x ? -1 : 1; // loop round the outside, away from the parties in between
-        const cx = side < 0 ? Math.min(pa.x, pb.x) - bow : Math.max(pa.x, pb.x) + bow;
-        const cy = (pa.y + pb.y) / 2;
-        e.path.setAttribute("d", `M${pa.x + side * radius(a) * k},${pa.y} Q${cx},${cy} ${pb.x + side * (radius(b) + 3) * k},${pb.y}`);
-        mid = { x: 0.25 * pa.x + 0.5 * cx + 0.25 * pb.x, y: cy };
-      } else if (e.bow) {
-        const len = Math.hypot(t.x2 - t.x1, t.y2 - t.y1) || 1;
-        const cx = (t.x1 + t.x2) / 2 + (-(t.y2 - t.y1) / len) * e.bow * k;
-        const cy = (t.y1 + t.y2) / 2 + ((t.x2 - t.x1) / len) * e.bow * k;
-        e.path.setAttribute("d", `M${t.x1},${t.y1} Q${cx},${cy} ${t.x2},${t.y2}`);
-        const u = e.labelAt ?? 0.5; // point on the curve at u (quadratic Bézier)
-        mid = { x: (1 - u) ** 2 * t.x1 + 2 * u * (1 - u) * cx + u ** 2 * t.x2, y: (1 - u) ** 2 * t.y1 + 2 * u * (1 - u) * cy + u ** 2 * t.y2 };
-      } else e.path.setAttribute("d", `M${t.x1},${t.y1} L${t.x2},${t.y2}`);
+      e.path.setAttribute("d", this.pins ? `M${e.pts[0]!.x},${e.pts[0]!.y} L${e.pts[1]!.x},${e.pts[1]!.y}` : rounded(e.pts, 9 * k));
       const dimmed = this.isDimmed(e.s) && this.isDimmed(e.t);
-      e.path.style.opacity = !vis || e.onString ? "0" : e.removed || dimmed ? "0.35" : "1";
+      e.path.style.opacity = !vis ? "0" : e.removed ? "0.45" : dimmed ? "0.22" : "1";
+      e.path.style.strokeWidth = "";
     }
+    // the label sits on the owner's drop (or the loop's outer leg)
+    const p0 = e.pts[0]!;
+    const p1 = e.pts[1] ?? p0;
+    let at: Pt;
+    if (e.curve) at = { x: e.pts[1]!.x, y: (e.pts[1]!.y + e.pts[2]!.y) / 2 };
+    else if (Math.abs(p0.y - p1.y) < 1) at = { x: (p0.x + p1.x) / 2, y: p0.y - 12 * k };
+    else at = { x: p0.x, y: p0.y + (Math.min(e.labelRow ? 16 : 26, Math.abs(p1.y - p0.y) * 0.5) + e.labelRow * 21) * k * Math.sign(p1.y - p0.y || 1) };
     if (e.lbl) {
-      // Link labels shrink with the board (as party labels do), so a zoomed-out structure stays legible.
-      const ls = Math.min(1, Math.max(0.55, k));
-      e.lbl.style.transform = `translate(${mid.x}px, ${mid.y}px) translate(-50%, -50%)${ls < 1 ? ` scale(${ls.toFixed(3)})` : ""}`;
-      e.lbl.style.opacity = vis ? (e.removed ? "0.5" : "1") : "0";
-      e.lbl.classList.toggle("on-string", !!e.onString);
+      const ls = clamp(k, 0.6, 1);
+      e.lbl.style.transform = `translate(${at.x}px, ${at.y}px) translate(-50%, -50%)${ls < 1 ? ` scale(${ls.toFixed(3)})` : ""}`;
+      e.lbl.style.opacity = vis ? (e.removed ? "0.55" : this.isDimmed(e.s) && this.isDimmed(e.t) ? "0.3" : "1") : "0";
+      e.lbl.classList.toggle("on-trace", !!e.onString);
     }
     if (e.tagEl) {
-      e.tagEl.style.transform = `translate(${mid.x}px, ${mid.y + 14}px) translate(-50%, 0)`;
+      // beside the line's label, on the owner's drop
+      const off = e.lbl ? (e.lbl.offsetWidth / 2) * clamp(k, 0.6, 1) + 6 : 8;
+      e.tagEl.style.transform = `translate(${at.x + off}px, ${at.y}px) translate(0, -50%)`;
       e.tagEl.style.opacity = vis ? "1" : "0";
     }
     if (e.citeEl) {
-      e.citeEl.style.transform = `translate(${mid.x + (e.lbl ? e.lbl.offsetWidth / 2 + 12 : 0)}px, ${mid.y}px) translate(-50%, -50%)`;
+      e.citeEl.style.transform = `translate(${at.x + (e.lbl ? e.lbl.offsetWidth / 2 + 12 : 0)}px, ${at.y}px) translate(-50%, -50%)`;
       e.citeEl.style.opacity = vis ? "1" : "0";
     }
   }
@@ -494,11 +671,11 @@ export class BoardEngine {
   }
   setDim(ids: Iterable<string> | null): void {
     this.dimSet = ids ? new Set(ids) : null;
-    this.sigma.refresh();
+    this.sync();
   }
   setFocusMode(on: boolean): void {
     this.focusMode = on;
-    this.sigma.refresh();
+    this.sync();
   }
   get isFocusMode(): boolean {
     return this.focusMode;
@@ -518,7 +695,7 @@ export class BoardEngine {
   private hover(id: string | null) {
     if (this.seam) return;
     this.hoverId = id;
-    this.sigma.refresh();
+    this.sync();
   }
 
   focusNode(id: string): void {
@@ -542,7 +719,7 @@ export class BoardEngine {
     if (!d) return;
     ev.preventDefault();
     const linked = [...this.neighbours(id)].filter((x) => x !== id);
-    const pool = d[1] !== 0 ? linked : [...this.nodes.values()].filter((m) => m.level === n.level && m.id !== id).map((m) => m.id);
+    const pool = d[1] !== 0 ? linked : [...this.nodes.values()].filter((m) => Math.abs(m.y - n.y) < 4 && m.id !== id).map((m) => m.id);
     let best: string | null = null;
     let bestScore = Infinity;
     for (const other of pool) {
@@ -561,142 +738,178 @@ export class BoardEngine {
     if (best) this.focusNode(best);
   }
 
-  // ------------------------------------------------------------ the red string
+  // ------------------------------------------------------------ the trace
   clearStrings(): void {
-    this.strings.forEach((s) => {
+    this.traces.forEach((s) => {
       s.under.remove();
       s.line.remove();
-      s.knot?.remove();
+      s.head?.remove();
+      s.counter?.remove();
       s.tag?.remove();
     });
-    this.strings = [];
+    this.traces = [];
     for (const e of this.edges.values()) e.onString = false;
-    for (const n of this.nodes.values()) n.el.classList.remove("ubo");
-    if (this.graph.order) this.sigma.refresh();
+    for (const n of this.nodes.values()) n.el.classList.remove("ubo", "on-trace");
   }
 
-  /** Pull the thread: each string appears slack and snaps taut while a knot travels from owner to client. */
-  async pull(specs: StringSpec[], { animate = true, dur = 1100 }: { animate?: boolean; dur?: number } = {}): Promise<void> {
+  private edgeBetween(a: string, b: string): REdge | undefined {
+    return [...this.edges.values()].find((x) => (x.s === a && x.t === b) || (x.s === b && x.t === a));
+  }
+
+  /** Trace a path: the moss line climbs from the client to the owner, elbow by elbow, multiplying as it goes. */
+  async pull(specs: StringSpec[], { animate = true, dur = 1000 }: { animate?: boolean; dur?: number } = {}): Promise<void> {
     this.clearStrings();
     const live = specs.filter((s) => s.ids.length > 1 && s.ids.every((id) => this.nodes.has(id)));
     if (!live.length) return;
     for (const spec of live) {
       const full = spec.weight !== "faint";
       const under = document.createElementNS(SVGNS, "path");
-      under.setAttribute("fill", "none");
-      under.setAttribute("stroke", "var(--canvas)");
-      under.setAttribute("stroke-width", full ? "9" : "5");
-      under.setAttribute("stroke-linecap", "round");
+      under.setAttribute("class", full ? "trace-under" : "trace-under faint");
       const line = document.createElementNS(SVGNS, "path");
-      line.setAttribute("fill", "none");
-      line.setAttribute("stroke", "var(--string)");
-      line.setAttribute("stroke-width", full ? "3" : "1.5");
-      line.setAttribute("stroke-linecap", "round");
-      line.setAttribute("stroke-linejoin", "round");
-      if (!full) line.setAttribute("opacity", "0.5");
-      this.gString.append(under, line);
-      const s: RString = { spec, under, line, slack: 0, progress: 1 };
+      line.setAttribute("class", full ? "trace" : "trace faint");
+      this.gTrace.append(under, line);
+      const t: RTrace = { spec, under, line, progress: 1 };
       if (full) {
-        s.knot = document.createElementNS(SVGNS, "circle");
-        s.knot.setAttribute("r", "6");
-        s.knot.setAttribute("fill", "var(--string)");
-        s.knot.setAttribute("stroke", "var(--canvas)");
-        s.knot.setAttribute("stroke-width", "2.5");
-        this.gString.append(s.knot);
+        t.head = document.createElementNS(SVGNS, "circle");
+        t.head.setAttribute("r", "6");
+        t.head.setAttribute("class", "trace-head");
+        this.gTrace.append(t.head);
         for (let i = 1; i < spec.ids.length; i++) {
-          const e = [...this.edges.values()].find((x) => (x.s === spec.ids[i - 1] && x.t === spec.ids[i]) || (x.s === spec.ids[i] && x.t === spec.ids[i - 1]));
+          const e = this.edgeBetween(spec.ids[i - 1]!, spec.ids[i]!);
           if (e) e.onString = true;
         }
+        t.counter = document.createElement("div");
+        t.counter.className = "trace-counter";
+        t.counter.setAttribute("aria-hidden", "true");
+        this.overlay.appendChild(t.counter);
         if (spec.tag) {
-          s.tag = document.createElement("div");
-          s.tag.className = "string-tag";
-          s.tag.setAttribute("role", "status");
-          this.overlay.appendChild(s.tag);
+          t.tag = document.createElement("div");
+          t.tag.className = "trace-tag";
+          t.tag.setAttribute("role", "status");
+          this.overlay.appendChild(t.tag);
         }
         this.nodes.get(spec.ids[0]!)?.el.classList.add("ubo");
       }
-      this.strings.push(s);
+      this.traces.push(t);
     }
-    this.sigma.refresh();
-    const main = this.strings.find((s) => s.spec.weight !== "faint");
-    const setTag = (t: number) => {
-      if (!main?.tag || !main.spec.tag) return;
-      const steps = main.spec.steps ?? [];
-      const step = t < 1 && steps.length ? steps[Math.min(steps.length - 1, Math.floor(t * steps.length))]! : main.spec.tag;
-      main.tag.innerHTML = `<span class="eq">${esc(step.eq)}</span>${esc(step.value)}`;
-    };
+    const main = this.traces.find((s) => s.spec.weight !== "faint");
+    if (main?.tag && main.spec.tag) main.tag.innerHTML = `<span class="tt-who">Owner</span><span class="eq">${esc(main.spec.tag.eq)}</span><b>${esc(main.spec.tag.value)}</b>`;
     if (!animate || this.opts.reduced) {
-      setTag(1);
-      this.drawStrings();
+      if (main) main.progress = 1;
+      this.drawTraces();
       return;
     }
-    if (main) main.slack = 46;
+    if (main) {
+      main.progress = 0;
+      main.tag?.classList.add("hidden");
+    }
     await this.tween(dur, (t) => {
-      if (main) {
-        main.slack = 46 * (1 - easeTaut(Math.min(1, t * 1.15)));
-        main.progress = t;
-      }
-      setTag(t);
-      this.drawStrings();
+      if (main) main.progress = easeClimb(t);
+      this.drawTraces();
     });
     if (main) {
-      main.slack = 0;
       main.progress = 1;
+      main.tag?.classList.remove("hidden");
     }
-    setTag(1);
-    this.drawStrings();
+    this.drawTraces();
   }
 
-  private drawStrings() {
+  /** The climbing polyline for a trace: from the client (last id) up to the owner (first id), on the drawn elbows. */
+  private climbPoints(ids: string[]): { pts: Pt[]; hops: number[] } {
+    const pts: Pt[] = [];
+    const hops: number[] = [0];
+    for (let i = ids.length - 1; i > 0; i--) {
+      const lower = ids[i]!;
+      const upper = ids[i - 1]!;
+      const e = this.edgeBetween(upper, lower);
+      let seg: Pt[];
+      if (e && e.pts.length) seg = e.s === upper ? [...e.pts].reverse() : [...e.pts];
+      else seg = [this.vp(this.nodes.get(lower)!), this.vp(this.nodes.get(upper)!)];
+      if (!pts.length) pts.push(this.vp(this.nodes.get(lower)!));
+      pts.push(...seg);
+      pts.push(this.vp(this.nodes.get(upper)!));
+      hops.push(polyLength(dedupe(pts)));
+    }
+    return { pts: dedupe(pts), hops };
+  }
+
+  private drawTraces() {
     const k = this.nodeScale();
-    for (const s of this.strings) {
-      const pts = s.spec.ids.map((id) => this.vp(this.nodes.get(id)!));
-      let d = `M${pts[0]!.x},${pts[0]!.y}`;
-      for (let i = 1; i < pts.length; i++) {
-        const a = pts[i - 1]!;
-        const b = pts[i]!;
-        const mx = (a.x + b.x) / 2;
-        const my = (a.y + b.y) / 2;
-        const dx = b.x - a.x;
-        const dy = b.y - a.y;
-        const len = Math.hypot(dx, dy) || 1;
-        const sag = s.slack * (i % 2 ? 1 : -1);
-        d += ` Q${mx + (-dy / len) * sag},${my + (dx / len) * sag} ${b.x},${b.y}`;
-      }
+    for (const s of this.traces) {
+      const { pts, hops } = this.climbPoints(s.spec.ids);
+      const d = rounded(pts, 9 * k);
       s.under.setAttribute("d", d);
       s.line.setAttribute("d", d);
-      if (s.knot) {
-        const total = s.line.getTotalLength?.() ?? 0;
-        const pt = total ? s.line.getPointAtLength(total * s.progress) : pts[0]!;
-        s.knot.setAttribute("cx", String(pt.x));
-        s.knot.setAttribute("cy", String(pt.y));
-        s.knot.style.opacity = s.progress > 0 && s.progress < 1 ? "1" : "0";
+      const total = polyLength(pts);
+      const done = total * s.progress;
+      if (s.spec.weight !== "faint") {
+        s.line.style.strokeDasharray = `${total} ${total}`;
+        s.line.style.strokeDashoffset = String(total - done);
+        s.under.style.strokeDasharray = `${total} ${total}`;
+        s.under.style.strokeDashoffset = String(total - done);
+      }
+      // plates the head has reached
+      const ids = s.spec.ids;
+      let reached = 0;
+      hops.forEach((h, j) => {
+        const id = ids[ids.length - 1 - j];
+        const on = s.spec.weight !== "faint" && done >= h - 1;
+        if (id) this.nodes.get(id)?.el.classList.toggle("on-trace", on);
+        if (on) reached = j;
+      });
+      if (s.head) {
+        const head = s.line.getPointAtLength?.(Math.max(0, Math.min(total, done))) ?? pts[0]!;
+        s.head.setAttribute("cx", String(head.x));
+        s.head.setAttribute("cy", String(head.y));
+        s.head.style.opacity = s.progress > 0 && s.progress < 1 ? "1" : "0";
+        if (s.counter) {
+          // the running product from the client upward
+          let acc = 1;
+          let ok = true;
+          const parts: string[] = [];
+          for (let j = 1; j <= Math.max(1, reached + (s.progress < 1 ? 1 : 0)) && j < ids.length; j++) {
+            const e = this.edgeBetween(ids[ids.length - 1 - j]!, ids[ids.length - j]!);
+            const p = pctOf(e);
+            if (p == null) ok = false;
+            else {
+              acc *= p / 100;
+              parts.push(fmtPct(p));
+            }
+          }
+          s.counter.textContent = ok && parts.length ? `${parts.join(" × ")}${parts.length > 1 ? ` = ${fmtPct(acc * 100)}` : ""}` : "control";
+          s.counter.style.transform = `translate(${head.x + 14}px, ${head.y}px) translate(0, -50%)`;
+          s.counter.style.opacity = s.progress > 0.02 && s.progress < 1 ? "1" : "0";
+        }
       }
       if (s.tag && s.spec.tag) {
         const anchor = this.nodes.get(s.spec.tag.anchor);
         if (anchor) {
-          const p = this.vp(anchor);
-          const maxX = this.host.clientWidth - this.insets.right - s.tag.offsetWidth - 8;
-          const x = Math.max(this.insets.left, Math.min(p.x - radius(anchor) * k, maxX));
-          s.tag.style.transform = `translate(${x}px, ${p.y + (radius(anchor) + 15) * k}px)`;
+          const A = this.ends(anchor, k);
+          // beside the owner (right, or left when the right edge is too close), level with the plate's top
+          const W = this.host.clientWidth;
+          const right = A.right + 12 + s.tag.offsetWidth < W - 8;
+          const x = right ? A.right + 12 : Math.max(8, A.left - 12 - s.tag.offsetWidth);
+          const y = Math.max(6, A.top);
+          s.tag.style.transform = `translate(${x}px, ${y}px)`;
+          s.tag.style.visibility = A.bottom < 0 || A.top > this.host.clientHeight ? "hidden" : "";
         }
       }
     }
   }
 
   // ------------------------------------------------------------ fuse and split
-  /** The stitched seam between two candidate records, with drag-to-fuse. */
+  /** The zip seam between two candidate records, with drag-to-fuse. */
   setSeam(a: string, b: string, chipHtml: string, onFuse?: () => void): void {
     this.clearSeam();
     const chip = document.createElement("div");
     chip.className = "seam-chip";
     chip.innerHTML = chipHtml;
     const ghost = document.createElement("div");
-    ghost.className = "ghost";
-    ghost.textContent = this.nodes.get(a)?.glyph ?? "";
+    ghost.className = "graft";
+    ghost.textContent = this.nodes.get(a)?.label ?? "";
     ghost.setAttribute("aria-hidden", "true");
     this.overlay.append(chip, ghost);
-    this.seam = { a, b, chip, ghost, stitches: 1, onFuse };
+    this.seam = { a, b, chip, ghost, zip: 1, onFuse };
     for (const id of [a, b]) this.enableDrag(id, id === a ? b : a);
     this.drawSeam();
   }
@@ -723,17 +936,15 @@ export class BoardEngine {
         let x = g.x;
         let y = -g.y;
         const po = this.vp(other);
-        const dist = Math.hypot(e.clientX - rect.left - po.x, e.clientY - rect.top - po.y);
-        near = dist < 64;
+        near = Math.hypot(e.clientX - rect.left - po.x, e.clientY - rect.top - po.y) < 80;
         if (near) {
-          // within reach the candidate pulls the record in (spring 400/30 approximated by a strong lerp)
           x = lerp(x, other.x, 0.65);
           y = lerp(y, other.y, 0.65);
         }
         n.vx = x;
         n.vy = y;
-        this.graph.mergeNodeAttributes(id, { x, y: -y });
         n.el.classList.toggle("near", near);
+        this.sigma.refresh({ skipIndexation: true });
       };
       const up = async () => {
         n.el.removeEventListener("pointermove", move);
@@ -753,14 +964,13 @@ export class BoardEngine {
     const fx = n.vx;
     const fy = n.vy;
     await this.tween(420, (t) => {
-      const k = easeUnfold(t);
+      const k = easeRise(t);
       n.vx = lerp(fx, n.x, k);
       n.vy = lerp(fy, n.y, k);
-      this.graph.mergeNodeAttributes(n.id, { x: n.vx, y: -n.vy });
     });
   }
 
-  /** Confirmed fuse: both records slide to the midpoint and the knot pulses once. */
+  /** Graft: both records slide together and become one double-outlined plate. */
   async playFuse(): Promise<void> {
     if (!this.seam) return;
     const a = this.nodes.get(this.seam.a)!;
@@ -773,30 +983,29 @@ export class BoardEngine {
       return;
     }
     await this.tween(420, (t) => {
-      const k = easeUnfold(t);
+      const k = easeRise(t);
       a.vx = lerp(ax, mx, k);
       a.vy = lerp(ay, my, k);
       b.vx = lerp(bx, mx, k);
       b.vy = lerp(by, my, k);
-      a.el.style.opacity = b.el.style.opacity = String(1 - t * 0.6);
-      this.graph.mergeNodeAttributes(a.id, { x: a.vx, y: -a.vy });
-      this.graph.mergeNodeAttributes(b.id, { x: b.vx, y: -b.vy });
+      a.el.style.opacity = b.el.style.opacity = String(1 - t * 0.7);
+      if (this.seam) this.seam.zip = 1 - t;
     });
     this.seam.ghost.classList.add("fused", "pulse");
     await wait(240);
   }
 
-  /** Split: stitches unpick right to left and the records spring apart to their own slots. */
+  /** Cleave: the zip opens from the top and the records stay apart. */
   async playSplit(): Promise<void> {
     if (!this.seam) return;
     const s = this.seam;
     if (this.opts.reduced) {
-      s.stitches = 0;
+      s.zip = 0;
       this.drawSeam();
       return;
     }
     await this.tween(480, (t) => {
-      s.stitches = 1 - t;
+      s.zip = 1 - t;
       this.drawSeam();
     });
   }
@@ -807,56 +1016,59 @@ export class BoardEngine {
     const A = this.nodes.get(s.a);
     const B = this.nodes.get(s.b);
     if (!A || !B) return;
-    const a = this.vp(A);
-    const b = this.vp(B);
     const k = this.nodeScale();
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    const len = Math.hypot(dx, dy) || 1;
-    const ux = dx / len;
-    const uy = dy / len;
-    const r = 26 * k;
-    const x1 = a.x + ux * r;
-    const y1 = a.y + uy * r;
-    const x2 = b.x - ux * r;
-    const y2 = b.y - uy * r;
-    const span = Math.max(0, Math.hypot(x2 - x1, y2 - y1));
-    const count = Math.floor(span / 12);
-    const shown = Math.round(count * s.stitches);
+    const ea = this.ends(A, k);
+    const eb = this.ends(B, k);
+    const right = ea.c.x < eb.c.x;
+    const x1 = right ? ea.right + 6 : ea.left - 6;
+    const x2 = right ? eb.left - 6 : eb.right + 6;
+    const y = (ea.c.y + eb.c.y) / 2;
+    const span = Math.abs(x2 - x1);
+    const count = Math.max(0, Math.floor(span / 9));
+    const shown = Math.round(count * s.zip);
     let st = "";
+    const dir = x2 > x1 ? 1 : -1;
     for (let i = 1; i < shown; i++) {
-      const cx = x1 + ux * i * 12;
-      const cy = y1 + uy * i * 12;
-      st += `M${cx - uy * 5 - ux * 3},${cy + ux * 5 - uy * 3} L${cx + uy * 5 + ux * 3},${cy - ux * 5 + uy * 3} `;
+      const cx = x1 + dir * i * 9;
+      const up = i % 2 ? -7 : 7;
+      st += `M${cx},${y} L${cx},${y + up} `;
     }
-    this.gSeam.innerHTML = `<path d="M${x1},${y1} L${x2},${y2}" stroke="var(--string)" stroke-width="1.5" stroke-dasharray="3 3" fill="none"/><path d="${st}" stroke="var(--string)" stroke-width="1.5" stroke-linecap="round" fill="none"/>`;
-    const mx = (a.x + b.x) / 2;
-    const my = (a.y + b.y) / 2;
-    s.chip.style.transform = `translate(${mx}px, ${my - 92 * k}px) translate(-50%, 0)`;
-    s.ghost.style.transform = `translate(${mx}px, ${my}px)`;
+    this.gSeam.innerHTML = `<path class="zip-line" d="M${x1},${y} L${x2},${y}"/><path class="zip-teeth" d="${st}"/>`;
+    const mx = (x1 + x2) / 2;
+    s.chip.style.transform = `translate(${mx}px, ${Math.min(ea.top, eb.top) - 16}px) translate(-50%, -100%)`;
+    s.ghost.style.transform = `translate(${(ea.c.x + eb.c.x) / 2}px, ${y}px) translate(-50%, -50%) scale(${k.toFixed(3)})`;
   }
 
-  // ------------------------------------------------------------ minimap snapshot
-  snapshot(): { nodes: { id: string; x: number; y: number; kind: string; onString: boolean }[]; edges: { s: string; t: string }[]; view: { x: number; y: number; w: number; h: number }; string: string[] } {
+  // ------------------------------------------------------------ the depth gauge and book map
+  snapshot(): {
+    nodes: { id: string; x: number; y: number; kind: string; onString: boolean; client: boolean }[];
+    edges: { s: string; t: string }[];
+    view: { x: number; y: number; w: number; h: number };
+    string: string[];
+    rows: { y: number; label: string }[];
+    book: boolean;
+  } {
     const W = this.host.clientWidth;
     const H = this.host.clientHeight;
     const tl = this.sigma.viewportToGraph({ x: 0, y: 0 });
     const br = this.sigma.viewportToGraph({ x: W, y: H });
-    const main = this.strings.find((s) => s.spec.weight !== "faint");
+    const main = this.traces.find((s) => s.spec.weight !== "faint");
     return {
-      nodes: [...this.nodes.values()].filter((n) => n.shown).map((n) => ({ id: n.id, x: n.x, y: n.y, kind: n.kind, onString: !!main?.spec.ids.includes(n.id) })),
+      nodes: [...this.nodes.values()].filter((n) => n.shown).map((n) => ({ id: n.id, x: n.x, y: n.y, kind: n.kind, onString: !!main?.spec.ids.includes(n.id), client: !!n.client })),
       edges: [...this.edges.values()].map((e) => ({ s: e.s, t: e.t })),
       view: { x: tl.x, y: -tl.y, w: br.x - tl.x, h: -br.y + tl.y },
       string: main?.spec.ids ?? [],
+      rows: this.rows,
+      book: this.pins,
     };
   }
 
   // ------------------------------------------------------------ theme and lifecycle
   readColors(): void {
-    this.colors = { own: css("--edge-own"), faint: css("--edge-faint") };
+    void css("--ink");
   }
   restyle(): void {
-    this.readColors();
+    for (const n of this.nodes.values()) this.measure(n);
     this.sigma?.refresh();
   }
 
@@ -886,19 +1098,6 @@ export class BoardEngine {
     this.sigma.kill();
     this.host.innerHTML = "";
   }
-}
-
-function trimmed(a: { x: number; y: number }, b: { x: number; y: number }, ra: number, rb: number) {
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const d = Math.hypot(dx, dy) || 1;
-  return { x1: a.x + (dx / d) * ra, y1: a.y + (dy / d) * ra, x2: b.x - (dx / d) * rb, y2: b.y - (dy / d) * rb };
-}
-function esc(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
-}
-function wait(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
 }
 
 export function webglAvailable(): boolean {

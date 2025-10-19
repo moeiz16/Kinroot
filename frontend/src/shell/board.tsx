@@ -1,5 +1,5 @@
-// The board is mounted once behind every app route. Routes describe what it shows (a scene, strings) and how
-// much of it is covered by a drawer or sheet; the engine does the drawing.
+// One chart per page. The provider lives in the shell; a page mounts <BoardStage /> inside its chart band and
+// describes what it shows (a scene, traces); the engine does the drawing.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { BoardEngine, webglAvailable, type Insets } from "../graph/engine";
 import type { Scene, StringSpec } from "../graph/model";
@@ -35,13 +35,15 @@ interface Wire {
 }
 const BoardContext = createContext<BoardApi | null>(null);
 
-// Floating chrome around the board: the As-at stamp and Find pill on top, the zoom group and minimap (about 120 px) at the foot.
-const CHROME = { top: 76, bottom: 128, left: 16, right: 16 };
+// Room inside the chart canvas: layer labels on the left, the depth gauge on the right.
+const CHROME = { top: 34, bottom: 30, left: 92, right: 76 };
 
 export function BoardProvider({ children }: { children: ReactNode }) {
   const engineRef = useRef<BoardEngine | null>(null);
   const handlers = useRef<Handlers>({});
   const pending = useRef<{ scene: Scene; unfold: boolean } | null>(null);
+  // What the chart shows now, so a chart that mounts later (or remounts) picks it up.
+  const last = useRef<{ scene: Scene; strings: StringSpec[] | null } | null>(null);
   const [scene, setScene] = useState<Scene | null>(null);
   const [occlusion, setOcc] = useState<Insets>({ top: 0, right: 0, bottom: 0, left: 0 });
   const [focused, setFocused] = useState<string | null>(null);
@@ -60,6 +62,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
       engine: () => engineRef.current,
       show: async (s, opts) => {
         setScene(s);
+        last.current = { scene: s, strings: null };
         const e = engineRef.current;
         if (!e) {
           pending.current = { scene: s, unfold: !!opts?.unfold };
@@ -69,6 +72,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
         setVersion((v) => v + 1);
       },
       pull: async (specs, opts) => {
+        if (last.current) last.current.strings = specs;
         await engineRef.current?.pull(specs, opts);
         setVersion((v) => v + 1);
       },
@@ -107,6 +111,12 @@ export function BoardProvider({ children }: { children: ReactNode }) {
       const p = pending.current;
       pending.current = null;
       void e.setScene(p.scene, { unfold: p.unfold }).then(() => setVersion((v) => v + 1));
+    } else if (last.current) {
+      const l = last.current;
+      void e
+        .setScene(l.scene)
+        .then(() => (l.strings ? e.pull(l.strings, { animate: false }) : undefined))
+        .then(() => setVersion((v) => v + 1));
     }
   }, []);
   const wire = useMemo<Wire>(() => ({ handlers, attach, setFocused, bump: () => setVersion((v) => v + 1) }), [attach]);
@@ -125,7 +135,7 @@ export function useBoard(): BoardApi {
   return v;
 }
 
-/** The always-present board. Renders a text twin of whatever it shows, for screen readers. */
+/** The chart canvas. Renders a text twin of whatever it shows, for screen readers. */
 export function BoardStage({ label }: { label?: string }) {
   const host = useRef<HTMLDivElement>(null);
   const board = useBoard();
@@ -169,9 +179,9 @@ export function BoardStage({ label }: { label?: string }) {
   const twin = board.scene ? ledgerTwin(board.scene.nodes, board.scene.edges) : [];
   return (
     <>
-      <div ref={host} className="board" data-testid="board" aria-hidden={canDraw ? undefined : "true"} />
+      <div ref={host} className="chart" data-testid="board" aria-hidden={canDraw ? undefined : "true"} />
       {twin.length > 0 && (
-        <div className="sr-only" role="region" aria-label="Text version of the board">
+        <div className="sr-only" role="region" aria-label="Text version of the chart">
           <ul>
             {twin.map((t) => (
               <li key={t.id}>
@@ -219,7 +229,7 @@ export function useBoardHandlers(h: Handlers): void {
   }, [board.setHandlers]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
-/** Tell the board how much of it is covered (drawer on the right, sheet on the left, bottom sheet on phones). */
+/** Tell the chart how much of it is covered by page chrome. */
 export function useOcclusion(o: Partial<Insets>): void {
   const board = useBoard();
   const k = JSON.stringify(o);

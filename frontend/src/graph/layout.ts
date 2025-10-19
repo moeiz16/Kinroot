@@ -1,5 +1,6 @@
-// Layouts for the board. Structures are layered roots-down (client on top, owners beneath); the client book
-// (constellation) uses ForceAtlas2, run synchronously from a seeded start so the picture is stable per firm.
+// Layouts for the chart. Structures are drawn as a structure chart: the client at the foot and its owners in rows
+// above it (y grows downward, so owners get negative y). The client book uses ForceAtlas2, run synchronously from a
+// seeded start so the picture is stable per firm.
 import Graph from "graphology";
 import forceAtlas2 from "graphology-layout-forceatlas2";
 import type { BEdge, BNode } from "./model";
@@ -10,13 +11,13 @@ export interface LayeredOptions {
 }
 
 /**
- * Roots-down layered layout. Each row is ordered by the mean x of the parties it owns or controls
+ * Structure-chart layered layout: the client on the bottom row, owners and controllers in rows above. Each row is ordered by the mean x of the parties it owns or controls
  * (barycentre), then pushed apart to at least `nodeSep` so labels (to the right of shapes) never collide.
  * Returns positions in layout px, client at x = 0.
  */
 export function layered(nodes: BNode[], edges: BEdge[], opts: LayeredOptions = {}): Map<string, { x: number; y: number }> {
-  const rankSep = opts.rankSep ?? 160;
-  const nodeSep = opts.nodeSep ?? 205;
+  const rankSep = opts.rankSep ?? 142;
+  const nodeSep = opts.nodeSep ?? 212;
   const pos = new Map<string, { x: number; y: number }>();
   const lv = new Map(nodes.map((n) => [n.id, n.level]));
   // Rank by the longest chain of interests above the client, not by hop count: a person who directs the client and
@@ -35,7 +36,7 @@ export function layered(nodes: BNode[], edges: BEdge[], opts: LayeredOptions = {
     }
     if (!moved) break;
   }
-  // A link between two parties on the same row would run through their labels: push the interested party down a row.
+  // A link between two parties on the same row would run through their plates: lift the interested party a row.
   for (let pass = 0; pass < nodes.length; pass++) {
     let moved = false;
     for (const e of edges) {
@@ -59,7 +60,7 @@ export function layered(nodes: BNode[], edges: BEdge[], opts: LayeredOptions = {
       const sources = edges.filter((e) => e.t === n.id && pos.has(e.s)).map((e) => pos.get(e.s)!.x);
       const ref = targets.length ? targets : sources;
       const rows = new Set(edges.filter((e) => e.s === n.id && pos.has(e.t)).map((e) => pos.get(e.t)!.y));
-      // A party linked into more than one row sits to the left (labels run right) so its links pass clear of the row between.
+      // A party linked into more than one row sits to the left so its links pass clear of the row between.
       const nudge = rows.size > 1 ? -nodeSep : 0;
       ideal.set(n.id, (ref.length ? ref.reduce((a, b) => a + b, 0) / ref.length : 0) + nudge);
     });
@@ -73,7 +74,7 @@ export function layered(nodes: BNode[], edges: BEdge[], opts: LayeredOptions = {
     const xs = row.map((n) => ideal.get(n.id)!);
     for (let i = 1; i < xs.length; i++) xs[i] = Math.max(xs[i]!, xs[i - 1]! + nodeSep);
     const shift = row.reduce((s, n, i) => s + (ideal.get(n.id)! - xs[i]!), 0) / Math.max(1, row.length);
-    row.forEach((n, i) => pos.set(n.id, { x: xs[i]! + shift, y: lvl * rankSep }));
+    row.forEach((n, i) => pos.set(n.id, { x: xs[i]! + shift, y: lvl ? -lvl * rankSep : 0 }));
   }
   return pos;
 }
