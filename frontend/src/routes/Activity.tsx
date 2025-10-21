@@ -1,5 +1,5 @@
-// Activity log: a ledger sheet in which every row is sealed to the one before it. "Verify the chain" walks
-// the seals row by row and closes each chain link.
+// Activity log, register skeleton: every row is sealed to the one before it. "Verify the chain" walks the seals
+// row by row and closes each chain link.
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Download, Lock, ShieldCheck } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -12,8 +12,8 @@ import type { AuditEntry, AuditVerify } from "../api/types";
 import { fmtDateTime } from "../lib/dates";
 import { prefersReduced } from "../lib/theme";
 import { useAuth } from "../lib/auth";
-import { Status } from "../shell/chrome";
-import { Caption, Folio, FolioBody } from "../shell/Folio";
+import { Status } from "../shell/chart";
+import { Masthead, Page, PageBody } from "../shell/page";
 import { NotAvailable } from "./NotFound";
 
 const ACTIONS = [
@@ -70,9 +70,16 @@ export default function Activity() {
   };
 
   return (
-    <Folio label="Activity log" width="full">
-      <Caption
-        refLine={<span>Sealed record of every decision · {total.toLocaleString("en-AU")} entries</span>}
+    <Page skeleton="register" label="Activity log">
+      <Masthead
+        size="poster"
+        refLine={
+          <>
+            <b>Sealed record of every decision</b>
+            <span className="sep">/</span>
+            <span>{total.toLocaleString("en-AU")} entries</span>
+          </>
+        }
         title="Activity log"
         tools={
           <>
@@ -85,12 +92,12 @@ export default function Activity() {
           </>
         }
       />
-      <FolioBody>
-        <div className="sheet-tools">
+      <PageBody>
+        <div className="register-tools">
           <label className="sort">
             <span className="muted">Action</span>
             <Select value={action} onValueChange={setAction}>
-              <SelectTrigger size="sm" aria-label="Action" className="w-[180px]">
+              <SelectTrigger aria-label="Action" className="w-[200px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -104,16 +111,16 @@ export default function Activity() {
           </label>
           <label className="sort">
             <span className="muted">From</span>
-            <Input type="date" className="h-8 w-[170px] text-[13.5px]" value={from} onChange={(e) => setFrom(e.target.value)} />
+            <Input type="date" aria-label="From date" className="w-[180px]" value={from} onChange={(e) => setFrom(e.target.value)} />
           </label>
         </div>
         <Table className="activity" aria-label="Activity log entries">
           <TableHeader>
             <TableRow>
-              <TableHead scope="col" style={{ width: 130 }}>When</TableHead>
-              <TableHead scope="col" style={{ width: 170 }}>Who</TableHead>
+              <TableHead scope="col" className="w-when">When</TableHead>
+              <TableHead scope="col" className="w-who">Who</TableHead>
               <TableHead scope="col">What</TableHead>
-              <TableHead scope="col" style={{ width: 120 }}>Seal</TableHead>
+              <TableHead scope="col" className="w-seal">Seal</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -121,7 +128,7 @@ export default function Activity() {
               const restricted = !!r.metadata.restricted;
               return (
                 <tr key={r.id}>
-                  <td className="mono" style={{ fontSize: 13 }}>{fmtDateTime(r.createdAt)}</td>
+                  <td className="mono when">{fmtDateTime(r.createdAt)}</td>
                   <td>{r.actorName}</td>
                   <td>
                     {r.label}
@@ -160,14 +167,14 @@ export default function Activity() {
           </div>
         )}
         {q.hasNextPage && (
-          <Button style={{ marginTop: 16 }} onClick={() => void q.fetchNextPage()}>
+          <Button className="more-btn" onClick={() => void q.fetchNextPage()}>
             Show older entries
           </Button>
         )}
-        <p className="note" style={{ marginTop: 16, display: "flex", gap: 6, alignItems: "center" }}>
+        <p className="note lock-note">
           <Lock size={12} aria-hidden /> Entries about restricted cases appear only for people who can see those cases. They stay in the chain for everyone.
         </p>
-      </FolioBody>
-    </Folio>
+      </PageBody>
+    </Page>
   );
 }

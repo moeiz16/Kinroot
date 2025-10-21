@@ -1,12 +1,10 @@
-// Home: the docket and the client book. The folio holds the docket, every decision waiting on the signed-in
-// person, sorted by when it is due. The exhibit holds the client constellation: the whole book as one network,
-// clustered by shared officers, owners and addresses; lenses recolour the pins and a docket row lights its pin.
+// The Desk (home), desk skeleton: a poster with the count of decisions waiting on the signed-in person, the ticket
+// rail (every waiting decision as a ticket, earliest due first), and the book chart: the whole client book as one
+// network, clustered by shared officers, owners and addresses. Lenses recolour it; hovering a ticket lights its client.
 import { useQuery } from "@tanstack/react-query";
-import { createColumnHelper, flexRender, getCoreRowModel, getSortedRowModel, useReactTable, type SortingState } from "@tanstack/react-table";
-import { ArrowDownUp, BellRing, CalendarClock, FileLock2, GitMerge, PenLine, Scale, ShieldAlert } from "lucide-react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { ArrowRight, BellRing, CalendarClock, ChevronLeft, ChevronRight, FileLock2, GitMerge, PenLine, Scale, ShieldAlert } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { api } from "../api/endpoints";
 import type { Client, Cluster, GraphPayload, ScreeningHit, TrayItem } from "../api/types";
@@ -17,8 +15,8 @@ import { daysBetween, daysFromToday, fmtDate, today } from "../lib/dates";
 import { deadlineLook, ratingLook } from "../lib/format";
 import { useAuth } from "../lib/auth";
 import { useBoard, useBoardHandlers, useBoardScene } from "../shell/board";
-import { AsAt, BoardTools, FindTrigger, Status } from "../shell/chrome";
-import { Caption, Folio, FolioBody } from "../shell/Folio";
+import { ChartBand, Status } from "../shell/chart";
+import { Page } from "../shell/page";
 import { prefersReduced } from "../lib/theme";
 
 export type Lens = "risk" | "review" | "shared" | "screening";
@@ -154,84 +152,52 @@ export function docketRows(tray: TrayItem[], cases: { id: string; title: string;
   return rows.sort((a, b) => (a.dueOn ?? "9999").localeCompare(b.dueOn ?? "9999"));
 }
 
-const col = createColumnHelper<DocketRow>();
-
-export function Docket({ rows, caption, onHover }: { rows: DocketRow[]; caption: string; onHover?: (r: DocketRow | null) => void }) {
-  const nav = useNavigate();
-  const [sorting, setSorting] = useState<SortingState>([]);
+/** The ticket rail: each waiting decision as a ticket, earliest due first. `vertical` stacks them (phones, Waiting). */
+export function Tickets({ rows, caption, onHover, vertical }: { rows: DocketRow[]; caption: string; onHover?: (r: DocketRow | null) => void; vertical?: boolean }) {
   const reduced = prefersReduced();
-  const columns = useMemo(
-    () => [
-      col.accessor("word", {
-        header: "Waiting",
-        cell: (c) => (
-          <span className="kind">
-            <span className="g" aria-hidden>
-              {TRAY_ICON[c.row.original.kind]}
-            </span>{" "}
-            {c.getValue()}
-          </span>
-        ),
-      }),
-      col.accessor("title", {
-        header: "Matter",
-        cell: (c) => (
-          <span className="who">
-            <Link to={c.row.original.href}>
-              <b>{c.getValue()}</b>
-            </Link>
-            <small>{c.row.original.subtitle}</small>
-          </span>
-        ),
-      }),
-      col.accessor((r) => r.dueOn ?? "9999", { id: "due", header: "Due", cell: (c) => <span className={`due${c.row.original.due.late ? " late" : ""}`}>{c.row.original.due.text}</span> }),
-    ],
-    [],
-  );
-  const table = useReactTable({ data: rows, columns, state: { sorting }, onSortingChange: setSorting, getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel() });
+  const rail = useRef<HTMLOListElement>(null);
+  const scroll = (dir: number) => rail.current?.scrollBy({ left: dir * 560, behavior: reduced ? "auto" : "smooth" });
   return (
-    <Table className="docket" aria-label={caption}>
-      <TableHeader>
-        {table.getHeaderGroups().map((g) => (
-          <TableRow key={g.id}>
-            {g.headers.map((h) => (
-              <TableHead key={h.id} className={h.column.id === "due" ? "num" : undefined} aria-sort={h.column.getIsSorted() === "asc" ? "ascending" : h.column.getIsSorted() === "desc" ? "descending" : undefined}>
-                <button type="button" className="sort-head" onClick={h.column.getToggleSortingHandler()}>
-                  {flexRender(h.column.columnDef.header, h.getContext())}
-                  <ArrowDownUp aria-hidden />
-                </button>
-              </TableHead>
-            ))}
-          </TableRow>
+    <section className={`tickets${vertical ? " vertical" : ""}`} aria-label="Waiting decisions">
+      {!vertical && rows.length > 4 && (
+        <div className="tickets-nav">
+          <span className="k">
+            {rows.length} tickets · earliest due first
+          </span>
+          <button type="button" aria-label="Earlier tickets" onClick={() => scroll(-1)}>
+            <ChevronLeft />
+          </button>
+          <button type="button" aria-label="Later tickets" onClick={() => scroll(1)}>
+            <ChevronRight />
+          </button>
+        </div>
+      )}
+      <ol ref={rail} className="ticket-rail" aria-label={caption}>
+        {rows.map((r, i) => (
+          <li key={r.id} className={reduced ? undefined : "ticket-in"} style={reduced ? undefined : { animationDelay: `${Math.min(i, 8) * 40}ms` }}>
+            <Link to={r.href} className={`ticket k-${r.kind}${r.due.late ? " late" : ""}`} onMouseEnter={() => onHover?.(r)} onMouseLeave={() => onHover?.(null)} onFocus={() => onHover?.(r)} onBlur={() => onHover?.(null)}>
+              <span className="t-kind">
+                <span className="g" aria-hidden>
+                  {TRAY_ICON[r.kind]}
+                </span>
+                {r.word}
+              </span>
+              <b className="t-title">{r.title}</b>
+              <small className="t-sub">{r.subtitle}</small>
+              <span className="t-due">
+                <span className="k">Due</span>
+                <span className="v">
+                  {r.due.late && <span aria-hidden>▲ </span>}
+                  {r.dueOn ? r.due.text : "No deadline"}
+                </span>
+                <ArrowRight aria-hidden />
+              </span>
+            </Link>
+          </li>
         ))}
-      </TableHeader>
-      <TableBody>
-        {table.getRowModel().rows.map((r, i) => (
-          <TableRow
-            key={r.id}
-            className={reduced ? undefined : "docket-row-in"}
-            style={reduced ? undefined : { animationDelay: `${i * 18}ms` }}
-            onClick={(e) => (e.target as HTMLElement).closest("a") || nav(r.original.href)}
-            onMouseEnter={() => onHover?.(r.original)}
-            onMouseLeave={() => onHover?.(null)}
-            onFocus={() => onHover?.(r.original)}
-          >
-            {r.getVisibleCells().map((c) => (
-              <TableCell key={c.id} className={c.column.id === "due" ? "num" : undefined}>
-                {flexRender(c.column.columnDef.cell, c.getContext())}
-              </TableCell>
-            ))}
-          </TableRow>
-        ))}
-        {!rows.length && (
-          <TableRow>
-            <TableCell colSpan={3} className="muted">
-              Nothing is waiting. New decisions appear here as soon as they arrive.
-            </TableCell>
-          </TableRow>
-        )}
-      </TableBody>
-    </Table>
+        {!rows.length && <li className="ticket-empty">Nothing is waiting. New decisions appear here as soon as they arrive.</li>}
+      </ol>
+    </section>
   );
 }
 
@@ -288,73 +254,75 @@ export default function BoardHome() {
     board.engine()?.setSelected(partyId ?? null);
   };
   return (
-    <>
-      <Folio label="The docket" width="normal">
-        <Caption
-          refLine={
-            <>
-              <b>{me?.activeOrg?.name}</b>
-              <span className="sep">·</span>
-              <span>Docket as at {fmtDate(today())}</span>
-            </>
-          }
-          title={caption}
-          sub={me?.membership?.roleLabel ? `Decisions for ${me.user.fullName}, ${me.membership.roleLabel.toLowerCase()}. Earliest due first.` : undefined}
-          stamps={
-            <>
-              {late > 0 && <Status tone="high">{late} late</Status>}
-              <Status tone="neutral" glyph="○">
-                {live} clients in the book
-              </Status>
-            </>
-          }
-        />
-        <FolioBody>
-          <Docket rows={rows} caption={caption} onHover={hover} />
-          <p className="note" style={{ marginTop: 14 }}>
-            Hover a row to find its client on the board. <span className="kbd">/</span> finds anyone.
-          </p>
-        </FolioBody>
-      </Folio>
-      <AsAt exhibit="Exhibit" title="The client book" />
-      <FindTrigger />
-      <BoardTools minimap />
-      <div className="chrome lenses" style={{ bottom: 16, left: "50%", transform: "translateX(-50%)" }}>
-        <span className="k" id="lens-label">
-          Lens
-        </span>
-        <ToggleGroup
-          type="single"
-          aria-labelledby="lens-label"
-          value={lens}
-          onValueChange={(v) => {
-            if (!v) return;
-            setSelectedCluster(null);
-            setParams(v === "risk" ? {} : { lens: v });
-          }}
-        >
-          {LENSES.map((l) => (
-            <ToggleGroupItem key={l.id} value={l.id}>
-              {l.label}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-        <span className="lens-cap" role="status">
-          {built?.caption ?? "Loading the client book…"}
-        </span>
-      </div>
-      {lens === "shared" && clusters.data && (
-        <div className="chrome cluster-list" style={{ right: 16, bottom: 72 }}>
-          <div className="board-hint" style={{ marginBottom: 2 }}>
-            Select a group to highlight it
-          </div>
-          {clusters.data.slice(0, 5).map((c) => (
-            <button key={c.id} className="cluster-cap" aria-pressed={selectedCluster === c.id} onClick={() => setSelectedCluster(selectedCluster === c.id ? null : c.id)}>
-              {c.label}
-            </button>
-          ))}
+    <Page skeleton="desk" label="Desk">
+      <header className="desk-poster">
+        <div className="mast-ref">
+          <b>{me?.activeOrg?.name}</b>
+          <span className="sep">/</span>
+          <span>Desk as at {fmtDate(today())}</span>
         </div>
-      )}
-    </>
+        <h1 className="dp-title">
+          <span className="dp-num set">{rows.length}</span>{" "}
+          <span className="dp-words set">{rows.length ? "waiting for you" : `Nothing waiting for ${first ?? "you"}`}</span>
+        </h1>
+        <div className="dp-foot">
+          <p className="dp-sub">{me?.membership?.roleLabel ? `Decisions for ${me.user.fullName}, ${me.membership.roleLabel}. Earliest due first.` : "Earliest due first."}</p>
+          <div className="dp-stamps">
+            {late > 0 && <Status tone="high">{late} late</Status>}
+            <Status tone="neutral" glyph="○">
+              {live} clients in the book
+            </Status>
+          </div>
+        </div>
+      </header>
+      <Tickets rows={rows} caption={caption} onHover={hover} />
+      <ChartBand
+        label="The client book"
+        exhibit="Exhibit"
+        title="The client book"
+        height="book"
+        legend={["company", "trust", "person", "shared"]}
+        tools={{}}
+        bar={
+          <div className="lenses">
+            <span className="k" id="lens-label">
+              Lens
+            </span>
+            <ToggleGroup
+              type="single"
+              aria-labelledby="lens-label"
+              value={lens}
+              onValueChange={(v) => {
+                if (!v) return;
+                setSelectedCluster(null);
+                setParams(v === "risk" ? {} : { lens: v });
+              }}
+            >
+              {LENSES.map((l) => (
+                <ToggleGroupItem key={l.id} value={l.id}>
+                  {l.label}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          </div>
+        }
+        foot={
+          <span className="lens-cap" role="status">
+            {built?.caption ?? "Loading the client book…"}
+          </span>
+        }
+      >
+        {lens === "shared" && clusters.data && (
+          <div className="cluster-list">
+            <div className="k">Select a group to highlight it</div>
+            {clusters.data.slice(0, 5).map((c) => (
+              <button key={c.id} type="button" className="cluster-cap" aria-pressed={selectedCluster === c.id} onClick={() => setSelectedCluster(selectedCluster === c.id ? null : c.id)}>
+                {c.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </ChartBand>
+    </Page>
   );
 }

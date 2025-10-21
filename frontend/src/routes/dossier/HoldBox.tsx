@@ -11,7 +11,7 @@ import type { Client, RiskAssessment } from "../../api/types";
 import { fmtDate } from "../../lib/dates";
 import { useAuth } from "../../lib/auth";
 import { ratingLook } from "../../lib/format";
-import { Status } from "../../shell/chrome";
+import { Status } from "../../shell/chart";
 
 /** One neutral wording for every hold, so the hold itself never hints at a restricted matter. */
 export function HoldBox({ client }: { client: Client }) {
@@ -115,7 +115,7 @@ export function SecondOpinionBox({ client, risk }: { client: Client; risk: RiskA
       <h2>
         Settle the difference <span className="aside">The rules stay the decision of record until you decide</span>
       </h2>
-      <p style={{ margin: "0 0 10px", fontFamily: "var(--f-serif)", fontSize: 15.5 }}>
+      <p style={{ margin: "0 0 10px", fontFamily: "var(--f-sans)", fontSize: 15.5 }}>
         The rules rate {client.name} {ratingLook(risk.rating).word}; the second-opinion check says {ratingLook(ch.rating).word} ({Math.round(ch.probabilityHigh * 100)} in 100 for high risk).
       </p>
       <label className="field">

@@ -1,6 +1,6 @@
-// The client dossier. The folio is the client file: a caption (matter reference, name, stamps), folder tabs, and
-// the sign-off at the foot. The exhibit is the client's structure (roots down, the red string to each beneficial
-// owner, before/after tags against onboarding) with the trail of the last thread pulled.
+// The client dossier, chart-over-record skeleton: the masthead (matter reference, the name in capitals, stamps), the
+// structure chart full width (owners above the client, the trace to each beneficial owner, before/after tags against
+// onboarding), section words over the record, and the sign-off in the decision bar at the foot of the window.
 import { useQuery } from "@tanstack/react-query";
 import { Pin } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -14,8 +14,8 @@ import { dueIn, fmtDate, today } from "../../lib/dates";
 import { COUNTRY, KIND_LABEL } from "../../lib/format";
 import { useAuth } from "../../lib/auth";
 import { useBoard, useBoardHandlers, useBoardScene } from "../../shell/board";
-import { AsAt, BoardTools, FindTrigger, Legend, RatingTag, Status, Trail } from "../../shell/chrome";
-import { Caption, Decision, Folio, FolioTabs, type FolderTab } from "../../shell/Folio";
+import { ChartBand, RatingTag, Status } from "../../shell/chart";
+import { DecisionBar, Masthead, Page, SectionTabs, useHop, type SectionTab } from "../../shell/page";
 import { NotAvailable } from "../NotFound";
 import { DocumentsPanel, OwnersPanel, RestrictedPanel, RiskPanel, ScreeningPanel, SummaryPanel, TimelinePanel, type PanelProps } from "./panels";
 import { SignOffBox } from "./SignOffBox";
@@ -47,12 +47,7 @@ export default function Dossier() {
     if (structure && client.data) board.engine()?.setSelected(client.data.partyId);
   }, [structure, client.data, board.engine, board.version]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => setPulled(structure?.strings[0] ?? null), [structure]);
-  // The trail sits under the exhibit label: keep the structure clear of it.
-  const hasTrail = (pulled?.ids.length ?? 0) > 1;
-  useEffect(() => {
-    board.setReserve({ top: hasTrail ? 56 : 0 });
-    return () => board.setReserve({ top: 0 });
-  }, [hasTrail]); // eslint-disable-line react-hooks/exhaustive-deps
+  useHop(client.data?.name, client.data?.kind === "individual" ? "person" : client.data?.kind === "trust" ? "trust" : client.data?.kind === "partnership" ? "partnership" : "company");
 
   const pullThread = useCallback(
     async (partyId: string | null) => {
@@ -111,7 +106,7 @@ export default function Dossier() {
   if (client.isError) return <NotAvailable />;
   if (!client.data) return null;
   const c = client.data;
-  const tabs: FolderTab[] = [
+  const tabs: SectionTab[] = [
     { id: "summary", label: "Summary" },
     { id: "owners", label: "Owners", count: counts.owners || undefined },
     { id: "screening", label: "Screening", count: counts.hits || undefined },
@@ -128,62 +123,65 @@ export default function Dossier() {
   const dd = edd.data?.required ? (edd.data.status === "approved" ? "Enhanced due diligence complete" : "Enhanced due diligence open") : c.status === "onboarding" ? "Onboarding in progress" : "Standard due diligence";
 
   return (
-    <>
-      <Folio label={`Client dossier: ${c.name}`} width="normal">
-        <Caption
-          refLine={
-            <>
-              <span>Client file</span>
-              <b>{c.matterReference ?? c.id.slice(0, 8)}</b>
-              <span className="sep">·</span>
-              <span>Fee earner {c.assignedTo?.fullName ?? "unassigned"}</span>
-              {c.sample && (
-                <>
-                  <span className="sep">·</span>
-                  <span>Sample data</span>
-                </>
-              )}
-            </>
-          }
-          title={c.name}
-          sub={
-            <span className="mono" style={{ fontSize: 12.5, color: "var(--muted)" }}>
-              {clientNode?.sub && clientNode.sub !== "Client" ? `${clientNode.sub} · ` : ""}
-              {KIND_LABEL[c.kind]} · {COUNTRY[c.jurisdiction] ?? c.jurisdiction}
-              {c.onboardedOn ? ` · Onboarded ${fmtDate(c.onboardedOn)}` : " · Onboarding"}
-            </span>
-          }
-          stamps={
-            <>
-              <RatingTag r={c.rating} />
-              {c.status === "blocked" ? <Status tone="high">Work paused: confirmed sanctions match</Status> : <Status tone={edd.data?.required && edd.data.status !== "approved" ? "review" : "neutral"}>{dd}</Status>}
-              {c.nextReviewOn && (
-                <span className="meta" title={fmtDate(c.nextReviewOn)}>
-                  Next periodic review {dueIn(c.nextReviewOn)}
-                </span>
-              )}
-            </>
-          }
-          tools={
-            <Button variant="quiet" size="icon" aria-pressed={pinned} aria-label={pinned ? "Unpin this dossier" : "Keep this dossier open"} onClick={() => setPinned(!pinned)} className={pinned ? "text-string" : undefined}>
-              <Pin />
-            </Button>
-          }
-        />
-        <FolioTabs label={`Client dossier: ${c.name}`} tabs={tabs} active={tab} onTab={(t) => nav(`/clients/${id}/${t}`)} onEscape={pinned ? undefined : () => nav("/board")}>
-          {panel}
-        </FolioTabs>
-        {tab !== "restricted" && edd.data && (
-          <Decision label="Sign-off">
-            <SignOffBox client={c} edd={edd.data} />
-          </Decision>
-        )}
-      </Folio>
-      <AsAt exhibit="Exhibit A" title="Ownership and control" asAt={today()} compare={compareFrom} compareLabel={compareFrom === c.onboardedOn ? "onboarding" : undefined} onToggle={() => setCompare(compareFrom ? null : (c.onboardedOn ?? null))} onPick={(d) => setCompare(d)} />
-      <Trail hops={trailHops} end={pulled?.tag ? pulled.tag.value : undefined} />
-      <FindTrigger />
-      <BoardTools onThread={() => void pullThread(board.focused ?? structure?.ubo?.owners[0]?.partyId ?? null)} />
-      <Legend />
-    </>
+    <Page skeleton="chart" label={`Client dossier: ${c.name}`}>
+      <Masthead
+        size="name"
+        refLine={
+          <>
+            <span>Client file</span>
+            <b>{c.matterReference ?? c.id.slice(0, 8)}</b>
+            <span className="sep">/</span>
+            <span>Fee earner {c.assignedTo?.fullName ?? "unassigned"}</span>
+            {c.sample && (
+              <>
+                <span className="sep">/</span>
+                <span>Sample data</span>
+              </>
+            )}
+          </>
+        }
+        title={c.name}
+        sub={
+          <span className="mast-facts">
+            {clientNode?.sub && clientNode.sub !== "Client" ? <span>{clientNode.sub}</span> : null}
+            <span>{KIND_LABEL[c.kind]}</span>
+            <span>{COUNTRY[c.jurisdiction] ?? c.jurisdiction}</span>
+            <span>{c.onboardedOn ? `Onboarded ${fmtDate(c.onboardedOn)}` : "Onboarding"}</span>
+          </span>
+        }
+        stamps={
+          <>
+            <RatingTag r={c.rating} />
+            {c.status === "blocked" ? <Status tone="high">Work paused: confirmed sanctions match</Status> : <Status tone={edd.data?.required && edd.data.status !== "approved" ? "review" : "neutral"}>{dd}</Status>}
+            {c.nextReviewOn && (
+              <span className="meta" title={fmtDate(c.nextReviewOn)}>
+                Next periodic review {dueIn(c.nextReviewOn)}
+              </span>
+            )}
+          </>
+        }
+        tools={
+          <Button variant="line" size="sm" aria-pressed={pinned} aria-label={pinned ? "Unpin this dossier" : "Keep this dossier open"} onClick={() => setPinned(!pinned)} className={pinned ? "pressed" : undefined}>
+            <Pin /> {pinned ? "Kept open" : "Keep open"}
+          </Button>
+        }
+      />
+      <ChartBand
+        label="Ownership and control"
+        exhibit="Exhibit A"
+        title="Ownership and control"
+        compare={{ asAt: today(), compare: compareFrom, compareLabel: compareFrom === c.onboardedOn ? "onboarding" : undefined, onToggle: () => setCompare(compareFrom ? null : (c.onboardedOn ?? null)), onPick: (d) => setCompare(d) }}
+        tools={{ onThread: () => void pullThread(board.focused ?? structure?.ubo?.owners[0]?.partyId ?? null) }}
+        trace={trailHops.length > 1 ? { hops: trailHops, end: pulled?.tag ? pulled.tag.value : undefined } : null}
+      />
+      <SectionTabs label={`Client dossier: ${c.name}`} tabs={tabs} active={tab} onTab={(t) => nav(`/clients/${id}/${t}`)} onEscape={pinned ? undefined : () => nav("/board")} className="record">
+        {panel}
+      </SectionTabs>
+      {tab !== "restricted" && edd.data && (
+        <DecisionBar label="Sign-off">
+          <SignOffBox client={c} edd={edd.data} />
+        </DecisionBar>
+      )}
+    </Page>
   );
 }

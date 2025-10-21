@@ -1,10 +1,10 @@
-// Phone: the docket on its own (the "Waiting" tab of the bottom bar).
+// Phones and the Index: everything waiting on you, as a stack of tickets, earliest due first.
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { api } from "../api/endpoints";
 import { useAuth } from "../lib/auth";
-import { Caption, Folio, FolioBody } from "../shell/Folio";
-import { Docket, docketRows } from "./BoardHome";
+import { Masthead, Page, PageBody } from "../shell/page";
+import { docketRows, Tickets } from "./BoardHome";
 
 export default function Waiting() {
   const { can } = useAuth();
@@ -13,11 +13,11 @@ export default function Waiting() {
   const rows = useMemo(() => docketRows(dash.data?.fileTray ?? [], cases.data?.items ?? []), [dash.data, cases.data]);
   const caption = `${rows.length} waiting for you`;
   return (
-    <Folio label="Waiting for you" width="full">
-      <Caption refLine={<span>The docket · earliest due first</span>} title={caption} />
-      <FolioBody>
-        <Docket rows={rows} caption={caption} />
-      </FolioBody>
-    </Folio>
+    <Page skeleton="register" label="Waiting for you">
+      <Masthead size="poster" refLine={<b>Earliest due first</b>} title={caption} />
+      <PageBody>
+        <Tickets rows={rows} caption={caption} vertical />
+      </PageBody>
+    </Page>
   );
 }

@@ -78,7 +78,7 @@ export function SignOffBox({ client, edd }: { client: Client; edd: Edd | undefin
             </Button>
           )}
           <Button
-            variant={open ? "string" : "line"}
+            variant={open ? "primary" : "line"}
             aria-disabled={!canSign}
             disabled={!canSign || sign.isPending}
             title={canSign ? undefined : stage ? "Only the right person can sign this stage" : "Waiting on the enhanced checks"}

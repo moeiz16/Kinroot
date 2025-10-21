@@ -1,4 +1,4 @@
-// Dossier folder contents. Every panel is a ledger or a reasoned list; numbers are mono, reasons are serif.
+// Dossier sections. Every section is a register or a reasoned list, laid out on the page grid; numbers are mono.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText, Lock, RefreshCcw, Upload } from "lucide-react";
 import { useRef, useState, type ReactNode } from "react";
@@ -16,7 +16,7 @@ import type { AuditEntry, BeneficialOwner, Case, Client, DocType, DocumentRec, E
 import { fmtDate, fmtDateTime, relativeDays } from "../../lib/dates";
 import { bytes, likelihood, ratingLook } from "../../lib/format";
 import { useAuth } from "../../lib/auth";
-import { RatingTag, Status } from "../../shell/chrome";
+import { RatingTag, Status } from "../../shell/chart";
 import { HoldBox, SecondOpinionBox } from "./HoldBox";
 import type { Structure } from "./structure";
 
@@ -85,7 +85,7 @@ export function SummaryPanel(p: PanelProps) {
               <tr key={o.partyId} className="rowlink" onClick={() => p.onThread(o.partyId)}>
                 <td className="mark">{i === 0 && (o.effectivePct ?? 0) > 0 && <i aria-hidden />}</td>
                 <td className="who">
-                  <button className="rowbtn" onClick={() => p.onThread(o.partyId)} aria-label={`${o.name}: pull the thread on the board`}>
+                  <button className="rowbtn" onClick={() => p.onThread(o.partyId)} aria-label={`${o.name}: trace on the chart`}>
                     <b>{o.name}</b>
                   </button>
                   <small>{pathText(o, structure!.names)}</small>
@@ -177,11 +177,11 @@ export function OwnersPanel(p: PanelProps) {
   const rows = structure.nodes.filter((n) => !n.client).sort((a, b) => a.level - b.level || a.x - b.x);
   return (
     <>
-      <h2 className="title" style={{ fontSize: 23 }}>
+      <h2 className="title">
         Everyone in the structure
       </h2>
-      <p className="lede" style={{ fontSize: 15 }}>
-        The same structure as the board, as a register. Each link shows where it came from.
+      <p className="lede">
+        The same structure as the chart, as a register. Each link shows where it came from.
       </p>
       <Table className="owners-ledger" style={{ marginTop: 18 }}>
         <TableHeader>
@@ -203,7 +203,7 @@ export function OwnersPanel(p: PanelProps) {
               <tr key={n.id} className="rowlink">
                 <td className="who">
                   <button className="rowbtn" onClick={() => p.onParty(n.id)}>
-                    <b style={o?.isUbo ? { color: "var(--string)" } : undefined}>{n.label}</b>
+                    <b className={o?.isUbo ? "is-owner" : undefined}>{n.label}</b>
                   </button>
                   <small>{n.kind === "unknown" ? "Not yet known" : n.kind === "stack" ? n.sub : n.sub}</small>
                 </td>
@@ -269,7 +269,7 @@ export function ScreeningPanel(p: PanelProps) {
   };
   return (
     <>
-      <h2 className="title" style={{ fontSize: 23 }}>
+      <h2 className="title">
         Screening
       </h2>
       <div className="meta">
@@ -339,7 +339,7 @@ export function RiskPanel(p: PanelProps) {
   if (!risk) return <p className="muted">This client has not been rated yet. Finish onboarding to see the first rating.</p>;
   return (
     <>
-      <h2 className="title" style={{ fontSize: 25 }}>
+      <h2 className="title">
         Rated {ratingLook(risk.override?.rating ?? risk.rating).word}, {risk.score} out of 100
       </h2>
       <div className="meta">
@@ -359,7 +359,7 @@ export function RiskPanel(p: PanelProps) {
         <section className="section">
           <h2>Enhanced checks</h2>
           {edd.triggers.map((t) => (
-            <p key={t.code} style={{ margin: "0 0 10px", fontFamily: "var(--f-serif)", fontSize: 15.5 }}>
+            <p key={t.code} className="trigger">
               Triggered because {t.message.charAt(0).toLowerCase() + t.message.slice(1)}
             </p>
           ))}
@@ -422,7 +422,7 @@ export function RiskPanel(p: PanelProps) {
                 <Button variant="quiet" onClick={() => setOverride(null)}>
                   Cancel
                 </Button>
-                <Button variant="string" onClick={() => ov.mutate()} disabled={ov.isPending}>
+                <Button variant="primary" onClick={() => ov.mutate()} disabled={ov.isPending}>
                   Save the rating
                 </Button>
               </DialogFooter>
@@ -476,7 +476,7 @@ export function DocumentsPanel(p: PanelProps) {
   };
   return (
     <>
-      <h2 className="title" style={{ fontSize: 23 }}>
+      <h2 className="title">
         Documents
       </h2>
       <div className="meta">Kept until 7 years after the relationship ends</div>
@@ -548,10 +548,10 @@ export function TimelinePanel(p: PanelProps & { audit: AuditEntry[]; pins?: Pinn
   events.sort((a, b) => b.date.localeCompare(a.date));
   return (
     <>
-      <h2 className="title" style={{ fontSize: 23 }}>
+      <h2 className="title">
         Timeline
       </h2>
-      <p className="lede" style={{ fontSize: 15 }}>
+      <p className="lede">
         The same structure told as dated events, newest first.
       </p>
       <ol className="timeline">
@@ -592,13 +592,13 @@ export function RestrictedPanel({ caseRec }: { caseRec: Case }) {
         <Lock size={14} aria-hidden /> Restricted. Do not discuss this with the client or anyone outside this list.
       </div>
       <div className="eyebrow">Case · visible to {caseRec.access?.map((a) => a.fullName).join(" and ") ?? "the compliance officer"}</div>
-      <h2 className="title" style={{ fontSize: 23 }}>
+      <h2 className="title">
         {caseRec.title.split(" · ")[0]}
       </h2>
       <p className="meta">
         Opened {fmtDate(caseRec.openedAt.slice(0, 10))} by {caseRec.openedBy} · report due {fmtDate(caseRec.deadlineOn)} ({relativeDays(caseRec.deadlineOn)})
       </p>
-      <p className="lede" style={{ fontSize: 15 }}>
+      <p className="lede">
         Work on this file continues as normal. Steps that could alert the client wait for the compliance officer’s go-ahead.
       </p>
       <Button asChild variant="ink" style={{ marginTop: 16 }}>

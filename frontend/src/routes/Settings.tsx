@@ -1,5 +1,5 @@
-// Settings: a full-width folio with folder tabs. Firm · Members · Risk method · Screening lists · Retention ·
-// Notifications.
+// Settings, form skeleton: a poster title, section words (Firm · Members · Risk method · Screening lists · Retention ·
+// Notifications) and each section as label/field rows on the page grid.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, Lock, UserPlus, X } from "lucide-react";
 import { useState } from "react";
@@ -20,8 +20,8 @@ import { ROLE_LABELS } from "../lib/permissions";
 import { listSourceLabel, ratingLook } from "../lib/format";
 import { applyTheme, useTheme } from "../lib/theme";
 import { useAuth } from "../lib/auth";
-import { Status } from "../shell/chrome";
-import { Caption, Folio, FolioTabs } from "../shell/Folio";
+import { Status } from "../shell/chart";
+import { Masthead, Page, SectionTabs } from "../shell/page";
 
 const SECTIONS = [
   { id: "firm", label: "Firm" },
@@ -38,12 +38,22 @@ export default function Settings() {
   const { me } = useAuth();
   const members = useQuery({ queryKey: ["members"], queryFn: api.org.members });
   return (
-    <Folio label="Settings" width="full">
-      <Caption refLine={<span>Settings · {me?.activeOrg?.name}</span>} title="The firm’s settings" />
-      <FolioTabs label="Settings" tabs={SECTIONS.map((x) => ({ ...x, count: x.id === "members" ? members.data?.length : undefined }))} active={section} onTab={(id) => nav(`/settings/${id}`)}>
+    <Page skeleton="form" label="Settings">
+      <Masthead
+        size="poster"
+        refLine={
+          <>
+            <b>Settings</b>
+            <span className="sep">/</span>
+            <span>{me?.activeOrg?.name}</span>
+          </>
+        }
+        title="The firm’s settings"
+      />
+      <SectionTabs label="Settings" tabs={SECTIONS.map((x) => ({ ...x, count: x.id === "members" ? members.data?.length : undefined }))} active={section} onTab={(id) => nav(`/settings/${id}`)}>
         <div className="settings-body">{section === "members" ? <Members /> : section === "risk-method" ? <RiskMethod /> : section === "screening-lists" ? <Lists /> : section === "retention" ? <Retention /> : section === "notifications" ? <Notifications /> : <Firm />}</div>
-      </FolioTabs>
-    </Folio>
+      </SectionTabs>
+    </Page>
   );
 }
 
@@ -82,7 +92,7 @@ function Firm() {
         </TableBody>
       </Table>
       {can("org:admin") && name !== null && (
-        <Button variant="string" style={{ marginTop: 16 }} onClick={() => save.mutate()}>
+        <Button variant="primary" style={{ marginTop: 16 }} onClick={() => save.mutate()}>
           Save the firm’s details
         </Button>
       )}
@@ -131,7 +141,7 @@ function Members() {
             }}
           >
             <DialogTrigger asChild>
-              <Button variant="string">
+              <Button variant="primary">
                 <UserPlus /> Invite someone
               </Button>
             </DialogTrigger>
@@ -631,10 +641,10 @@ function Notifications() {
       {!canEdit && <p className="note" style={{ marginTop: 12 }}>The firm administrator or compliance officer changes these.</p>}
       {msg && <p role="status">{msg}</p>}
       <section className="section">
-        <h2>The board</h2>
+        <h2>Pages</h2>
         <label className="check">
           <Checkbox checked={theme === "dark"} onCheckedChange={() => applyTheme(theme === "dark" ? "light" : "dark", true)} />
-          Use the dark board on this device
+          Use dark pages on this device
         </label>
       </section>
     </>

@@ -1,6 +1,5 @@
-// Onboarding: the form is the folio of a new client file and the board builds the structure live as owners are
-// added (each new party unfolds under the pin). Steps are folder tabs, not a stepper bar; Back and Continue sit in
-// the decision block at the foot.
+// Onboarding, chart over record: the chart builds the structure live as owners are added (each new party rises
+// above the client), the numbered step ribbon sits over the form, and Back and Continue sit in the decision bar.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BadgeCheck, Link2, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -20,8 +19,8 @@ import { initials } from "../graph/transforms";
 import { today } from "../lib/dates";
 import { KIND_LABEL, SERVICE_LABEL } from "../lib/format";
 import { useBoardHandlers, useBoardScene } from "../shell/board";
-import { AsAt, BoardTools, RatingTag, Status } from "../shell/chrome";
-import { Caption, Decision, Folio, FolioTabs } from "../shell/Folio";
+import { ChartBand, RatingTag, Status } from "../shell/chart";
+import { DecisionBar, Masthead, Page, SectionTabs } from "../shell/page";
 import { ReasonList } from "./dossier/panels";
 import { useStructure } from "./dossier/structure";
 
@@ -69,7 +68,7 @@ interface DraftClient {
   birthDate: string;
 }
 
-/** The structure as it is being typed: client pin on top, every added party unfolding beneath it. */
+/** The structure as it is being typed: the client at the foot, every added party rising above it. */
 /** Draft party keys: a counter, never the clock (two parties added in the same millisecond must not collide). */
 let draftSeq = 0;
 
@@ -104,11 +103,11 @@ export function draftScene(c: DraftClient, parties: DraftParty[], canAdd: boolea
 // Consent comes before the identity check: the collection notice is given, and consent to an electronic check
 // recorded, before anyone's details are checked against an issuer (Privacy Act 1988; AML/CTF Rules safe harbour).
 const STEPS = [
-  { id: "client", label: "1 Client" },
-  { id: "people", label: "2 People and owners" },
-  { id: "consent", label: "3 Consent" },
-  { id: "identity", label: "4 Identity" },
-  { id: "review", label: "5 Review" },
+  { id: "client", label: "01 Client" },
+  { id: "people", label: "02 People and owners" },
+  { id: "consent", label: "03 Consent" },
+  { id: "identity", label: "04 Identity" },
+  { id: "review", label: "05 Review" },
 ];
 const addressOf = (street: string | undefined, suburb: string | undefined, postcode: string | undefined, state: string) =>
   street?.trim() ? { line1: street.trim(), locality: suburb?.trim() || undefined, state, postcode: postcode?.trim() || undefined, country: "AU" } : undefined;
@@ -242,12 +241,27 @@ export default function Onboard() {
   ];
 
   return (
-    <>
-      <AsAt exhibit="Exhibit" title={c.name ? `${c.name} as entered` : "The structure as you enter it"} />
-      <BoardTools minimap={false} />
-      <Folio label="Onboard a client" width="normal">
-      <Caption refLine={<span>New client file{client?.matterReference ? ` · ${client.matterReference}` : ""} · {KIND_LABEL[c.kind]}</span>} title={c.name || "Who is the client?"} stamps={client ? <Status tone="review">File opened · not yet submitted</Status> : undefined} />
-      <FolioTabs label="Onboard a client" tabs={STEPS} active={step} onTab={(s) => (client || s === "client" ? setStep(s) : undefined)} onEscape={() => nav("/board")}>
+    <Page skeleton="chart" label="Onboard a client" className="onboard">
+      <Masthead
+        size="name"
+        refLine={
+          <>
+            <b>New client file</b>
+            {client?.matterReference ? (
+              <>
+                <span className="sep">/</span>
+                <span>{client.matterReference}</span>
+              </>
+            ) : null}
+            <span className="sep">/</span>
+            <span>{KIND_LABEL[c.kind]}</span>
+          </>
+        }
+        title={c.name || "Who is the client?"}
+        stamps={client ? <Status tone="review">File opened · not yet submitted</Status> : undefined}
+      />
+      <ChartBand label="The structure as you enter it" exhibit="Exhibit" title={c.name ? `${c.name} as entered` : "The structure as you enter it"} height="mid" legend={["person", "company", "trust", "owns", "controls"]} />
+      <SectionTabs label="Onboard a client" tabs={STEPS} active={step} onTab={(s) => (client || s === "client" ? setStep(s) : undefined)} onEscape={() => nav("/board")} className="steps">
         {err && (
           <p className="note-error" role="alert" style={{ marginBottom: 14 }}>
             {err}
@@ -255,7 +269,7 @@ export default function Onboard() {
         )}
         {step === "client" && (
           <>
-            <h2 className="title" style={{ fontSize: 24 }}>
+            <h2 className="title">
               Who is the client?
             </h2>
             <ToggleGroup type="single" aria-label="Client type" className="kind-pick" value={c.kind} onValueChange={(k) => k && !client && setC({ ...c, kind: k as ClientKind })}>
@@ -347,7 +361,7 @@ export default function Onboard() {
         )}
         {step === "people" && (
           <>
-            <h2 className="title" style={{ fontSize: 24 }}>
+            <h2 className="title">
               Who owns or controls {c.kind === "trust" ? "the trust" : c.kind === "partnership" ? "the partnership" : "the company"}?
             </h2>
             <p className="note">Add everyone who holds a share or interest, and everyone who controls it. Kinroot works out who the beneficial owners are.</p>
@@ -355,7 +369,7 @@ export default function Onboard() {
               {parties.map((p) => (
                 <div key={p.key} className={`party-card ${p.kind}`}>
                   <div className="pc-head">
-                    <span className="pc-kind">{p.kind === "person" ? "○ Person" : p.kind === "trust" ? "◰ Trust" : "■ Company"}</span>
+                    <span className="pc-kind">{p.kind === "person" ? "○ Person" : p.kind === "trust" ? "⬭ Trust" : "□ Company"}</span>
                     {!p.serverId && (
                       <Button variant="quiet" size="icon" aria-label={`Remove ${p.name || "this party"}`} onClick={() => setParties((ps) => ps.filter((x) => x.key !== p.key))}>
                         <Trash2 />
@@ -449,7 +463,7 @@ export default function Onboard() {
         )}
         {step === "identity" && (
           <>
-            <h2 className="title" style={{ fontSize: 24 }}>
+            <h2 className="title">
               Check identity
             </h2>
             <p className="note">A document or electronic check for each person and entity. In this sample the check against the issuer is simulated.</p>
@@ -482,7 +496,7 @@ export default function Onboard() {
         )}
         {step === "consent" && (
           <>
-            <h2 className="title" style={{ fontSize: 24 }}>
+            <h2 className="title">
               Collection notice and consent
             </h2>
             <div className="notice">
@@ -510,7 +524,7 @@ export default function Onboard() {
           <>
             {!submitted ? (
               <>
-                <h2 className="title" style={{ fontSize: 24 }}>
+                <h2 className="title">
                   Ready to trace
                 </h2>
                 <p className="note">Kinroot screens everyone, traces the beneficial owners and gives the first rating with its reasons.</p>
@@ -525,7 +539,7 @@ export default function Onboard() {
             ) : (
               <>
                 <div className="eyebrow">First rating</div>
-                <h2 className="title" style={{ fontSize: 24 }}>
+                <h2 className="title">
                   {submitted.name}
                 </h2>
                 <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 8 }}>
@@ -542,11 +556,11 @@ export default function Onboard() {
             )}
           </>
         )}
-      </FolioTabs>
-      <Decision label="Next step">
+      </SectionTabs>
+      <DecisionBar label="Next step">
         <div className="row" style={{ justifyContent: step === "client" ? "flex-end" : "space-between" }}>
           {step === "client" && (
-            <Button variant="string" onClick={() => create.mutate()} disabled={create.isPending}>
+            <Button variant="primary" onClick={() => create.mutate()} disabled={create.isPending}>
               {client ? "Continue →" : "Open the file and continue →"}
             </Button>
           )}
@@ -555,7 +569,7 @@ export default function Onboard() {
               <Button variant="quiet" onClick={() => setStep("client")}>
                 Back
               </Button>
-              <Button variant="string" onClick={() => saveParties.mutate()} disabled={saveParties.isPending || !parties.length}>
+              <Button variant="primary" onClick={() => saveParties.mutate()} disabled={saveParties.isPending || !parties.length}>
                 Continue →
               </Button>
             </>
@@ -565,7 +579,7 @@ export default function Onboard() {
               <Button variant="quiet" onClick={() => setStep(c.kind === "individual" ? "client" : "people")}>
                 Back
               </Button>
-              <Button variant="string" onClick={() => consent.mutate()} disabled={consent.isPending}>
+              <Button variant="primary" onClick={() => consent.mutate()} disabled={consent.isPending}>
                 Record consent and continue →
               </Button>
             </>
@@ -575,7 +589,7 @@ export default function Onboard() {
               <Button variant="quiet" onClick={() => setStep("consent")}>
                 Back
               </Button>
-              <Button variant="string" onClick={() => toReview.mutate()} disabled={toReview.isPending}>
+              <Button variant="primary" onClick={() => toReview.mutate()} disabled={toReview.isPending}>
                 Continue →
               </Button>
             </>
@@ -586,7 +600,7 @@ export default function Onboard() {
                 <Button variant="quiet" onClick={() => setStep("identity")}>
                   Back
                 </Button>
-                <Button variant="string" onClick={() => submit.mutate()} disabled={submit.isPending}>
+                <Button variant="primary" onClick={() => submit.mutate()} disabled={submit.isPending}>
                   {submit.isPending ? "Tracing…" : "Create the file and trace"}
                 </Button>
               </>
@@ -596,8 +610,7 @@ export default function Onboard() {
               </Button>
             ))}
         </div>
-      </Decision>
-      </Folio>
-    </>
+      </DecisionBar>
+    </Page>
   );
 }

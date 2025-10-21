@@ -1,8 +1,8 @@
-// Compliance programme: a printable record organised by obligation, with numbers inside sentences instead of KPI
-// cards. Selecting an obligation shows the clients it refers to on the board.
+// Compliance programme, brief skeleton: the partners' brief typeset large with its numbers marked, the obligations
+// as a numbered two-up list, and the client strip: selecting an obligation lights the clients it refers to.
 import { useQuery } from "@tanstack/react-query";
 import { Printer } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
 import { api } from "../api/endpoints";
@@ -10,10 +10,8 @@ import type { Client, Dashboard } from "../api/types";
 import { daysFromToday, fmtDate, today, tranche2Line } from "../lib/dates";
 import { plural } from "../lib/format";
 import { useAuth } from "../lib/auth";
-import { useBoard, useBoardScene } from "../shell/board";
-import { AsAt, BoardTools } from "../shell/chrome";
-import { Caption, Folio, FolioBody } from "../shell/Folio";
-import { constellationScene } from "./BoardHome";
+import { KindGlyph } from "../shell/chart";
+import { Band, Masthead, Page, PageBody } from "../shell/page";
 
 interface Row {
   id: string;
@@ -33,17 +31,12 @@ export function partnersBrief(d: Dashboard, canSeeReports: boolean): string {
 
 export default function Programme() {
   const { me, can } = useAuth();
-  const board = useBoard();
   const [active, setActive] = useState<string | null>(null);
   const dash = useQuery({ queryKey: ["dashboard"], queryFn: api.dashboard });
   const clients = useQuery({ queryKey: ["clients", "all"], queryFn: () => api.clients.list({ pageSize: 200 }) });
   const training = useQuery({ queryKey: ["training"], queryFn: api.training.list });
   const insights = useQuery({ queryKey: ["insights"], queryFn: api.insights, enabled: can("insights:read") });
-  const payload = useQuery({ queryKey: ["constellation"], queryFn: api.graph.constellation });
-  const clusters = useQuery({ queryKey: ["clusters"], queryFn: () => api.graph.clusters() });
   const all = clients.data?.items ?? [];
-  const built = useMemo(() => (payload.data && clients.data ? constellationScene(payload.data, all, clusters.data ?? [], [], "risk") : null), [payload.data, clients.data, clusters.data]); // eslint-disable-line react-hooks/exhaustive-deps
-  useBoardScene(built?.scene ?? null);
 
   const d = dash.data;
   const c = d?.counts ?? {};
@@ -62,40 +55,40 @@ export default function Programme() {
         { id: "method", title: "Risk method", sentence: "Rules v1.0 approved. The second opinion agrees on 90% of clients; 3 differences are with the compliance officer.", owner: "Compliance officer", clients: (x) => ["Tasman Ridge Pty Ltd", "Coralline Logistics Pty Ltd", "Ironbark Ventures Pty Ltd"].includes(x.name) },
       ]
     : [];
-  useEffect(() => {
-    const r = rows.find((x) => x.id === active);
-    const ids = r ? all.filter(r.clients).map((x) => x.partyId) : null;
-    const tm = setTimeout(() => board.engine()?.setDim(ids), 60);
-    return () => clearTimeout(tm);
-  }, [active, all.length, board.version > 0]); // eslint-disable-line react-hooks/exhaustive-deps
-
+  const lit = rows.find((x) => x.id === active);
   const mix = d?.ratingMix ?? { low: 0, medium: 0, high: 0 };
   return (
-    <>
-      <Folio label="Compliance programme" width="wide">
-        <Caption
-          refLine={
-            <>
-              <span>Compliance programme</span>
-              <span className="sep">·</span>
-              <b>{me?.activeOrg?.name}</b>
-              <span className="sep">·</span>
-              <span>as at {fmtDate(today())}</span>
-            </>
-          }
-          title="Where the firm stands"
-          tools={
-            <Button className="no-print" onClick={() => window.print()}>
-              <Printer /> Print brief
-            </Button>
-          }
-        />
-        <FolioBody>
-          <h2 className="section-head">Partners’ brief</h2>
-          <p className="brief">{d ? partnersBrief(d, can("smr:read")) : "Gathering the numbers…"}</p>
-          <ol className="obligations-list paras" aria-label="Obligations">
-            {rows.map((r) => (
-              <li key={r.id} className={`para prog-row${active === r.id ? " active" : ""}`}>
+    <Page skeleton="brief" label="Compliance programme">
+      <Masthead
+        size="poster"
+        refLine={
+          <>
+            <b>Compliance programme</b>
+            <span className="sep">/</span>
+            <span>{me?.activeOrg?.name}</span>
+            <span className="sep">/</span>
+            <span>as at {fmtDate(today())}</span>
+          </>
+        }
+        title="Where the firm stands"
+        tools={
+          <Button className="no-print" onClick={() => window.print()}>
+            <Printer /> Print brief
+          </Button>
+        }
+      />
+      <PageBody>
+        <section className="brief-block" aria-label="Partners’ brief">
+          <span className="micro">Partners’ brief</span>
+          <p className="brief">{d ? marked(partnersBrief(d, can("smr:read"))) : "Gathering the numbers…"}</p>
+        </section>
+        <Band n="01" title="The obligations" aside="Select one to light its clients below">
+          <ol className="obligations-list" aria-label="Obligations">
+            {rows.map((r, i) => (
+              <li key={r.id} className={`prog-row${active === r.id ? " active" : ""}`}>
+                <span className="prog-n" aria-hidden>
+                  {String(i + 1).padStart(2, "0")}
+                </span>
                 <h3>
                   <button className="rowbtn" aria-pressed={active === r.id} onClick={() => setActive(active === r.id ? null : r.id)}>
                     <b>{r.title}</b>
@@ -106,46 +99,61 @@ export default function Programme() {
               </li>
             ))}
           </ol>
-          <section className="section">
-            <h2>
-              Clients by rating <span className="aside">{live.length} clients</span>
-            </h2>
-            <div className="glyph-strip" role="img" aria-label={`${mix.low} clear, ${mix.medium} review, ${mix.high} high`}>
-              {Array.from({ length: mix.low }, (_, i) => <span key={`l${i}`} className="clear">●</span>)}
-              {Array.from({ length: mix.medium }, (_, i) => <span key={`m${i}`} className="review">◆</span>)}
-              {Array.from({ length: mix.high }, (_, i) => <span key={`h${i}`} className="high">▲</span>)}
-            </div>
-            <p className="note" style={{ marginTop: 8 }}>
-              ● Clear {mix.low} · ◆ Review {mix.medium} · ▲ High {mix.high}
-            </p>
-          </section>
-          {insights.data && (
-            <section className="section">
-              <h2>Patterns worth knowing</h2>
-              <ol className="reasons">
-                {insights.data.map((i) => (
-                  <li key={i.id}>
-                    <span>
-                      <b style={{ fontWeight: 600 }}>{i.title}.</b> {i.body}{" "}
-                      {i.href?.startsWith("/") && (
-                        <Link className="link" to={i.href}>
-                          Show me
-                        </Link>
-                      )}
+        </Band>
+        <Band n="02" title="Clients by rating" aside={lit ? `${all.filter(lit.clients).length} lit for ${lit.title.toLowerCase()}` : `${live.length} clients`}>
+          <ul className="client-strip" aria-label="Clients">
+            {live.map((x) => {
+              const on = lit ? lit.clients(x) : false;
+              return (
+                <li key={x.id} className={`cs r-${x.rating ?? "none"}${on ? " lit" : ""}${lit && !on ? " dim" : ""}`}>
+                  <Link to={`/clients/${x.id}/summary`} title={x.name}>
+                    <KindGlyph kind={x.kind === "individual" ? "person" : x.kind} size={12} />
+                    <span className="cs-g" aria-hidden>
+                      {x.rating === "high" ? "▲" : x.rating === "medium" ? "◆" : "●"}
                     </span>
-                    <span className="w">{i.tone === "risk" ? "▲" : i.tone === "progress" ? "●" : "◆"}</span>
-                  </li>
-                ))}
-              </ol>
-            </section>
-          )}
-          <p className="note" style={{ marginTop: 24 }}>
-            {d?.regime.name}. {tranche2Line()} Designed to support your AML/CTF programme; the firm remains responsible for it. Printed {fmtDate(today())}.
+                    <span className="cs-n">{x.name.replace(/ Pty Ltd$| Ltd$/, "")}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="glyph-strip" role="img" aria-label={`${mix.low} clear, ${mix.medium} review, ${mix.high} high`}>
+            {Array.from({ length: mix.low }, (_, i) => <span key={`l${i}`} className="clear">●</span>)}
+            {Array.from({ length: mix.medium }, (_, i) => <span key={`m${i}`} className="review">◆</span>)}
+            {Array.from({ length: mix.high }, (_, i) => <span key={`h${i}`} className="high">▲</span>)}
+          </div>
+          <p className="note">
+            ● Clear {mix.low} · ◆ Review {mix.medium} · ▲ High {mix.high}
           </p>
-        </FolioBody>
-      </Folio>
-      <AsAt exhibit="Exhibit" title={active ? rows.find((r) => r.id === active)?.title ?? "The client book" : "The client book"} />
-      <BoardTools minimap={false} />
-    </>
+        </Band>
+        {insights.data && (
+          <Band n="03" title="Patterns worth knowing">
+            <ol className="reasons">
+              {insights.data.map((i) => (
+                <li key={i.id}>
+                  <span>
+                    <b>{i.title}.</b> {i.body}{" "}
+                    {i.href?.startsWith("/") && (
+                      <Link className="link" to={i.href}>
+                        Show me
+                      </Link>
+                    )}
+                  </span>
+                  <span className="w">{i.tone === "risk" ? "▲" : i.tone === "progress" ? "●" : "◆"}</span>
+                </li>
+              ))}
+            </ol>
+          </Band>
+        )}
+        <p className="note brief-foot">
+          {d?.regime.name}. {tranche2Line()} Designed to support your AML/CTF programme; the firm remains responsible for it. Printed {fmtDate(today())}.
+        </p>
+      </PageBody>
+    </Page>
   );
+}
+
+/** Numbers in the brief are set in moss on a lichen marker. */
+function marked(text: string): ReactNode[] {
+  return text.split(/(\d+(?:\.\d+)?%?)/g).map((part, i) => (/^\d/.test(part) ? <mark key={i}>{part}</mark> : <Fragment key={i}>{part}</Fragment>));
 }

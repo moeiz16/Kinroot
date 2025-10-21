@@ -1,40 +1,33 @@
-// Phone: everything the spine holds that the bottom bar doesn't (also offered as a sheet from the bottom bar).
-import { BellRing, ClipboardCheck, FileLock2, GitMerge, ScrollText, Settings2, ShieldAlert, UserPlus } from "lucide-react";
+// The Index as a page (for links and phones that open /more): every destination as a poster word.
 import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "../lib/auth";
-import { Caption, Folio, FolioBody } from "../shell/Folio";
+import { navItems, useCounts } from "../shell/AppShell";
+import { Masthead, Page, PageBody } from "../shell/page";
 
 export default function More() {
   const { can, signOut, me } = useAuth();
-  const links = [
-    can("clients:onboard") && { to: "/onboard", label: "Onboard a client", icon: <UserPlus /> },
-    can("resolution:read") && { to: "/fuse", label: "Fuse or split", icon: <GitMerge /> },
-    { to: "/screening", label: "Screening", icon: <ShieldAlert /> },
-    { to: "/alerts", label: "Monitoring alerts", icon: <BellRing /> },
-    can("smr:read") && { to: "/reports", label: "Reports (restricted)", icon: <FileLock2 /> },
-    { to: "/programme", label: "Compliance programme", icon: <ClipboardCheck /> },
-    can("audit:read") && { to: "/activity", label: "Activity log", icon: <ScrollText /> },
-    { to: "/settings/firm", label: "Settings", icon: <Settings2 /> },
-  ].filter(Boolean) as { to: string; label: string; icon: React.ReactNode }[];
+  const counts = useCounts();
+  const { work, decide, record } = navItems(can, counts);
   return (
-    <Folio label="More" width="full">
-      <Caption refLine={<span>{me?.activeOrg?.name}</span>} title="More" />
-      <FolioBody>
-        <ul className="more-list">
-          {links.map((l) => (
+    <Page skeleton="register" label="Index">
+      <Masthead size="poster" refLine={<b>{me?.activeOrg?.name}</b>} title="Index" />
+      <PageBody>
+        <ol className="more-list">
+          {[...work, ...decide, ...record].map((l, i) => (
             <li key={l.to}>
               <Link to={l.to}>
-                {l.icon}
-                {l.label}
+                <span className="il-n">{String(i + 1).padStart(2, "0")}</span>
+                <span className="ml-word">{l.label}</span>
+                {!!l.count && <span className="mono">{l.count}</span>}
               </Link>
             </li>
           ))}
-        </ul>
-        <Button style={{ marginTop: 20 }} onClick={() => void signOut().then(() => location.assign("/sign-in"))}>
+        </ol>
+        <Button className="more-btn" onClick={() => void signOut().then(() => location.assign("/sign-in"))}>
           Sign out
         </Button>
-      </FolioBody>
-    </Folio>
+      </PageBody>
+    </Page>
   );
 }
