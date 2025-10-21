@@ -1,6 +1,8 @@
-// Public landing: the board itself is the hero. Type a client's name into the client pin, watch its owners
-// unfold beneath it, then the red string is pulled taut to the real owner and the reasons slip pins itself.
-import { FolderTree, RefreshCcw, Spline, Users } from "lucide-react";
+// Public landing: the answer is the headline. The poster asks WHO REALLY OWNS YOUR CLIENT?; under it, a sample
+// client's structure chart rises, the moss trace climbs from the client to the owner, and the giant figure counts
+// to the answer (49.6%). Three sample switches swap the poster. Then three bands: who it is for, the obligations,
+// and how files are kept safe. See DESIGN.md §5.
+import { ArrowRight, Spline } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
@@ -10,37 +12,30 @@ import { DEMO_PASSWORD, useAuth } from "../lib/auth";
 import { tranche2Line } from "../lib/dates";
 import { prefersReduced } from "../lib/theme";
 import { PHONE, useMedia } from "../lib/useMedia";
-import { Logo } from "../shell/chrome";
+import { KindGlyph, Mark } from "../shell/chart";
 import { SCENARIOS, type Scenario } from "./landing/scenarios";
 import "./landing/landing.css";
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const CHIP_ICON = { trust: <FolderTree />, circle: <RefreshCcw />, nominee: <Users /> } as Record<string, React.ReactNode>;
+const figureOf = (s: string) => Number(s.replace(/[^0-9.]/g, "")) || 0;
 
 export default function Landing() {
   const host = useRef<HTMLDivElement>(null);
-  const field = useRef<HTMLDivElement>(null);
   const engine = useRef<BoardEngine | null>(null);
   const runId = useRef(0);
   const phone = useMedia(PHONE);
   const reduced = prefersReduced();
   const [scenario, setScenario] = useState<Scenario>(SCENARIOS[0]!);
-  const [typed, setTyped] = useState("");
-  const [phase, setPhase] = useState<"pre" | "typing" | "tracing" | "done">("pre");
+  const [figure, setFigure] = useState(reduced ? SCENARIOS[0]!.answer.figure : "0%");
+  const [phase, setPhase] = useState<"rising" | "climbing" | "done">(reduced ? "done" : "rising");
   const [canDraw] = useState(() => webglAvailable());
   const [opening, setOpening] = useState(false);
-  const input = useRef<HTMLInputElement>(null);
   const nav = useNavigate();
   const { signIn } = useAuth();
 
-  const placeField = useCallback(() => {
-    const p = engine.current?.nodeViewport("c");
-    if (p && field.current) field.current.style.transform = `translate(${p.x}px, ${p.y}px)`;
-  }, []);
-
   useEffect(() => {
     if (!host.current || !canDraw) return;
-    const e = new BoardEngine(host.current, { reduced, onSync: placeField, pad: { x: 340, y: 200 }, ariaLabel: "Sample ownership structure" });
+    const e = new BoardEngine(host.current, { reduced, pad: { x: 220, y: 150 }, ariaLabel: "Sample ownership structure" });
     engine.current = e;
     const ro = new ResizeObserver(() => e.resize());
     ro.observe(host.current);
@@ -49,51 +44,66 @@ export default function Landing() {
       e.destroy();
       engine.current = null;
     };
-  }, [canDraw, reduced, placeField]);
+  }, [canDraw, reduced]);
 
   useEffect(() => {
-    engine.current?.setInsets(phone ? { top: 170, left: 4, right: 4, bottom: 30 } : { top: 150, left: 500, right: 40, bottom: 70 });
+    engine.current?.setInsets(phone ? { top: 24, left: 8, right: 8, bottom: 20 } : { top: 64, left: 560, right: 40, bottom: 30 });
   }, [phone, canDraw]);
 
+  /** Count the figure up while the trace climbs. */
+  const count = useCallback(
+    async (target: string, id: number, dur: number) => {
+      const to = figureOf(target);
+      const decimals = target.includes(".") ? 1 : 0;
+      if (reduced || !to) {
+        setFigure(target);
+        return;
+      }
+      const t0 = performance.now();
+      await new Promise<void>((done) => {
+        const step = (now: number) => {
+          if (runId.current !== id) return done();
+          const t = Math.min(1, (now - t0) / dur);
+          const v = to * (1 - Math.pow(1 - t, 2.4));
+          setFigure(`${v.toFixed(decimals)}%`);
+          if (t < 1) requestAnimationFrame(step);
+          else done();
+        };
+        requestAnimationFrame(step);
+      });
+      setFigure(target);
+    },
+    [reduced],
+  );
+
   const run = useCallback(
-    async (s: Scenario, name?: string) => {
+    async (s: Scenario) => {
       const id = ++runId.current;
       const e = engine.current;
       setScenario(s);
-      setPhase("typing");
-      const label = name ?? s.name;
       if (!e) {
-        setTyped(label);
+        setFigure(s.answer.figure);
         setPhase("done");
         return;
       }
-      await e.setScene({ key: `${s.id}-${id}`, nodes: s.nodes.map((n) => ({ ...n })), edges: s.edges }, { hold: true });
-      placeField();
-      if (!reduced && !name) {
-        setTyped("");
-        await wait(500);
-        for (let i = 1; i <= label.length; i++) {
-          if (runId.current !== id) return;
-          setTyped(label.slice(0, i));
-          await wait(38);
-        }
-        await wait(260);
-      } else setTyped(label);
-      if (runId.current !== id) return;
-      setPhase("tracing");
+      setFigure(reduced ? s.answer.figure : "0%");
+      setPhase(reduced ? "done" : "rising");
+      // The scenarios are drawn client-on-top; the chart puts owners above, so flip them.
+      await e.setScene({ key: `${s.id}-${id}`, nodes: s.nodes.map((n) => ({ ...n, label: n.client ? s.name : n.label, y: -n.y })), edges: s.edges }, { hold: true });
       await e.unfoldAll();
-      await wait(reduced ? 0 : 220);
+      await wait(reduced ? 0 : 200);
       if (runId.current !== id) return;
-      await e.pull([s.string], { animate: !reduced });
+      setPhase("climbing");
+      await Promise.all([e.pull([s.string], { animate: !reduced, dur: 1100 }), count(s.answer.figure, id, 1100)]);
       if (s.ownerSub) e.setNodeSub(s.ownerSub.id, s.ownerSub.text);
       if (runId.current === id) setPhase("done");
     },
-    [placeField, reduced],
+    [reduced, count],
   );
 
   useEffect(() => {
     if (!canDraw) {
-      setTyped(SCENARIOS[0]!.name);
+      setFigure(SCENARIOS[0]!.answer.figure);
       setPhase("done");
       return;
     }
@@ -108,13 +118,6 @@ export default function Landing() {
     };
   }, [run, canDraw]);
 
-  const submit = () => {
-    const name = (input.current?.value ?? typed).trim();
-    if (!name) return;
-    const match = SCENARIOS.find((s) => s.name.toLowerCase().startsWith(name.toLowerCase()));
-    void run(match ?? SCENARIOS[0]!, match ? match.name : name);
-  };
-
   const openFiles = async () => {
     setOpening(true);
     try {
@@ -125,153 +128,120 @@ export default function Landing() {
     }
   };
 
-  const look = scenario.slip.look;
+  const a = scenario.answer;
   return (
     <div className="landing">
-      <header className="top">
-        <Link className="brand" to="/" aria-label="Kinroot home">
-          <Logo />
+      <header className="lp-top">
+        <Link className="wordmark" to="/" aria-label="Kinroot home">
+          <Mark />
           <span className="wm">Kinroot</span>
         </Link>
-        <nav className="nav" aria-label="Main">
+        <nav className="lp-nav" aria-label="Main">
           <a href="#who">Who it is for</a>
           <a href="#regimes">Tranche 2 and the UK MLR</a>
           <a href="#safe">How we keep files safe</a>
-          <Link to="/sign-in" className="signin">
+          <Link to="/sign-in" className="lp-signin">
             Sign in
           </Link>
         </nav>
       </header>
 
       <main>
-        <section className={`hero ${phase}`} aria-label="Trace a client">
-          <div ref={host} className="board" aria-hidden={!canDraw} />
+        <section className={`lp-hero ${phase}`} aria-label="A sample client, traced">
+          <div className="lp-kicker">Client due diligence for law firms, accountants and conveyancers</div>
+          <h1 className="lp-title">
+            <span className="set">Who really owns your client?</span>
+          </h1>
 
-          <div ref={field} className="typein">
-            <form
-              className="pinfield"
-              role="search"
-              onSubmit={(e) => {
-                e.preventDefault();
-                submit();
-              }}
-            >
-              <label className="lead" htmlFor="client-name">
-                Client
-              </label>
-              <input
-                ref={input}
-                id="client-name"
-                className="val"
-                value={typed}
-                placeholder="Type a client's name"
-                autoComplete="off"
-                onChange={(e) => {
-                  runId.current++;
-                  setTyped(e.target.value);
-                  setPhase("pre");
-                }}
-              />
-              {phase === "typing" && <span className="caret" aria-hidden />}
-              <Button variant="string" size="sm" className="go" type="submit" aria-label="Trace this client">
-                Trace
-              </Button>
-            </form>
-            <div className="chips" style={{ opacity: phase === "pre" || phase === "typing" ? 1 : phase === "done" ? 1 : 0 }}>
-              <span>Or try</span>
-              {SCENARIOS.filter((s) => s.chip).map((s) => (
-                <Button key={s.id} size="sm" className="chip" type="button" aria-pressed={scenario.id === s.id} onClick={() => void run(s)}>
-                  {CHIP_ICON[s.id]}
-                  {s.chip}
-                </Button>
+          <div className="lp-stage">
+            <div className="lp-answer" aria-live="polite">
+              <span className="k">Sample client</span>
+              <b className="lp-client">
+                <KindGlyph kind={scenario.nodes.find((n) => n.client)?.kind ?? "company"} size={15} />
+                {scenario.name}
+              </b>
+              <div className="lp-figure" aria-hidden={phase !== "done"}>
+                {figure}
+              </div>
+              <p className="lp-who">
+                <b>{a.who}</b> {a.line}
+              </p>
+              <div className="lp-working">
+                <span className="k">Working</span> {a.working}
+              </div>
+            </div>
+            <div ref={host} className="chart" aria-hidden={!canDraw} />
+            <div className="lp-switch" role="group" aria-label="Sample structures">
+              {SCENARIOS.map((s) => (
+                <button key={s.id} type="button" className="lp-chip" aria-pressed={scenario.id === s.id} onClick={() => void run(s)}>
+                  {s.chip ?? "Company with an offshore layer"}
+                </button>
               ))}
             </div>
+            <span className="lp-sample">Sample structure · not a real company</span>
           </div>
 
-          <aside className={`slip-note landing-slip${phase === "done" ? " on" : ""}`} aria-live="polite" aria-hidden={phase !== "done"}>
-            <div className="eyebrow">
-              <span className={`status ${look}`}>
-                <span className="g" aria-hidden>
-                  {look === "high" ? "▲" : "◆"}
-                </span>
-                {look === "high" ? "High" : "Review"}
+          <div className="lp-under">
+            <div className="lp-verdict">
+              <span className={`lp-look ${scenario.slip.look}`}>
+                <span aria-hidden>{scenario.slip.look === "high" ? "▲" : "◆"}</span> {scenario.slip.look === "high" ? "High" : "Review"} · {scenario.slip.lead}
               </span>
-              {scenario.slip.lead}
+              <h2>{scenario.slip.title}</h2>
+              <p>{scenario.slip.next}</p>
             </div>
-            <h2>{scenario.slip.title}</h2>
-            <ol>
+            <ol className="lp-reasons">
               {scenario.slip.reasons.map((r) => (
                 <li key={r.n}>
-                  <span className="n">{r.n}</span>
+                  <span className="n">{String(r.n).padStart(2, "0")}</span>
                   <span>{r.text}</span>
                 </li>
               ))}
             </ol>
-            <div className="foot">
-              <p>{scenario.slip.next}</p>
-              <Button variant="link" onClick={openFiles}>
-                Open dossier →
-              </Button>
-            </div>
-          </aside>
-
-          <div className="caption">
-            <div className="eyebrow">Client due diligence for law firms, accountants and conveyancers</div>
-            <h1>
-              See who is <em>really</em> behind your client.
-            </h1>
-            <p>Type a client’s name. Kinroot follows every shareholding, trust and directorship to the people at the end of them, then tells you what to check before you act.</p>
-            <div className="cta">
-              <Button
-                variant="string"
-                onClick={() => {
-                  input.current?.focus();
-                  void run(scenario);
-                }}
-              >
+            <div className="lp-cta">
+              <Button variant="primary" onClick={() => void run(scenario)}>
                 <Spline />
-                Trace a client
+                Trace a sample client
               </Button>
-              <Button variant="link" onClick={openFiles} disabled={opening}>
-                {opening ? "Opening…" : "Open Harbourline’s files →"}
+              <Button variant="ink" onClick={openFiles} disabled={opening}>
+                {opening ? "Opening…" : "Open Harbourline’s files"} <ArrowRight />
               </Button>
-            </div>
-            <div className="fine">
-              <span>
+              <p className="lp-fine">
                 Designed to support the AML/CTF Act 2006 and the UK Money Laundering Regulations 2017. <span>{tranche2Line()}</span>
-              </span>
+              </p>
             </div>
           </div>
-          <div className="sample">Sample structure · not a real company</div>
         </section>
 
-        <section className="notes" id="who">
-          <div className="notes-head">
-            <span className="notes-no">Part 1</span>
+        <section className="lp-band" id="who">
+          <header className="lp-band-head">
+            <span className="n">01</span>
             <h2>Three people sign off on a client. Each sees the part they need.</h2>
-          </div>
-          <ol className="judgment">
+          </header>
+          <ol className="lp-roles">
             <li>
-              <h3>Fee earners open a matter without a week of forms.</h3>
+              <span className="lp-role">Fee earners</span>
+              <h3>Open a matter without a week of forms.</h3>
               <p>Send the client one link. Identity checks, ownership and consent arrive in the file, already traced to the people behind it.</p>
             </li>
             <li>
-              <h3>Compliance officers sign off with the reasons in front of them.</h3>
+              <span className="lp-role">Compliance officers</span>
+              <h3>Sign off with the reasons in front of them.</h3>
               <p>Every rating comes with the sentences behind it, each citing the link it rests on. Enhanced checks are triggered for you, and nothing proceeds until you sign.</p>
             </li>
             <li>
-              <h3>Partners know the firm’s exposure on one page.</h3>
+              <span className="lp-role">Partners</span>
+              <h3>Know the firm’s exposure on one page.</h3>
               <p>Overdue reviews, high-risk clients and open screening matches, in plain words, ready for the next partners’ meeting.</p>
             </li>
           </ol>
         </section>
 
-        <section className="notes regimes" id="regimes">
-          <div className="notes-head">
-            <span className="notes-no">Part 2</span>
+        <section className="lp-band" id="regimes">
+          <header className="lp-band-head">
+            <span className="n">02</span>
             <h2>Built for Tranche 2 and the UK MLR 2017.</h2>
-          </div>
-          <p className="sub">Obligation by obligation, this is where Kinroot does the work. It is designed to support your AML/CTF programme; your firm stays responsible for it.</p>
+          </header>
+          <p className="lp-band-sub">Obligation by obligation, this is where Kinroot does the work. It is designed to support your AML/CTF programme; your firm stays responsible for it.</p>
           <Table className="obligations">
             <TableHeader>
               <TableRow>
@@ -284,7 +254,7 @@ export default function Landing() {
             <TableBody>
               {[
                 ["Know who you act for", "Customer due diligence before providing a designated service", "Regulation 28 customer due diligence", "Onboarding with identity checks, consent and the client link"],
-                ["Find the real owners", "Beneficial owners at 25% or control", "Beneficial owners over 25% or control", "Pull the thread: compounded ownership through every layer"],
+                ["Find the real owners", "Beneficial owners at 25% or control", "Beneficial owners over 25% or control", "The trace: compounded ownership through every layer"],
                 ["Check the lists", "Sanctions and politically exposed persons", "Sanctions, PEPs and family members", "Screening with match likelihood and a reasoned decision"],
                 ["Look harder when it matters", "Enhanced due diligence for higher risk", "Regulation 33 enhanced due diligence", "Triggers, measures and two-stage sign-off"],
                 ["Keep watching", "Ongoing customer due diligence", "Ongoing monitoring", "Alerts when owners, officers or lists change"],
@@ -297,19 +267,19 @@ export default function Landing() {
                   </td>
                   <td>{r[1]}</td>
                   <td>{r[2]}</td>
-                  <td>{r[3]}</td>
+                  <td className="in-kinroot">{r[3]}</td>
                 </tr>
               ))}
             </TableBody>
           </Table>
         </section>
 
-        <section className="notes safe" id="safe">
-          <div className="notes-head">
-            <span className="notes-no">Part 3</span>
+        <section className="lp-band" id="safe">
+          <header className="lp-band-head">
+            <span className="n">03</span>
             <h2>How we keep files safe.</h2>
-          </div>
-          <ol className="judgment" start={4}>
+          </header>
+          <ol className="lp-safe">
             <li>
               <h3>Australian files stay in Australia.</h3>
               <p>Data for Australian firms is stored in Sydney; UK firms are stored in the UK.</p>
@@ -329,27 +299,24 @@ export default function Landing() {
           </ol>
         </section>
 
-        <section className="closing">
-          <div className="board closing-board" aria-hidden />
-          <div className="closing-inner">
-            <h2>Who is behind your next client?</h2>
-            <div className="cta">
-              <Button
-                variant="string"
-                onClick={() => {
-                  window.scrollTo({ top: 0, behavior: reduced ? "auto" : "smooth" });
-                  setTimeout(() => input.current?.focus(), reduced ? 0 : 500);
-                }}
-              >
-                <Spline />
-                Trace a client
-              </Button>
-              <Button variant="link" onClick={openFiles}>
-                Open Harbourline’s files →
-              </Button>
-            </div>
-            <p className="fine2">Kinroot · Sample firm and sample data throughout · Designed to support, not replace, your AML/CTF programme.</p>
+        <section className="lp-closing">
+          <h2>Who is behind your next client?</h2>
+          <div className="lp-cta">
+            <Button
+              variant="primary"
+              onClick={() => {
+                window.scrollTo({ top: 0, behavior: reduced ? "auto" : "smooth" });
+                setTimeout(() => void run(scenario), reduced ? 0 : 500);
+              }}
+            >
+              <Spline />
+              Trace a sample client
+            </Button>
+            <Button variant="line" onClick={openFiles}>
+              Open Harbourline’s files <ArrowRight />
+            </Button>
           </div>
+          <p className="lp-fine">Kinroot · Sample firm and sample data throughout · Designed to support, not replace, your AML/CTF programme.</p>
         </section>
       </main>
     </div>

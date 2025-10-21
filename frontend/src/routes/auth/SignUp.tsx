@@ -72,7 +72,7 @@ export default function SignUp() {
         {field("password", "Password (12 characters or more)", "password", "new-password")}
         {error && <p className="note-error" role="alert">{error}</p>}
         <div className="row">
-          <Button variant="string" type="submit" disabled={busy}>
+          <Button variant="primary" type="submit" disabled={busy}>
             {busy ? "Setting up…" : "Set up the firm"}
           </Button>
         </div>

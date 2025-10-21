@@ -71,7 +71,7 @@ export default function SignIn() {
           </p>
         )}
         <div className="row">
-          <Button variant="string" type="submit" disabled={busy}>
+          <Button variant="primary" type="submit" disabled={busy}>
             {busy ? "Signing in…" : "Sign in"}
           </Button>
           <span className="muted" style={{ fontSize: 13 }}>

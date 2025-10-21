@@ -49,7 +49,7 @@ export default function AcceptInvite() {
   };
   return (
     <AuthCard tab="Invitation" title={`Join ${i.orgName}`}>
-      <p style={{ marginTop: -8 }}>
+      <p>
         You’ve been invited as <b>{i.roleLabel}</b> using <span className="mono">{i.email}</span>. The invitation is open until {fmtDate(i.expiresAt.slice(0, 10))}.
       </p>
       <form onSubmit={submit} noValidate>
@@ -69,7 +69,7 @@ export default function AcceptInvite() {
         )}
         {error && <p className="note-error" role="alert">{error}</p>}
         <div className="row">
-          <Button variant="string" type="submit" disabled={busy}>
+          <Button variant="primary" type="submit" disabled={busy}>
             {busy ? "Joining…" : `Join ${i.orgName.split(" (")[0]}`}
           </Button>
         </div>

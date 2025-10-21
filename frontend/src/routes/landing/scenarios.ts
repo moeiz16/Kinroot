@@ -1,4 +1,5 @@
-// Seeded sample structures for the landing trace. Fictional companies and people; offline, no API.
+// Seeded sample structures for the landing poster. Fictional companies and people; offline, no API. Positions are
+// laid out with the client on top (y grows downward); the landing flips them so owners sit above the client.
 import type { BEdge, BNode, StringSpec } from "../../graph/model";
 
 export interface Scenario {
@@ -11,6 +12,8 @@ export interface Scenario {
   string: StringSpec;
   ownerSub?: { id: string; text: string };
   slip: { look: "review" | "high"; lead: string; title: string; reasons: { n: number; node: string; text: string }[]; next: string };
+  /** The poster's answer: the figure, who it belongs to, and the working. */
+  answer: { figure: string; who: string; line: string; working: string };
 }
 
 type N = Omit<BNode, "flags" | "aria" | "glyph"> & { glyph?: string; flags?: BNode["flags"] };
@@ -56,6 +59,7 @@ export const SCENARIOS: Scenario[] = [
       tag: { anchor: "mc", eq: "100% × 80% × 62% =", value: "49.6% · beneficial owner" },
     },
     ownerSub: { id: "mc", text: "Beneficial owner · 49.6%" },
+    answer: { figure: "49.6%", who: "Margaret Calder", line: "owns it through two companies.", working: "100% × 80% × 62%" },
     slip: {
       look: "review",
       lead: "Enhanced due diligence",
@@ -98,6 +102,7 @@ export const SCENARIOS: Scenario[] = [
       tag: { anchor: "gl", eq: "100% × 70% =", value: "70% · beneficial owner" },
     },
     ownerSub: { id: "gl", text: "Beneficial owner · 70%" },
+    answer: { figure: "70%", who: "Grace Liu", line: "holds it through Liu Family Co, and directs the trustee.", working: "100% × 70%" },
     slip: {
       look: "review",
       lead: "Trust with a corporate trustee",
@@ -133,6 +138,7 @@ export const SCENARIOS: Scenario[] = [
     ],
     string: { ids: ["mh", "c"], steps: [{ eq: "Marcus Hale", value: "50%" }], tag: { anchor: "mh", eq: "direct =", value: "50% · beneficial owner" } },
     ownerSub: { id: "mh", text: "Beneficial owner · 50%" },
+    answer: { figure: "50%", who: "Marcus Hale", line: "owns half directly; the other half loops back on itself.", working: "50% direct" },
     slip: {
       look: "high",
       lead: "Enhanced due diligence",
@@ -167,6 +173,7 @@ export const SCENARIOS: Scenario[] = [
       { id: "e6", s: "ad", t: "sn", kind: "faint" },
     ],
     string: { ids: ["gp", "c"], steps: [{ eq: "Gregory Pell", value: "Director" }], tag: { anchor: "gp", eq: "controls as", value: "director · no owner found" } },
+    answer: { figure: "0%", who: "No owner found.", line: "Gregory Pell controls it as director; the shareholder is a Seychelles nominee.", working: "control only" },
     slip: {
       look: "high",
       lead: "Enhanced due diligence",
