@@ -1,60 +1,83 @@
-// The folio: the written record that sits beside the board on every screen. Routes render their record into it
-// through a portal; the shell owns where it sits and how wide it is. Four parts, always in this order:
-// caption (a legal file caption), folder tabs, the body, and the decision block at the foot.
+// Page skeleton primitives. A screen picks a skeleton (desk, register, chart, faceoff, sealed, brief, form) and
+// composes: a masthead (reference line, the title in capitals, stamps), section words, the body and, where a decision
+// is made, a decision bar pinned to the foot of the window. See DESIGN.md §4.
 import { AnimatePresence, motion } from "motion/react";
 import { ChevronLeft, ChevronRight, ListFilter } from "lucide-react";
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useState, type ReactNode } from "react";
+import { useLocation } from "react-router";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { prefersReduced } from "../lib/theme";
+import { recordHop, type HopKind } from "./trail";
 
-export type FolioWidth = "narrow" | "normal" | "wide" | "full";
-interface FolioApi {
-  el: HTMLElement | null;
-  setWidth: (w: FolioWidth) => void;
-}
-export const FolioContext = createContext<FolioApi>({ el: null, setWidth: () => undefined });
-export const useFolio = () => useContext(FolioContext);
+export type Skeleton = "desk" | "register" | "chart" | "faceoff" | "sealed" | "brief" | "form";
 
-/** Render a route's record into the folio. `width` asks the shell for room: narrow, normal, wide or the full stage. */
-export function Folio({ label, width = "normal", className, children }: { label: string; width?: FolioWidth; className?: string; children: ReactNode }) {
-  const { el, setWidth } = useFolio();
-  useEffect(() => setWidth(width), [width, setWidth]);
-  if (!el) return null;
-  return createPortal(
-    <section className={cn("folio-doc folio-settle", className)} aria-label={label}>
+/** A screen. Renders inline in the page under the trail bar; `skeleton` picks the layout (DESIGN.md §4). */
+export function Page({ skeleton, label, className, children }: { skeleton: Skeleton; label: string; className?: string; children: ReactNode }) {
+  return (
+    <section className={cn("page", `sk-${skeleton}`, className)} aria-label={label} data-skeleton={skeleton}>
       {children}
-    </section>,
-    el,
+    </section>
   );
 }
 
-/** The file caption: a mono reference line, the serif title, a row of stamps, and tools on the right. */
-export function Caption({ refLine, title, sub, stamps, tools, restricted, level = 1 }: { refLine?: ReactNode; title: ReactNode; sub?: ReactNode; stamps?: ReactNode; tools?: ReactNode; restricted?: boolean; level?: 1 | 2 }) {
+/** Put this page on the trail (the hop log in the bar). */
+export function useHop(label: string | null | undefined, kind: HopKind = "page", key?: string): void {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    if (label) recordHop({ key: key ?? pathname, path: pathname, label, kind });
+  }, [label, kind, key, pathname]);
+}
+
+/** The masthead: a mono reference line, the title set in capitals, stamps and tools. */
+export function Masthead({
+  refLine,
+  title,
+  sub,
+  stamps,
+  tools,
+  restricted,
+  level = 1,
+  size = "page",
+  className,
+}: {
+  refLine?: ReactNode;
+  title: ReactNode;
+  sub?: ReactNode;
+  stamps?: ReactNode;
+  tools?: ReactNode;
+  restricted?: boolean;
+  level?: 1 | 2;
+  size?: "page" | "name" | "poster";
+  className?: string;
+}) {
   const H = level === 1 ? "h1" : "h2";
   return (
-    <header className={cn("file-caption", restricted && "restricted")}>
-      {refLine && <div className="ref">{refLine}</div>}
-      <H>{title}</H>
-      {sub && <div className="sub">{sub}</div>}
-      {stamps && <div className="stamps">{stamps}</div>}
-      {tools && <div className="tools">{tools}</div>}
+    <header className={cn("mast", `mast-${size}`, restricted && "restricted", className)}>
+      {refLine && <div className="mast-ref">{refLine}</div>}
+      <div className="mast-row">
+        <H className="mast-title">
+          <span className="set">{title}</span>
+        </H>
+        {tools && <div className="mast-tools">{tools}</div>}
+      </div>
+      {sub && <div className="mast-sub">{sub}</div>}
+      {stamps && <div className="mast-stamps">{stamps}</div>}
     </header>
   );
 }
 
-export interface FolderTab {
+export interface SectionTab {
   id: string;
   label: string;
   count?: number;
   locked?: boolean;
 }
 
-/** Folder tabs over the body. `[` and `]` move between tabs; Esc runs `onEscape` (for example, back to the board). */
-export function FolioTabs({ label, tabs, active, onTab, onEscape, children }: { label: string; tabs: FolderTab[]; active: string; onTab: (id: string) => void; onEscape?: () => void; children: ReactNode }) {
+/** Section words: big tabs over the record. `[` and `]` move between them; Esc runs `onEscape`. */
+export function SectionTabs({ label, tabs, active, onTab, onEscape, children, className }: { label: string; tabs: SectionTab[]; active: string; onTab: (id: string) => void; onEscape?: () => void; children: ReactNode; className?: string }) {
   const reduced = prefersReduced();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -70,24 +93,24 @@ export function FolioTabs({ label, tabs, active, onTab, onEscape, children }: { 
     return () => window.removeEventListener("keydown", onKey);
   }, [tabs, active, onTab, onEscape]);
   return (
-    <Tabs value={active} onValueChange={onTab} className="flex-1">
+    <Tabs value={active} onValueChange={onTab} className={cn("sections", className)}>
       <TabsList aria-label={`${label} sections`}>
         {tabs.map((t) => (
           <TabsTrigger key={t.id} value={t.id} className={t.locked ? "locked" : undefined}>
             {t.locked && (
-              <svg width="11" height="11" viewBox="0 0 24 24" aria-hidden fill="none" stroke="currentColor" strokeWidth="2.4">
+              <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden fill="none" stroke="currentColor" strokeWidth="2.6">
                 <rect x="4" y="11" width="16" height="10" rx="1" />
                 <path d="M8 11V7a4 4 0 0 1 8 0v4" />
               </svg>
             )}
             {t.label}
-            {t.count != null && <span className="n">{t.count}</span>}
+            {t.count != null && <sup className="n">{t.count}</sup>}
           </TabsTrigger>
         ))}
       </TabsList>
-      <TabsContent value={active} forceMount className="folio-body">
+      <TabsContent value={active} forceMount className="section-body">
         <AnimatePresence mode="wait" initial={false}>
-          <motion.div key={active} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: reduced ? 0 : 0.14, ease: "easeOut" }}>
+          <motion.div key={active} initial={{ opacity: 0, y: reduced ? 0 : 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: reduced ? 0 : 0.2, ease: [0.2, 0.8, 0.2, 1] }}>
             {children}
           </motion.div>
         </AnimatePresence>
@@ -96,15 +119,29 @@ export function FolioTabs({ label, tabs, active, onTab, onEscape, children }: { 
   );
 }
 
-/** A plain body for folios without tabs. */
-export function FolioBody({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("folio-body", className)}>{children}</div>;
+/** A plain body for pages without section words. */
+export function PageBody({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cn("page-body", className)}>{children}</div>;
 }
 
-/** The decision block: sticky at the foot of the folio, framed like the signature block of a document. */
-export function Decision({ label, children }: { label: string; children: ReactNode }) {
+/** The decision bar: pinned to the foot of the window while the page is open. */
+export function DecisionBar({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
   return (
-    <section className="decision" aria-label={label}>
+    <section className={cn("decision slab", className)} aria-label={label}>
+      <div className="decision-in">{children}</div>
+    </section>
+  );
+}
+
+/** A band heading inside a page: a numbered mono index and a Syne word. */
+export function Band({ n, title, aside, children, className, id }: { n?: string; title: ReactNode; aside?: ReactNode; children?: ReactNode; className?: string; id?: string }) {
+  return (
+    <section className={cn("band", className)} id={id}>
+      <header className="band-head">
+        {n && <span className="band-n">{n}</span>}
+        <h2>{title}</h2>
+        {aside && <div className="band-aside">{aside}</div>}
+      </header>
       {children}
     </section>
   );
@@ -136,7 +173,9 @@ export function QueuePager({ label, items, current, onPick }: { label: string; i
         <PopoverTrigger asChild>
           <button type="button" className="pos" aria-label={`${label}: ${i + 1} of ${items.length}. Show the queue`}>
             <ListFilter size={13} aria-hidden />
-            {i >= 0 ? i + 1 : "–"} of {items.length}
+            <span>
+              <b>{i >= 0 ? i + 1 : "–"}</b> of {items.length}
+            </span>
           </button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-[380px] p-0">

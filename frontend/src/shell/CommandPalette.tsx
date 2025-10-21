@@ -1,5 +1,5 @@
 // Find anything: people, companies and trusts on the board, and every part of the file. Opens with `/` or ⌘K
-// anywhere, from the spine, or from the exhibit's find trigger.
+// anywhere, or from Find in the trail bar.
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
@@ -8,6 +8,7 @@ import { api } from "../api/endpoints";
 import type { GraphNode } from "../api/types";
 import { useAuth } from "../lib/auth";
 import { ratingLook } from "../lib/format";
+import { KindGlyph } from "./chart";
 
 const listeners = new Set<() => void>();
 /** Open the palette from anywhere (spine, exhibit). */
@@ -16,10 +17,7 @@ export function openFind(): void {
 }
 
 function Glyph({ kind }: { kind: string }) {
-  const s = 14;
-  if (kind === "person" || kind === "individual") return <svg width={s} height={s} aria-hidden><circle cx={7} cy={7} r={5.8} fill="none" stroke="currentColor" strokeWidth="1.4" /></svg>;
-  if (kind === "trust") return <svg width={s} height={s} aria-hidden><path d="M1 1 H10 L13 4 V13 H1 Z" fill="none" stroke="currentColor" strokeWidth="1.4" /></svg>;
-  return <svg width={s} height={s} aria-hidden><rect x="1" y="1" width="12" height="12" rx="1" fill="none" stroke="currentColor" strokeWidth="1.4" /></svg>;
+  return <KindGlyph kind={kind} size={15} />;
 }
 
 export function CommandPalette() {
@@ -54,7 +52,7 @@ export function CommandPalette() {
   };
   const party = (n: GraphNode) => go(n.clientId ? `/clients/${n.clientId}/summary` : `/ask?q=${encodeURIComponent(`How is ${n.label} linked to our clients?`)}`);
   const places = [
-    { to: "/board", label: "The docket and the client book" },
+    { to: "/board", label: "Desk: what is waiting and the client book" },
     { to: "/clients", label: "Client book" },
     can("clients:onboard") && { to: "/onboard", label: "Onboard a client" },
     can("resolution:read") && { to: "/fuse", label: "Fuse or split" },
@@ -83,9 +81,9 @@ export function CommandPalette() {
     >
       <CommandInput value={q} onValueChange={setQ} placeholder="Find a person, company or trust" aria-label="Find a person, company or trust" />
       <CommandList>
-        <CommandEmpty>{q.trim().length > 1 ? "No one by that name on the board." : "Type two letters or more."}</CommandEmpty>
+        <CommandEmpty>{q.trim().length > 1 ? "No one by that name in your files." : "Type two letters or more."}</CommandEmpty>
         {data.length > 0 && (
-          <CommandGroup heading="On the board">
+          <CommandGroup heading="People, companies and trusts">
             {data.map((n) => (
               <CommandItem key={n.id} value={`party-${n.id}`} onSelect={() => party(n)}>
                 <Glyph kind={n.kind} />

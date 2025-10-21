@@ -1,52 +1,33 @@
-// App shell: the ink spine (like a case binder's spine), then one working surface on every screen: the folio
-// (the written record) bound to the exhibit (the board). The binding between them is a resize handle.
-// Phones: the folio is the screen, a File | Board switch shows the exhibit, and a five-icon bar replaces the spine.
+// App shell: the trail bar on top of every screen, and the page beneath it. No sidebar, no spine, no dock.
+// The bar holds the wordmark, the trail (your path through the files as a chain of shapes), the tallies of what is
+// waiting on you, Find, the Index (a full-screen sheet of every destination; also the phone navigation) and your
+// account. See DESIGN.md §3.
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  BellRing,
-  ClipboardCheck,
-  FileLock2,
-  Folders,
-  GitMerge,
-  Inbox,
-  LogOut,
-  Menu,
-  Moon,
-  ScanSearch,
-  ScrollText,
-  Search,
-  Settings2,
-  ShieldAlert,
-  Sun,
-  UserPlus,
-  Waypoints,
-} from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import type { ImperativePanelGroupHandle } from "react-resizable-panels";
-import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router";
+import { Dialog as DialogPrimitive } from "radix-ui";
+import { motion } from "motion/react";
+import { LayoutGrid, LogOut, Moon, Search, Sun, X } from "lucide-react";
+import { Fragment, useEffect, useLayoutEffect, useState, type ReactNode } from "react";
+import { Link, Navigate, Outlet, useLocation, useNavigate } from "react-router";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Toaster } from "@/components/ui/sonner";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import { api } from "../api/endpoints";
 import type { Me } from "../api/types";
 import { useAuth } from "../lib/auth";
 import { useLiveEvents } from "../lib/events";
-import { applyTheme, useTheme } from "../lib/theme";
-import { PHONE, useMedia } from "../lib/useMedia";
-import { BoardProvider, BoardStage } from "./board";
-import { Logo } from "./chrome";
+import { applyTheme, prefersReduced, useTheme } from "../lib/theme";
+import { BoardProvider } from "./board";
+import { KindGlyph, Mark } from "./chart";
 import { CommandPalette, openFind } from "./CommandPalette";
-import { FolioContext, type FolioWidth } from "./Folio";
+import { clearTrail, placeName, recordHop, setTrailOwner, useTrail, type Hop } from "./trail";
 
-interface RailItem {
+export interface NavItem {
   to: string;
   label: string;
-  icon: ReactNode;
   count?: number;
   locked?: boolean;
+  key?: string;
 }
 
 export function useCounts() {
@@ -64,289 +45,340 @@ function initials(name: string) {
     .toUpperCase();
 }
 
-function Tip({ text, children }: { text: string; children: ReactNode }) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>{children}</TooltipTrigger>
-      <TooltipContent side="right" sideOffset={10}>
-        {text}
-      </TooltipContent>
-    </Tooltip>
-  );
+/** Every destination, grouped the way the Index shows them. */
+export function navItems(can: (p: string) => boolean, counts: Record<string, number | undefined>) {
+  const work: NavItem[] = [
+    { to: "/board", label: "Desk", key: "D" },
+    { to: "/clients", label: "Clients", key: "C" },
+    ...(can("clients:onboard") ? [{ to: "/onboard", label: "Onboard a client", key: "O" }] : []),
+  ];
+  const decide: NavItem[] = [
+    ...(can("resolution:read") ? [{ to: "/fuse", label: "Fuse or split", count: counts.mergeQueue }] : []),
+    { to: "/screening", label: "Screening", count: can("screening:review") ? counts.screeningBacklog : undefined },
+    { to: "/alerts", label: "Monitoring alerts", count: counts.openAlerts },
+    ...(can("smr:read") ? [{ to: "/reports", label: "Reports (restricted)", locked: true }] : []),
+    ...(can("assistant:use") ? [{ to: "/ask", label: "Ask the board" }] : []),
+  ];
+  const record: NavItem[] = [
+    { to: "/programme", label: "Compliance programme" },
+    ...(can("audit:read") ? [{ to: "/activity", label: "Activity log" }] : []),
+    { to: "/settings/firm", label: "Settings" },
+  ];
+  return { work, decide, record };
 }
 
-export function railItems(can: (p: string) => boolean, counts: Record<string, number | undefined>) {
-  const work: RailItem[] = [
-    { to: "/board", label: "Board", icon: <Waypoints /> },
-    { to: "/clients", label: "Clients", icon: <Folders /> },
-    ...(can("clients:onboard") ? [{ to: "/onboard", label: "Onboard a client", icon: <UserPlus /> }] : []),
-  ];
-  const queues: RailItem[] = [
-    ...(can("resolution:read") ? [{ to: "/fuse", label: "Fuse or split", icon: <GitMerge />, count: counts.mergeQueue }] : []),
-    { to: "/screening", label: "Screening", icon: <ShieldAlert />, count: can("screening:review") ? counts.screeningBacklog : undefined },
-    { to: "/alerts", label: "Monitoring alerts", icon: <BellRing />, count: counts.openAlerts },
-    ...(can("smr:read") ? [{ to: "/reports", label: "Reports (restricted)", icon: <FileLock2 />, locked: true }] : []),
-    ...(can("assistant:use") ? [{ to: "/ask", label: "Ask the board", icon: <ScanSearch /> }] : []),
-  ];
-  const records: RailItem[] = [
-    { to: "/programme", label: "Compliance programme", icon: <ClipboardCheck /> },
-    ...(can("audit:read") ? [{ to: "/activity", label: "Activity log", icon: <ScrollText /> }] : []),
-  ];
-  return { work, queues, records };
-}
-
-export function Spine() {
-  const { me, can, signOut, setMe } = useAuth();
+/** The tallies: what waits on you, in mono numbers with words. */
+function Tallies() {
+  const { can } = useAuth();
   const counts = useCounts();
-  const nav = useNavigate();
-  const theme = useTheme();
-  const { pathname } = useLocation();
-  if (!me) return null;
-  const { work, queues, records } = railItems(can, counts);
-  const isOn = (to: string) => pathname === to || pathname.startsWith(`${to.replace(/\/firm$/, "")}/`);
-  const link = (i: RailItem) => (
-    <Tip key={i.to} text={i.count ? `${i.label} · ${i.count} waiting` : i.label}>
-      {/* A plain Link: the tooltip's Slot merges class names as strings, so the active state is worked out here. */}
-      <Link to={i.to} className={`rail${isOn(i.to) ? " on" : ""}`} aria-current={isOn(i.to) ? "page" : undefined} aria-label={i.count ? `${i.label}, ${i.count} waiting` : i.label}>
-        {i.icon}
-        {!!i.count && (
-          <span className="count" aria-hidden>
-            {i.count}
-          </span>
-        )}
-      </Link>
-    </Tip>
-  );
-  const org = me.activeOrg;
-  const stamp = org ? initials(org.name.replace(/\(.*\)/, "").trim()) : "—";
-  return (
-    <nav className="spine" aria-label="Main">
-      <Link to="/board" className="mark" aria-label="Kinroot: the board">
-        <Logo light />
-      </Link>
-      <Tip text="Find  ( / )">
-        <button type="button" className="rail" aria-label="Find a person, company or trust" onClick={() => openFind()}>
-          <Search />
-        </button>
-      </Tip>
-      <div className="sep" />
-      {work.map(link)}
-      <div className="sep" />
-      {queues.map(link)}
-      <div className="sep" />
-      {records.map(link)}
-      <div className="grow" />
-      {link({ to: "/settings/firm", label: "Settings", icon: <Settings2 /> })}
-      <DropdownMenu>
-        <Tip text={org?.name ?? "Firm"}>
-          <DropdownMenuTrigger asChild>
-            <button type="button" className="stamp" aria-label={`Firm: ${org?.name}. Switch firm`}>
-              {stamp}
-            </button>
-          </DropdownMenuTrigger>
-        </Tip>
-        <DropdownMenuContent side="right" align="end" sideOffset={12} className="min-w-[260px]">
-          <DropdownMenuLabel>Your firms</DropdownMenuLabel>
-          <DropdownMenuRadioGroup
-            value={org?.id}
-            onValueChange={async (id) => {
-              if (id === org?.id) return;
-              setMe(await api.auth.switchOrg(id));
-              nav("/board");
-              location.reload();
-            }}
-          >
-            {me.orgs.map((o) => (
-              <DropdownMenuRadioItem key={o.id} value={o.id}>
-                <span>
-                  <b className="block font-bold">{o.name}</b>
-                  <small className="text-muted">
-                    {o.roleLabel} · {o.country === "AU" ? "Australia" : "United Kingdom"}
-                  </small>
-                </span>
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <DropdownMenu>
-        <Tip text={`${me.user.fullName}, ${me.membership?.roleLabel ?? ""}`}>
-          <DropdownMenuTrigger asChild>
-            <button type="button" className="who" aria-label={`${me.user.fullName}. Account menu`} style={{ background: me.user.avatarColor }}>
-              {initials(me.user.fullName)}
-            </button>
-          </DropdownMenuTrigger>
-        </Tip>
-        <DropdownMenuContent side="right" align="end" sideOffset={12} className="min-w-[220px]">
-          <DropdownMenuLabel>
-            <b className="block font-bold">{me.user.fullName}</b>
-            <small className="font-normal text-muted">{me.membership?.roleLabel}</small>
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => applyTheme(theme === "dark" ? "light" : "dark", true)}>
-            {theme === "dark" ? <Sun /> : <Moon />} {theme === "dark" ? "Light board" : "Dark board"}
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onSelect={async () => {
-              await signOut();
-              nav("/sign-in");
-            }}
-          >
-            <LogOut /> Sign out
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </nav>
-  );
-}
-
-function BottomBar({ onMore }: { onMore: () => void }) {
-  const counts = useCounts();
-  const waiting = (counts.screeningBacklog ?? 0) + (counts.mergeQueue ?? 0) + (counts.openAlerts ?? 0);
   const items = [
-    { to: "/board", label: "Board", icon: <Waypoints /> },
-    { to: "/clients", label: "Clients", icon: <Folders /> },
-    { to: "/waiting", label: "Waiting", icon: <Inbox />, count: waiting },
-    { to: "/ask", label: "Ask", icon: <ScanSearch /> },
-  ];
+    can("screening:review") && { to: "/screening", n: counts.screeningBacklog ?? 0, word: "to screen" },
+    can("resolution:read") && { to: "/fuse", n: counts.mergeQueue ?? 0, word: "to fuse" },
+    { to: "/alerts", n: counts.openAlerts ?? 0, word: "alerts" },
+  ].filter(Boolean) as { to: string; n: number; word: string }[];
   return (
-    <nav className="bottom-bar" aria-label="Main menu">
-      {items.map((i) => (
-        <NavLink key={i.to} to={i.to} className={({ isActive }) => (isActive ? "on" : "")}>
-          {i.icon}
-          {i.label}
-          {!!i.count && <span className="count">{i.count}</span>}
-        </NavLink>
+    <ul className="tallies" aria-label="Waiting on you">
+      {items.map((t) => (
+        <li key={t.to}>
+          <Link to={t.to} aria-label={`${t.n} ${t.word}`}>
+            <b>{t.n}</b>
+            <span>{t.word}</span>
+          </Link>
+        </li>
       ))}
-      <button type="button" onClick={onMore}>
-        <Menu />
-        More
-      </button>
+    </ul>
+  );
+}
+
+function hopKind(h: Hop) {
+  return h.kind === "company" || h.kind === "trust" || h.kind === "person" || h.kind === "partnership" || h.kind === "restricted" ? h.kind : "page";
+}
+
+/** The trail: hops joined by elbows. The last is where you are. */
+function TrailHops() {
+  const all = useTrail();
+  const { pathname } = useLocation();
+  if (!all.length) return <div className="trail" />;
+  // The last four places; earlier ones fold into a count.
+  const hops = all.slice(-4);
+  const folded = all.length - hops.length;
+  return (
+    <nav className="trail" aria-label="Your trail">
+      <ol>
+        {folded > 0 && (
+          <li className="hop more">
+            <span title={all.slice(0, folded).map((h) => h.label).join(" → ")}>+{folded}</span>
+          </li>
+        )}
+        {hops.map((h, i) => {
+          const here = i === hops.length - 1;
+          return (
+            <Fragment key={h.key}>
+              {(i > 0 || folded > 0) && (
+                <li className="elbow" aria-hidden>
+                  <svg width="18" height="20" viewBox="0 0 18 20">
+                    <path d="M1 6 H9 V14 H17" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                  </svg>
+                </li>
+              )}
+              <li className={cn("hop", here && "here")}>
+                {here && h.path === pathname ? (
+                  <span aria-current="page">
+                    <KindGlyph kind={hopKind(h)} size={13} />
+                    <span className="hl">{h.label}</span>
+                  </span>
+                ) : (
+                  <Link to={h.path}>
+                    <KindGlyph kind={hopKind(h)} size={13} />
+                    <span className="hl">{h.label}</span>
+                  </Link>
+                )}
+              </li>
+            </Fragment>
+          );
+        })}
+      </ol>
     </nav>
   );
 }
 
-/** Phones: everything the spine holds that the bottom bar doesn't, in a sheet from the bottom. */
-function MoreSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
-  const { can, signOut, me } = useAuth();
+const indexListeners = new Set<() => void>();
+export function openIndex(): void {
+  indexListeners.forEach((l) => l());
+}
+
+/** The Index: every destination as a poster word, in three columns. Falls from the top. */
+function IndexSheet() {
+  const { me, can, signOut } = useAuth();
   const counts = useCounts();
-  const { work, queues, records } = railItems(can, counts);
-  const links = [...work.slice(2), ...queues.filter((q) => q.to !== "/ask"), ...records, { to: "/settings/firm", label: "Settings", icon: <Settings2 /> }];
+  const theme = useTheme();
+  const nav = useNavigate();
+  const [open, setOpen] = useState(false);
+  const { pathname } = useLocation();
+  const reduced = prefersReduced();
+  useEffect(() => {
+    const show = () => setOpen(true);
+    indexListeners.add(show);
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement;
+      if (["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName) || t.isContentEditable) return;
+      if (e.key === "." && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        setOpen((o) => !o);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      indexListeners.delete(show);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, []);
+  useEffect(() => setOpen(false), [pathname]);
+  const { work, decide, record } = navItems(can, counts);
+  const cols: [string, NavItem[]][] = [
+    ["Work", work],
+    ["Decide", decide],
+    ["Record", record],
+  ];
+  let n = 0;
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[80vh] overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>More</SheetTitle>
-          <SheetDescription>{me?.activeOrg?.name}</SheetDescription>
-        </SheetHeader>
-        <ul className="more-list">
-          {links.map((l) => (
-            <li key={l.to}>
-              <Link to={l.to} onClick={() => onOpenChange(false)}>
-                {l.icon}
-                {l.label}
-              </Link>
-            </li>
-          ))}
-          <li>
-            <button type="button" onClick={() => void signOut().then(() => location.assign("/sign-in"))}>
+    <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="index-veil" />
+        <DialogPrimitive.Content className="index-sheet" aria-describedby={undefined}>
+          <div className="index-top">
+            <DialogPrimitive.Title className="index-title">Index</DialogPrimitive.Title>
+            <span className="index-firm">
+              {me?.activeOrg?.name} · {me?.membership?.roleLabel}
+            </span>
+            <DialogPrimitive.Close className="index-close" aria-label="Close the index">
+              <X />
+              <span>Close</span>
+            </DialogPrimitive.Close>
+          </div>
+          <nav className="index-cols" aria-label="Main">
+            {cols.map(([title, items]) => (
+              <section key={title} className="index-col">
+                <h2>{title}</h2>
+                <ol>
+                  {items.map((it) => {
+                    const i = n++;
+                    const on = pathname === it.to || pathname.startsWith(`${it.to.replace(/\/firm$/, "")}/`);
+                    return (
+                      <motion.li key={it.to} initial={reduced ? false : { opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: reduced ? 0 : 0.04 * i, duration: 0.28, ease: [0.2, 0.8, 0.2, 1] }}>
+                        <Link to={it.to} aria-current={on ? "page" : undefined} className={cn("index-link", on && "on")} aria-label={it.count ? `${it.label}, ${it.count} waiting` : it.label}>
+                          <span className="il-n">{String(i + 1).padStart(2, "0")}</span>
+                          <span className="il-word">
+                            {it.locked && <KindGlyph kind="restricted" size={22} />}
+                            {it.label}
+                          </span>
+                          {!!it.count && <span className="il-count">{it.count}</span>}
+                        </Link>
+                      </motion.li>
+                    );
+                  })}
+                </ol>
+              </section>
+            ))}
+          </nav>
+          <div className="index-foot">
+            <button type="button" onClick={() => applyTheme(theme === "dark" ? "light" : "dark", true)}>
+              {theme === "dark" ? <Sun /> : <Moon />} {theme === "dark" ? "Light pages" : "Dark pages"}
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                setOpen(false);
+                await signOut();
+                clearTrail();
+                nav("/sign-in");
+              }}
+            >
               <LogOut /> Sign out
             </button>
-          </li>
-        </ul>
-      </SheetContent>
-    </Sheet>
+            <span className="index-keys">
+              <span className="kbd">.</span> Index · <span className="kbd">/</span> Find · <span className="kbd">[</span> <span className="kbd">]</span> Sections
+            </span>
+          </div>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }
 
-const SIZE: Record<Exclude<FolioWidth, "full">, number> = { narrow: 36, normal: 44, wide: 60 };
+function Account() {
+  const { me, signOut, setMe } = useAuth();
+  const nav = useNavigate();
+  const theme = useTheme();
+  if (!me) return null;
+  const org = me.activeOrg;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button type="button" className="acct" aria-label={`${me.user.fullName}, ${org?.name}. Account menu`}>
+          <span className="acct-i" style={{ background: me.user.avatarColor }}>
+            {initials(me.user.fullName)}
+          </span>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" sideOffset={10} className="min-w-[280px]">
+        <DropdownMenuLabel>
+          <b className="block">{me.user.fullName}</b>
+          <small className="font-normal text-muted">{me.membership?.roleLabel}</small>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="micro">Your firms</DropdownMenuLabel>
+        <DropdownMenuRadioGroup
+          value={org?.id}
+          onValueChange={async (id) => {
+            if (id === org?.id) return;
+            setMe(await api.auth.switchOrg(id));
+            clearTrail();
+            nav("/board");
+            location.reload();
+          }}
+        >
+          {me.orgs.map((o) => (
+            <DropdownMenuRadioItem key={o.id} value={o.id}>
+              <span>
+                <b className="block">{o.name}</b>
+                <small className="text-muted">
+                  {o.roleLabel} · {o.country === "AU" ? "Australia" : "United Kingdom"}
+                </small>
+              </span>
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => applyTheme(theme === "dark" ? "light" : "dark", true)}>
+          {theme === "dark" ? <Sun /> : <Moon />} {theme === "dark" ? "Light pages" : "Dark pages"}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={async () => {
+            await signOut();
+            clearTrail();
+            nav("/sign-in");
+          }}
+        >
+          <LogOut /> Sign out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
-export function AppShell() {
+function TrailBar() {
+  return (
+    <header className="trailbar">
+      <Link to="/board" className="wordmark" aria-label="Kinroot: your desk">
+        <Mark />
+        <span className="wm">Kinroot</span>
+      </Link>
+      <TrailHops />
+      <Tallies />
+      <div className="bar-actions">
+        <button type="button" className="bar-btn find" onClick={() => openFind()} aria-label="Find a person, company or trust">
+          <Search />
+          <span>Find</span>
+          <span className="kbd" aria-hidden>
+            /
+          </span>
+        </button>
+        <button type="button" className="bar-btn index" onClick={() => openIndex()} aria-label="Open the index of every page">
+          <LayoutGrid />
+          <span>Index</span>
+        </button>
+        <Account />
+      </div>
+    </header>
+  );
+}
+
+/** Static places name themselves on the trail; records (a client, a match) name themselves from their page. */
+function PlaceHops() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    const name = placeName(pathname);
+    if (name) recordHop({ key: pathname, path: pathname, label: name, kind: "page" });
+  }, [pathname]);
+  return null;
+}
+
+export function AppShell(): ReactNode {
   const auth = useAuth();
   const qc = useQueryClient();
   // Right after signing in, the cache already holds the session before the provider re-renders.
   const me = auth.me ?? qc.getQueryData<Me | null>(["me"]) ?? null;
   const loading = auth.loading && !me;
   const loc = useLocation();
-  const phone = useMedia(PHONE);
-  const [folioEl, setFolioEl] = useState<HTMLElement | null>(null);
-  const [width, setWidthState] = useState<FolioWidth>("normal");
-  const [view, setView] = useState<"file" | "board">("file");
-  const [more, setMore] = useState(false);
-  const group = useRef<ImperativePanelGroupHandle>(null);
   useLiveEvents(!!me);
-
-  const setWidth = useCallback((w: FolioWidth) => setWidthState(w), []);
+  // Before any page records its hop (layout effects run before every passive effect).
+  useLayoutEffect(() => {
+    if (me) setTrailOwner(`${me.user.id}:${me.activeOrg?.id ?? ""}`);
+  }, [me]);
   useEffect(() => {
-    if (width === "full") return;
-    // The panels register after the first paint; until then the group has no layout to change.
-    const apply = () => {
-      try {
-        group.current?.setLayout([SIZE[width], 100 - SIZE[width]]);
-        return true;
-      } catch {
-        return false;
-      }
-    };
-    if (apply()) return;
-    const raf = requestAnimationFrame(() => void apply());
-    return () => cancelAnimationFrame(raf);
-  }, [width, phone, folioEl]);
-  // A new record starts at the top of the folio; on phones it opens on the file.
-  useEffect(() => {
-    if (folioEl) folioEl.scrollTop = 0;
-    setView("file");
-  }, [loc.pathname, folioEl]);
-  const folio = useMemo(() => ({ el: folioEl, setWidth }), [folioEl, setWidth]);
+    window.scrollTo({ top: 0 });
+  }, [loc.pathname]);
 
-  if (loading) return <div className="board" aria-busy="true" />;
+  if (loading) return <div className="app" aria-busy="true" />;
   if (!me) return <Navigate to={`/sign-in?next=${encodeURIComponent(loc.pathname + loc.search)}`} replace />;
-  const exhibit = (
-    <section className="exhibit" aria-label="Exhibit: the board">
-      <BoardStage />
-      <Outlet />
-    </section>
-  );
   return (
     <BoardProvider>
-      <FolioContext.Provider value={folio}>
-        <TooltipProvider delayDuration={250}>
-          <a className="skip" href="#folio">
-            Skip to the file
-          </a>
-          <div className="app">
-            <Spine />
-            <main className="stage" id="work" data-folio={width === "full" ? "full" : undefined} data-view={phone ? view : undefined}>
-              {phone ? (
-                <>
-                  <div className="folio" id="folio" ref={setFolioEl} tabIndex={-1} />
-                  {exhibit}
-                  {width !== "full" && (
-                    <ToggleGroup type="single" className="view-switch" value={view} onValueChange={(v) => v && setView(v as "file" | "board")} aria-label="Show">
-                      <ToggleGroupItem value="file">File</ToggleGroupItem>
-                      <ToggleGroupItem value="board">Board</ToggleGroupItem>
-                    </ToggleGroup>
-                  )}
-                </>
-              ) : (
-                <ResizablePanelGroup direction="horizontal" ref={group}>
-                  <ResizablePanel id="folio-panel" order={1} defaultSize={SIZE.normal} minSize={28} maxSize={72} className="folio-panel">
-                    <div className="folio" id="folio" ref={setFolioEl} tabIndex={-1} />
-                  </ResizablePanel>
-                  <ResizableHandle aria-label="Resize the file" />
-                  <ResizablePanel id="exhibit-panel" order={2} defaultSize={100 - SIZE.normal} minSize={22} className="relative">
-                    {exhibit}
-                  </ResizablePanel>
-                </ResizablePanelGroup>
-              )}
-            </main>
-            <BottomBar onMore={() => setMore(true)} />
-          </div>
-          <MoreSheet open={more} onOpenChange={setMore} />
-          <CommandPalette />
-          <Toaster />
-        </TooltipProvider>
-      </FolioContext.Provider>
+      <TooltipProvider delayDuration={250}>
+        <a className="skip" href="#main">
+          Skip to the page
+        </a>
+        <div className="app">
+          <TrailBar />
+          <PlaceHops />
+          <main className="page-host" id="main" tabIndex={-1}>
+            <Outlet />
+          </main>
+        </div>
+        <IndexSheet />
+        <CommandPalette />
+        <Toaster />
+      </TooltipProvider>
     </BoardProvider>
   );
 }
