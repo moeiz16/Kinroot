@@ -5,7 +5,7 @@ import type { BEdge, BNode } from "./model";
 const node = (id: string, level: number): BNode => ({ id, kind: "company", label: id, glyph: "", level, flags: [], aria: id, x: 0, y: 0 });
 
 describe("layered layout", () => {
-  it("puts the client on top and owners in rows beneath", () => {
+  it("puts the client at the foot and owners in rows above", () => {
     const nodes = [node("c", 0), node("a", 1), node("b", 1), node("p", 2)];
     const edges: BEdge[] = [
       { id: "1", s: "a", t: "c", kind: "own" },
@@ -14,18 +14,18 @@ describe("layered layout", () => {
     ];
     const pos = layered(nodes, edges, { rankSep: 160, nodeSep: 205 });
     expect(pos.get("c")!.y).toBe(0);
-    expect(pos.get("a")!.y).toBe(160);
-    expect(pos.get("p")!.y).toBe(320);
+    expect(pos.get("a")!.y).toBe(-160);
+    expect(pos.get("p")!.y).toBe(-320);
     expect(Math.abs(pos.get("a")!.x - pos.get("b")!.x)).toBeGreaterThanOrEqual(205);
   });
-  it("moves a party linked to a neighbour on the same row down a row", () => {
+  it("lifts a party linked to a neighbour on the same row up a row", () => {
     const nodes = [node("c", 0), node("t", 1), node("x", 1)];
     const edges: BEdge[] = [
       { id: "1", s: "t", t: "c", kind: "ctrl" },
       { id: "2", s: "x", t: "t", kind: "ctrl" },
     ];
     const pos = layered(nodes, edges);
-    expect(pos.get("x")!.y).toBeGreaterThan(pos.get("t")!.y);
+    expect(pos.get("x")!.y).toBeLessThan(pos.get("t")!.y);
   });
   it("keeps parties near the one they own (barycentre)", () => {
     const nodes = [node("c", 0), node("l", 1), node("r", 1), node("pl", 2), node("pr", 2)];

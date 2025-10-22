@@ -6,9 +6,10 @@ import { renderApp } from "./render";
 const T = { timeout: 4000 };
 
 describe("public pages", () => {
-  it("landing: the board is the hero, with the runtime Tranche 2 line", async () => {
+  it("landing: the answer is the headline, with the runtime Tranche 2 line", async () => {
     renderApp("/", null);
-    expect(await screen.findByRole("heading", { level: 1, name: /See who is really behind your client/ }, T)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: /Who really owns your client/ }, T)).toBeInTheDocument();
+    expect(screen.getByText("Margaret Calder")).toBeInTheDocument();
     expect(screen.getByText(/Tranche 2 obligations (start in \d+ days|in force since 1 July 2026)/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Trust over a company/ })).toBeInTheDocument();
     expect(screen.queryByText(/Explore the demo|Create an account/)).toBeNull();
@@ -36,24 +37,45 @@ describe("public pages", () => {
   });
 });
 
-describe("the spine", () => {
-  it("shows the restricted reports icon only to the compliance officer", async () => {
+async function openIndex() {
+  await userEvent.click(await screen.findByRole("button", { name: "Open the index of every page" }, T));
+  return screen.findByRole("navigation", { name: "Main" }, T);
+}
+
+describe("the trail bar and the index", () => {
+  it("shows the restricted reports only to the compliance officer", async () => {
     renderApp("/board", "u-daniel");
-    const nav = await screen.findByRole("navigation", { name: "Main" }, T);
+    const nav = await openIndex();
     expect(within(nav).getByRole("link", { name: /Reports \(restricted\)/ })).toBeInTheDocument();
   });
-  it("hides it from a fee earner", async () => {
+  it("hides them from a fee earner", async () => {
     renderApp("/board", "u-tom");
-    const nav = await screen.findByRole("navigation", { name: "Main" }, T);
+    const nav = await openIndex();
     expect(within(nav).queryByRole("link", { name: /Reports/ })).toBeNull();
-    expect(within(nav).getByRole("link", { name: /Board/ })).toBeInTheDocument();
+    expect(within(nav).getByRole("link", { name: /Desk/ })).toBeInTheDocument();
+  });
+  it("tallies what waits on the compliance officer", async () => {
+    renderApp("/board", "u-daniel");
+    const tallies = await screen.findByRole("list", { name: "Waiting on you" }, T);
+    expect(within(tallies).getByRole("link", { name: /to screen/ })).toBeInTheDocument();
+    expect(within(tallies).getByRole("link", { name: /to fuse/ })).toBeInTheDocument();
+  });
+  it("never tallies the fuse queue for a fee earner", async () => {
+    renderApp("/board", "u-tom");
+    const tallies = await screen.findByRole("list", { name: "Waiting on you" }, T);
+    expect(within(tallies).queryByRole("link", { name: /to fuse/ })).toBeNull();
+  });
+  it("puts a dossier on the trail under the client's name", async () => {
+    renderApp("/clients/c-harbour-quay/summary");
+    const trail = await screen.findByRole("navigation", { name: "Your trail" }, T);
+    expect(await within(trail).findByText("Harbour Quay Developments Pty Ltd", {}, T)).toBeInTheDocument();
   });
 });
 
-describe("board and dossier", () => {
-  it("the constellation has a text twin listing every client", async () => {
+describe("charts and the dossier", () => {
+  it("the book chart has a text twin listing every client", async () => {
     renderApp("/board");
-    const twin = await screen.findByRole("region", { name: "Text version of the board" }, T);
+    const twin = await screen.findByRole("region", { name: "Text version of the chart" }, T);
     expect(within(twin).getByText(/Harbour Quay Developments Pty Ltd, client, rated High/)).toBeInTheDocument();
   });
   it("dossier: owners with compounded % and reasons with cited links", async () => {
@@ -64,7 +86,7 @@ describe("board and dossier", () => {
     expect(await screen.findByText(/Why this client is rated High/, {}, T)).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /Show link E-\d\d on the board/ }).length).toBeGreaterThan(0);
   });
-  it("dossier: folder tabs move with ] and the Owners tab is the ledger twin", async () => {
+  it("dossier: section words move with ] and the Owners section is the register twin", async () => {
     renderApp("/clients/c-harbour-quay/summary");
     await screen.findByRole("tab", { name: "Summary" }, T);
     fireEvent.keyDown(window, { key: "]" });
@@ -94,7 +116,7 @@ describe("restricted reports", () => {
   });
   it("shows the compliance officer the deadline chip and draft", async () => {
     renderApp("/reports/case-aurelian", "u-daniel");
-    expect(await screen.findByText(/business day|Due today|Overdue/, {}, T)).toBeInTheDocument();
+    expect((await screen.findAllByText(/business day|Due today|Overdue/, {}, T)).length).toBeGreaterThan(0);
     expect(screen.getByRole("tab", { name: "Draft report" })).toBeInTheDocument();
   });
 });
@@ -166,12 +188,13 @@ describe("records and settings", () => {
   });
 });
 
-describe("docket", () => {
-  it("lists the next decisions for the compliance officer, earliest due first", async () => {
+describe("the desk", () => {
+  it("lists the next decisions for the compliance officer as tickets, earliest due first", async () => {
     renderApp("/board", "u-daniel");
-    const docket = await screen.findByRole("table", { name: /waiting for you/ }, T);
-    await waitFor(() => expect(within(docket).getAllByRole("row").length).toBeGreaterThan(3));
-    expect(within(docket).getByRole("columnheader", { name: /Due/ })).toBeInTheDocument();
+    const rail = await screen.findByRole("list", { name: /waiting for you/ }, T);
+    await waitFor(() => expect(within(rail).getAllByRole("listitem").length).toBeGreaterThan(3));
+    expect(within(rail).getAllByText("Due").length).toBeGreaterThan(3);
+    expect(screen.getByRole("heading", { level: 1, name: /waiting for you/ })).toBeInTheDocument();
   });
   it("puts the restricted report clock on the compliance officer's docket only", async () => {
     renderApp("/board", "u-daniel");
@@ -179,7 +202,7 @@ describe("docket", () => {
   });
   it("never shows the report clock to a fee earner", async () => {
     renderApp("/board", "u-tom");
-    await screen.findByRole("table", { name: /waiting for you|Nothing waiting/ }, T);
+    await screen.findByRole("list", { name: /waiting for you|Nothing waiting/ }, T);
     expect(screen.queryByText("Report (restricted)")).toBeNull();
   });
 });
