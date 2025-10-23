@@ -399,7 +399,7 @@ export class BoardEngine {
     const x = (id: string) => this.nodes.get(id)!.x;
     for (const [id, list] of byS) {
       list.sort((a, b) => x(a.t) - x(b.t) || (a.kind === "ctrl" ? 1 : 0) - (b.kind === "ctrl" ? 1 : 0));
-      const half = (this.nodes.get(id)!.kind === "person" ? 18 : this.nodes.get(id)!.w / 2 - 22) || 60;
+      const half = (this.nodes.get(id)!.kind === "person" ? 34 : this.nodes.get(id)!.w / 2 - 22) || 60;
       const gap = Math.min(30, (half * 2) / Math.max(1, list.length - 1));
       list.forEach((e, i) => {
         e.exitOff = clamp((i - (list.length - 1) / 2) * gap, -half, half);
@@ -418,10 +418,10 @@ export class BoardEngine {
   private buildRows() {
     this.rows = [];
     if (this.pins) return;
+    // Rows from the foot up: the bottom row is the client's (or the base of a drawn path), then Layer 1, Layer 2…
     const ys = [...new Set([...this.nodes.values()].map((n) => Math.round(n.y)))].sort((a, b) => b - a);
-    const clientY = [...this.nodes.values()].find((n) => n.client)?.y;
-    const baseIdx = clientY != null ? ys.indexOf(Math.round(clientY)) : 0;
-    this.rows = ys.map((y, i) => ({ y, label: i === baseIdx ? "Client" : i > baseIdx ? `Layer ${i - baseIdx}` : `Below ${baseIdx - i}` }));
+    const footHasClient = [...this.nodes.values()].some((n) => n.client && Math.round(n.y) === ys[0]);
+    this.rows = ys.map((y, i) => ({ y, label: i === 0 ? (footHasClient ? "Client" : "Base") : `Layer ${i}` }));
     for (const r of this.rows) {
       const g = document.createElementNS(SVGNS, "g");
       g.innerHTML = `<line class="rule-line"/><text class="rule-label">${esc(r.label.toUpperCase())}</text>`;

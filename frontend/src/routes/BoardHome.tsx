@@ -149,7 +149,7 @@ export function docketRows(tray: TrayItem[], cases: { id: string; title: string;
     const look = deadlineLook(c as never);
     rows.push({ id: `report:${c.id}`, kind: "report", word: "Report (restricted)", title: c.title.split(" · ")[0]!, subtitle: "Suspicious matter report · restricted", dueOn: c.deadlineOn, due: { text: look.text.replace(" (3-day limit)", ""), late: look.tone === "high" }, href: `/reports/${c.id}`, clientId: null });
   }
-  return rows.sort((a, b) => (a.dueOn ?? "9999").localeCompare(b.dueOn ?? "9999"));
+  return rows.sort((a, b) => (a.dueOn || "9999").localeCompare(b.dueOn || "9999"));
 }
 
 /** The ticket rail: each waiting decision as a ticket, earliest due first. `vertical` stacks them (phones, Waiting). */
@@ -157,6 +157,11 @@ export function Tickets({ rows, caption, onHover, vertical }: { rows: DocketRow[
   const reduced = prefersReduced();
   const rail = useRef<HTMLOListElement>(null);
   const scroll = (dir: number) => rail.current?.scrollBy({ left: dir * 560, behavior: reduced ? "auto" : "smooth" });
+  // The earliest ticket is always in view when the rail fills.
+  const first = rows[0]?.id;
+  useEffect(() => {
+    if (rail.current) rail.current.scrollLeft = 0;
+  }, [first]);
   return (
     <section className={`tickets${vertical ? " vertical" : ""}`} aria-label="Waiting decisions">
       {!vertical && rows.length > 4 && (

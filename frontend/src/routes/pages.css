@@ -146,7 +146,7 @@
 .tickets-nav button { width: 38px; height: 38px; display: grid; place-items: center; border: 1.5px solid var(--rule-strong); border-radius: var(--r-leaf); background: var(--surface); color: var(--ink); }
 .tickets-nav button:hover { border-color: var(--ink); }
 .tickets-nav svg { width: 18px; height: 18px; }
-.ticket-rail { list-style: none; margin: 0; padding: 6px 4px 14px; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(250px, 1fr); gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: thin; }
+.ticket-rail { list-style: none; margin: 0; padding: 6px 4px 14px; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(250px, 1fr); gap: 14px; overflow-x: auto; scroll-snap-type: x proximity; scroll-padding-inline: 4px; scrollbar-width: thin; }
 .ticket-rail > li { scroll-snap-align: start; min-width: 0; }
 .ticket-in { animation: ticket-in 0.42s var(--ease-set) both; }
 @keyframes ticket-in { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: none; } }
@@ -396,3 +396,9 @@
   .prog-row p { grid-column: 2; }
   .sk-register .mast-poster .mast-title, .sk-brief .mast-poster .mast-title, .sk-form .mast-poster .mast-title { font-size: 34px; }
 }
+/* Nothing left to do: the sign-off bar folds to one line. */
+.signoff-block.settled .signoff-text { display: flex; align-items: baseline; gap: 14px; }
+.signoff-block.settled .checks { display: none; }
+.signoff-block.settled .signoff-text h3 { font-size: 15px; }
+.signoff-block.settled .signoff-text .note { margin: 0; }
+.decision:has(.signoff-block.settled) .decision-in { padding-top: 10px; padding-bottom: 12px; }

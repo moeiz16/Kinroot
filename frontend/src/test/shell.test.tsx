@@ -25,6 +25,7 @@ describe("the ticket rail", () => {
   it("puts the earliest due first and undated items last", () => {
     const rows = docketRows([slip("a", null), slip("b", daysFromToday(3)), slip("c", daysFromToday(-1))], []);
     expect(rows.map((r) => r.title)).toEqual(["Item c", "Item b", "Item a"]);
+    expect(docketRows([slip("e", "" as unknown as null), slip("f", daysFromToday(5))], []).map((r) => r.title)).toEqual(["Item f", "Item e"]);
     expect(rows[0]!.href).toBe("/screening/c");
   });
   it("adds open report deadlines, never filed ones", () => {

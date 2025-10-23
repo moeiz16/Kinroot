@@ -342,8 +342,7 @@ table.ledger { width: 100%; border-collapse: collapse; font-size: 14px; }
 .index-foot button { display: inline-flex; gap: 8px; align-items: center; height: 38px; padding: 0 12px; border-radius: var(--r-leaf); border: 1.5px solid #8a8d76; background: none; color: inherit; font: 600 13.5px/1 var(--f-sans); }
 .index-foot button svg { width: 16px; height: 16px; }
 .index-keys { margin-left: auto; font: 500 11px/1 var(--f-mono); color: #a3a68e; display: inline-flex; gap: 6px; align-items: center; }
-.index-keys .kglyph { flex: none; }
-.kbd { color: #eceddf; border-color: #8a8d76; }
+.index-keys .kbd { color: #eceddf; border-color: #8a8d76; }
 @keyframes drop { from { transform: translateY(-104%); } to { transform: none; } }
 @keyframes veil-in { from { opacity: 0; } to { opacity: 1; } }
 
@@ -401,7 +400,7 @@ table.ledger { width: 100%; border-collapse: collapse; font-size: 14px; }
 .chart-tools button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
 .chart-tools .tool-word { font: 700 12.5px/1 var(--f-sans); color: var(--moss-ink); }
 .chart-frame { position: relative; overflow: hidden; border: 1.5px solid var(--ink); border-radius: var(--r-leaf-lg); background: var(--chart); }
-.h-tall .chart-frame { height: clamp(400px, calc(100vh - 430px), 700px); }
+.h-tall .chart-frame { height: clamp(440px, calc(100vh - 300px), 760px); }
 .h-mid .chart-frame { height: clamp(320px, 44vh, 480px); }
 .h-short .chart-frame { height: clamp(260px, 34vh, 360px); }
 .h-book .chart-frame { height: clamp(420px, 60vh, 660px); }
@@ -601,8 +600,7 @@ table.ledger { width: 100%; border-collapse: collapse; font-size: 14px; }
   .trail .hop.here > span, .trail .hop.here > a { font-size: 12.5px; max-width: 46vw; padding: 6px 4px; }
   .tallies { display: none; }
   .bar-btn { padding: 0 10px; }
-  .bar-btn.find span, .bar-btn.find .kglyph { flex: none; }
-.kbd { display: none; }
+  .bar-btn.find span, .bar-btn.find .kbd { display: none; }
   .index-cols { grid-template-columns: 1fr; }
   .index-col + .index-col { margin-top: 18px; }
   .index-keys { display: none; }

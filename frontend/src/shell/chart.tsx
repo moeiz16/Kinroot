@@ -204,7 +204,7 @@ export function DepthGauge() {
             return (
               <li key={r.y}>
                 <button type="button" className={cn("g-row", inView && "in-view", traced && "traced")} onClick={() => board.engine()?.flyToRow(r.y)} aria-label={`${r.label}: ${on.length} ${on.length === 1 ? "party" : "parties"}. Show this layer`}>
-                  <span className="g-lbl">{r.label === "Client" ? "C" : r.label.replace(/^Layer /, "")}</span>
+                  <span className="g-lbl">{r.label === "Client" ? "C" : r.label === "Base" ? "B" : r.label.replace(/^Layer /, "")}</span>
                   <span className="g-tick" aria-hidden />
                   <span className="g-glyphs" aria-hidden>
                     {on.slice(0, 5).map((n) => (

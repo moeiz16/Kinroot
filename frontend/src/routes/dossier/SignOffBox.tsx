@@ -52,7 +52,7 @@ export function SignOffBox({ client, edd }: { client: Client; edd: Edd | undefin
           : "The compliance officer signed off. A partner who doesn't act for this client approves next."
         : `${done} of ${measures.length} enhanced checks received.${waiting.length ? ` Waiting on ${waiting.slice(0, 2).join(" and ")}.` : " Ready for sign-off."}`;
   return (
-    <div className="signoff-block">
+    <div className={`signoff-block${edd.status === "approved" || !edd.required ? " settled" : ""}`}>
       <div className="signoff-text">
         {edd.required && (
           <div className="checks" role="img" aria-label={`${done} of ${measures.length} enhanced checks received`}>
