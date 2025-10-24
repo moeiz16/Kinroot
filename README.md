@@ -57,11 +57,15 @@ The seeded roles match how a small firm runs its AML/CTF program.
 
 Across all of them:
 
-- **A file and its exhibit.** Every screen pairs the written record (a file with a caption, folder tabs and the
-  decision at its foot) with the board it rests on, side by side and resizable. The client book is a constellation
-  of pins clustered by shared officers, owners and addresses. Each client opens into its structure, with the path to
-  each beneficial owner drawn as a red string ("100% × 80% × 62% = 49.6%"), the trail of hops beside it, and a
-  text register of the same data for keyboard and screen-reader users.
+- **The structure chart.** Each client is drawn the way a lawyer draws a structure chart: the client at the foot,
+  owners in rows above it, companies as boxes, trusts as ovals and people as circles, joined by elbowed lines with
+  the percentage on each owner's line. Following a person to the client is a trace that climbs from the client to
+  the owner and multiplies as it goes ("100% × 80% × 62% = 49.6%"). Every chart has a depth gauge (one tick per
+  layer of ownership) and a text register of the same data for keyboard and screen-reader users.
+- **Screens shaped by the work.** A trail bar on top records your path through the files and tallies what is
+  waiting; a full-screen Index holds every destination. The desk is a ticket rail over the whole client book;
+  registers are full-width; dossiers put the chart above the record; matches are a face-off between two records;
+  restricted cases are sealed on an ink ground.
 - **Point in time.** Any structure can be shown "as at" a date, or compared with another date to show what changed
   since onboarding.
 - **Investigation assistant.** Ask "how is this person connected to that company?" or "what changed since
@@ -169,7 +173,7 @@ flowchart LR
 | Matching and screening | rapidfuzz, jellyfish (Jaro-Winkler, Double Metaphone, NYSIIS), custom normalisation and blocking |
 | Classical ML | scikit-learn, LightGBM, Optuna, SHAP (exact TreeSHAP), isotonic calibration, MLflow (local tracking and registry) |
 | Assistant | Six permission-checked tools over the graph, screening and risk records; a deterministic offline planner; optional LiteLLM (Groq, Gemini) |
-| Web | React 19, Vite, React Router, TanStack Query and TanStack Table, shadcn/ui on Radix primitives (re-skinned to the paper tokens), Sigma.js 3 + graphology (ForceAtlas2), Motion, Tailwind CSS 4.1; type set in Besley, Ysabeau Office and Sometype Mono |
+| Web | React 19, Vite, React Router, TanStack Query and TanStack Table, shadcn/ui on Radix primitives (re-skinned: leaf corners, moss tokens), Sigma.js 3 + graphology (camera and ForceAtlas2) under Kinroot's own structure-chart drawing, Motion, Tailwind CSS 4.1; type set in Syne, Onest and Martian Mono |
 | Quality | pytest, Ruff, mypy (Django and DRF plugins), ESLint, Vitest, an evaluation harness with gates, GitHub Actions CI |
 
 ## Machine learning
@@ -314,13 +318,13 @@ All screens use the synthetic Harbourline sample firm. Images live in [`docs/scr
 
 | | |
 |---|---|
-| ![Landing page: a sample client is traced live and the red string multiplies 100% × 80% × 62% into a 49.6% beneficial owner](docs/screenshots/01-landing-hero.jpg) | ![Home: the docket of decisions waiting, earliest due first, beside the whole client book as pins clustered by shared officers and addresses](docs/screenshots/04-constellation.jpg) |
-| **Trace a client.** The landing page is the product: type a name, watch the owners unfold, see the path to the beneficial owner. | **The docket and the client book.** Every decision waiting, earliest due first, beside every client as a pin clustered by shared directors, owners and addresses. |
-| ![Client dossier: a trust over a company over an offshore holding, the beneficial owner's chain drawn on the board, and rated reasons citing each link](docs/screenshots/06-dossier-ubo-path.jpg) | ![Before/after overlay: a new 40% holder through a Cayman company, with new and changed links tagged against the onboarding date](docs/screenshots/10-before-after.jpg) |
-| **Who really owns this client.** Each reason for the rating cites the link it rests on (`E-04`, `E-01`). | **What changed since onboarding.** New, ended and changed links are tagged on the board. |
-| ![Fuse or split: two records of the same person scored 100 in 100 but held for a person because their addresses differ, with field-by-field evidence](docs/screenshots/12-fuse-or-split.jpg) | ![Screening review: the client's owner beside a sanctions list entry, compared field by field before a decision](docs/screenshots/13-screening-review.jpg) |
+| ![Landing page: the headline asks who really owns your client, and a sample structure chart traces the answer, 100% × 80% × 62% = 49.6%](docs/screenshots/01-landing-hero.jpg) | ![The desk: a giant count of decisions waiting, each one a ticket with the restricted report deadline first, over the whole client book drawn as one network](docs/screenshots/04-constellation.jpg) |
+| **The answer is the headline.** Pick a sample structure, watch the owners rise above the client and the trace climb to the beneficial owner. | **The desk and the client book.** Every decision waiting as a ticket, earliest due first, over every client clustered by shared directors, owners and addresses. |
+| ![Client dossier: a structure chart with the owners above the client, companies as boxes, the trust as an oval and people as circles, and the trace climbing to the beneficial owner](docs/screenshots/06-dossier-ubo-path.jpg) | ![Before/after: a new 40% holder through a Cayman company, with new and changed links tagged on the chart against the onboarding date](docs/screenshots/10-before-after.jpg) |
+| **Who really owns this client.** Each reason for the rating cites the link it rests on (`E-04`, `E-01`). | **What changed since onboarding.** New, ended and changed links are tagged on the chart. |
+| ![Fuse or split: Record A and Record B face each other across a 100 in 100 likelihood, each field zipped across with a same, close or different mark](docs/screenshots/12-fuse-or-split.jpg) | ![Screening review: our record faces the sanctions list entry field by field before a decision](docs/screenshots/13-screening-review.jpg) |
 | **Fuse or split.** Likely duplicates with plain reasons; anything that conflicts waits for a person. | **Screening review.** A possible sanctions match compared field by field; every decision needs a reason. |
-| ![Restricted case: a draft suspicious-matter report in a hatched, locked file visible only to the people named on the case](docs/screenshots/15-smr-case.jpg) | ![Ask the board: "How is Gregory Pell linked to our clients?" answered with three cited links drawn on the board](docs/screenshots/16-ask-the-board.jpg) |
+| ![Restricted case: the page turns to ink behind a hatched restriction band, with a count of business days left to report](docs/screenshots/15-smr-case.jpg) | ![Ask the board: "How is Gregory Pell linked to our clients?" answered with three cited links, the same path drawn as a structure chart](docs/screenshots/16-ask-the-board.jpg) |
 | **Suspicious-matter reports.** Restricted to the people on the case, so nobody tips off the client. | **Ask the board.** Answers come only from traced paths, and every link they use is numbered and drawn. |
 
 ## Compliance alignment
@@ -394,7 +398,7 @@ backend/         Django project
   assistant/       graph tools, offline planner, optional LiteLLM adapter
   artifacts/models/  committed matcher and risk models, thresholds, calibrators, model cards
   tests/           platform, API, graph, domain and ML tests
-frontend/        React + Vite web app: the file and its exhibit (see frontend/DESIGN.md)
+frontend/        React + Vite web app: the structure chart and its screens (see frontend/DESIGN.md)
 eval/            evaluation harness (run.py), gates, held-out fixtures and RESULTS.md
 scripts/         OpenSanctions, Companies House and ABN downloaders, graph smoke test, clean
 docs/            problem statement, architecture, API contract, data sources, ADRs
