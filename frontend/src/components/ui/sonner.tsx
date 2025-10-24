@@ -1,7 +1,7 @@
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 import { useTheme } from "@/lib/theme"
 
-// Toasts are pinned slips: paper, an oxblood pin dot, and a drop that settles flat.
+// Toasts: a small dark slip at the bottom of the window.
 const Toaster = (props: ToasterProps) => {
   const theme = useTheme()
   return (

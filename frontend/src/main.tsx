@@ -1,13 +1,7 @@
 // Kinroot web app entry. Fonts are bundled offline (@fontsource); the API is /api/v1 via the dev proxy.
-import "@fontsource/syne/700.css";
-import "@fontsource/syne/800.css";
-import "@fontsource/onest/400.css";
-import "@fontsource/onest/500.css";
-import "@fontsource/onest/600.css";
-import "@fontsource/onest/700.css";
-import "@fontsource/martian-mono/400.css";
-import "@fontsource/martian-mono/500.css";
-import "@fontsource/martian-mono/600.css";
+import "@fontsource-variable/plus-jakarta-sans";
+import "@fontsource/roboto-mono/400.css";
+import "@fontsource/roboto-mono/500.css";
 import "./styles/index.css";
 import "./routes/pages.css";
 import { StrictMode } from "react";

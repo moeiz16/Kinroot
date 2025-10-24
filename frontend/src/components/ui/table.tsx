@@ -1,7 +1,7 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 
-// Ledgers: 1 px rules, no zebra, sentence-case column heads, mono figures by class.
+// Tables: hairline rows, a quiet header band, no zebra.
 function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
     <div data-slot="table-container" className="relative w-full overflow-x-auto">
@@ -23,7 +23,7 @@ function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
 }
 
 function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
-  return <tr data-slot="table-row" className={cn("data-[state=selected]:bg-moss-tint", className)} {...props} />
+  return <tr data-slot="table-row" className={cn("data-[state=selected]:bg-brand-tint", className)} {...props} />
 }
 
 function TableHead({ className, ...props }: React.ComponentProps<"th">) {
