@@ -256,7 +256,7 @@ export class BoardEngine {
     else if (fresh.length) await this.unfoldGroup([...this.nodes.values()].filter((n) => fresh.includes(n.id)));
   }
 
-  /** Rise every hidden layer, nearest the client first (560 ms each, 70 ms apart). */
+  /** Rise every hidden layer, nearest the client first (320 ms each, 40 ms apart). */
   async unfoldAll(): Promise<void> {
     const key = this.sceneKey;
     const levels = [...new Set([...this.nodes.values()].filter((n) => !n.shown).map((n) => n.level))].sort((a, b) => a - b);
@@ -272,7 +272,7 @@ export class BoardEngine {
         continue;
       }
       await this.unfoldGroup([...this.nodes.values()].filter((n) => n.level === lvl));
-      await wait(70);
+      await wait(40);
     }
     this.sync();
   }
@@ -429,7 +429,7 @@ export class BoardEngine {
     }
   }
 
-  private async unfoldGroup(group: RNode[], dur = 560) {
+  private async unfoldGroup(group: RNode[], dur = 320) {
     group.forEach((n) => (n.shown = true));
     await this.tween(dur, (t) => {
       const k = easeRise(t);
@@ -523,7 +523,7 @@ export class BoardEngine {
   }
 
   private nodeScale(): number {
-    return clamp(this.base / this.sigma.getCamera().ratio, 0.45, 1.4);
+    return clamp(this.base / this.sigma.getCamera().ratio, 0.34, 1.3);
   }
   private vp(n: RNode): Pt {
     return this.sigma.graphToViewport({ x: n.vx, y: -n.vy });
@@ -757,7 +757,7 @@ export class BoardEngine {
   }
 
   /** Trace a path: the moss line climbs from the client to the owner, elbow by elbow, multiplying as it goes. */
-  async pull(specs: StringSpec[], { animate = true, dur = 1000 }: { animate?: boolean; dur?: number } = {}): Promise<void> {
+  async pull(specs: StringSpec[], { animate = true, dur = 900 }: { animate?: boolean; dur?: number } = {}): Promise<void> {
     this.clearStrings();
     const live = specs.filter((s) => s.ids.length > 1 && s.ids.every((id) => this.nodes.has(id)));
     if (!live.length) return;
@@ -1080,9 +1080,10 @@ export class BoardEngine {
         return;
       }
       const t0 = performance.now();
-      const step = (now: number) => {
+      // Read the clock in the frame rather than trusting the frame's timestamp: both come from the same source.
+      const step = () => {
         if (this.destroyed) return resolve();
-        const t = Math.max(0, Math.min(1, (now - t0) / dur));
+        const t = Math.max(0, Math.min(1, (performance.now() - t0) / dur));
         fn(t);
         this.sigma.refresh({ skipIndexation: true });
         if (t < 1) requestAnimationFrame(step);

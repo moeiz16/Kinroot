@@ -1,30 +1,25 @@
-// The chart band and its chrome: the chart bar (exhibit name, as-at stamp, compare, tools), the canvas with the
-// depth gauge, and the foot (legend and the trace written out). Status stamps and shape glyphs live here too.
-import { CalendarRange, Focus, Lock, Minus, Plus, Scan, Spline } from "lucide-react";
-import { useMemo, useState, type ReactNode } from "react";
+// The chart band and its quiet chrome: the canvas, a small toolbar (changes, key, zoom, fit) in the top-right
+// corner, an optional slot top-left (lenses) and one chip bottom-left (the traced owner and their share).
+// Status badges, shape glyphs and the mark live here too. See DESIGN.md §4.
+import { CalendarRange, GitCompareArrows, Info, Lock, Minus, Plus, Scan } from "lucide-react";
+import { useState, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { fmtDate } from "../lib/dates";
 import { ratingLook } from "../lib/format";
 import { BoardStage, useBoard } from "./board";
 
-/** The shape of a party, as drawn on the chart: box, oval, circle, box with a flow-through triangle. */
+/** The shape of a party, as drawn on the chart: box, pill, circle. */
 export function KindGlyph({ kind, size = 14 }: { kind: string; size?: number }) {
   const s = size;
-  if (kind === "person" || kind === "individual") return <svg width={s} height={s} aria-hidden className="kglyph"><circle cx={s / 2} cy={s / 2} r={s / 2 - 1.3} fill="none" stroke="currentColor" strokeWidth="1.6" /></svg>;
-  if (kind === "trust") return <svg width={s + 4} height={s} aria-hidden className="kglyph"><ellipse cx={(s + 4) / 2} cy={s / 2} rx={(s + 4) / 2 - 1.3} ry={s / 2 - 2} fill="none" stroke="currentColor" strokeWidth="1.6" /></svg>;
-  if (kind === "partnership")
-    return (
-      <svg width={s} height={s} aria-hidden className="kglyph">
-        <rect x="1" y="1.5" width={s - 2} height={s - 3} fill="none" stroke="currentColor" strokeWidth="1.6" />
-        <path d={`M2.5 3 H${s / 2} L2.5 ${s / 2 + 1} Z`} fill="currentColor" />
-      </svg>
-    );
-  if (kind === "page") return <svg width={s} height={s} aria-hidden className="kglyph"><path d={`M2 1.5 H${s - 5} L${s - 2} 4.5 V${s - 1.5} H2 Z`} fill="none" stroke="currentColor" strokeWidth="1.6" /></svg>;
-  if (kind === "restricted") return <Lock size={s - 1} aria-hidden className="kglyph" strokeWidth={2.2} />;
-  return <svg width={s} height={s} aria-hidden className="kglyph"><rect x="1" y="2" width={s - 2} height={s - 4} fill="none" stroke="currentColor" strokeWidth="1.6" /></svg>;
+  if (kind === "person" || kind === "individual") return <svg width={s} height={s} aria-hidden className="kglyph"><circle cx={s / 2} cy={s / 2} r={s / 2 - 1.2} fill="none" stroke="currentColor" strokeWidth="1.4" /></svg>;
+  if (kind === "trust") return <svg width={s + 4} height={s} aria-hidden className="kglyph"><rect x="1" y="2.5" width={s + 2} height={s - 5} rx={(s - 5) / 2} fill="none" stroke="currentColor" strokeWidth="1.4" /></svg>;
+  if (kind === "restricted") return <Lock size={s - 1} aria-hidden className="kglyph" strokeWidth={2} />;
+  if (kind === "page") return <svg width={s} height={s} aria-hidden className="kglyph"><rect x="2" y="1.5" width={s - 4} height={s - 3} rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.4" /></svg>;
+  return <svg width={s} height={s} aria-hidden className="kglyph"><rect x="1" y="2.5" width={s - 2} height={s - 5} rx="2" fill="none" stroke="currentColor" strokeWidth="1.4" /></svg>;
 }
 
 export function RatingTag({ r, small, word }: { r: "low" | "medium" | "high" | null | undefined; small?: boolean; word?: string }) {
@@ -32,35 +27,32 @@ export function RatingTag({ r, small, word }: { r: "low" | "medium" | "high" | n
   const tone = l.cls === "neutral" ? "neutral" : l.cls;
   return (
     <Badge tone={tone as "clear"} className={small ? "badge-sm" : undefined}>
-      <span className="g" aria-hidden>
-        {l.glyph}
-      </span>
+      <span className="g" aria-hidden />
       {word ?? l.word}
     </Badge>
   );
 }
 
 export type Tone = "clear" | "review" | "high" | "neutral" | "restricted" | "unknown";
-/** Status language: glyph + word + tint (DESIGN.md §8). */
-export function Status({ tone, glyph, children }: { tone: Tone; glyph?: string; children: ReactNode }) {
-  const g = glyph ?? { clear: "●", review: "◆", high: "▲", neutral: "○", restricted: "", unknown: "?" }[tone];
+/** Status language: a dot and a word on a tint (DESIGN.md §7). */
+export function Status({ tone, children }: { tone: Tone; glyph?: string; children: ReactNode }) {
   return (
     <Badge tone={tone}>
       <span className="g" aria-hidden>
-        {tone === "restricted" && !glyph ? <Lock size={11} strokeWidth={2.4} /> : g}
+        {tone === "restricted" ? <Lock size={11} strokeWidth={2.2} /> : null}
       </span>
       {children}
     </Badge>
   );
 }
 
-/** Kinroot's mark: a person over a company, joined by an elbow. */
-export function Mark({ size = 26 }: { size?: number }) {
+/** Kinroot's mark: a person over a holding, joined by a root line, on a plum tile. */
+export function Mark({ size = 24 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 26 26" aria-hidden="true" className="mark-svg">
-      <circle cx="7" cy="6.5" r="4.6" fill="none" stroke="currentColor" strokeWidth="2.2" />
-      <path d="M7 11.1 V15.5 H17.5 V18" fill="none" stroke="var(--moss)" strokeWidth="2.4" strokeLinejoin="round" />
-      <rect x="11" y="18" width="13" height="6.4" fill="var(--moss)" stroke="currentColor" strokeWidth="1.6" />
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" className="mark-svg">
+      <rect width="24" height="24" rx="7" fill="var(--accent)" />
+      <circle cx="12" cy="7.6" r="2.6" fill="none" stroke="var(--accent-fg)" strokeWidth="1.8" />
+      <path d="M12 10.2 V13.4 M7 17.4 V15.4 H17 V17.4" fill="none" stroke="var(--accent-fg)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -74,27 +66,95 @@ interface CompareProps {
   onPick?: (d: string) => void;
 }
 
-/** The point-in-time stamp: As at today, compared with an earlier date. */
-export function AsAt({ asAt, compare, compareLabel, onToggle, onPick }: CompareProps) {
-  const [picking, setPicking] = useState(false);
-  if (!asAt) return null;
+function Tip({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="asat" role="group" aria-label="Point in time">
-      <span className="asat-cell">
-        <span className="k">As at</span>
-        <span className="v">{fmtDate(asAt)}</span>
-      </span>
-      {onToggle && (
-        <button type="button" className="asat-cell asat-toggle" aria-pressed={!!compare} onClick={onToggle} title={compare ? "Hide changes" : "Show what changed"}>
-          <span className="k">Compared with</span>
-          <span className="v">{compare ? `${fmtDate(compare)}${compareLabel ? ` · ${compareLabel}` : ""}` : "Off"}</span>
-        </button>
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="bottom">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+const KEY_ITEMS: Record<string, ReactNode> = {
+  person: (
+    <span key="p">
+      <KindGlyph kind="person" size={14} />
+      Person
+    </span>
+  ),
+  company: (
+    <span key="c">
+      <KindGlyph kind="company" size={14} />
+      Company
+    </span>
+  ),
+  trust: (
+    <span key="t">
+      <KindGlyph kind="trust" size={14} />
+      Trust
+    </span>
+  ),
+  owns: (
+    <span key="o">
+      <svg width="22" height="8" aria-hidden>
+        <path d="M1 4 H21" stroke="var(--line)" strokeWidth="1.4" />
+      </svg>
+      Owns
+    </span>
+  ),
+  controls: (
+    <span key="ct">
+      <svg width="22" height="8" aria-hidden>
+        <path d="M1 4 H21" stroke="var(--line)" strokeWidth="1.3" strokeDasharray="5 4" />
+      </svg>
+      Controls
+    </span>
+  ),
+  trace: (
+    <span key="s">
+      <svg width="22" height="8" aria-hidden>
+        <path d="M1 4 H21" stroke="var(--accent)" strokeWidth="3" strokeLinecap="round" />
+      </svg>
+      Path to the owner
+    </span>
+  ),
+  shared: (
+    <span key="sh">
+      <svg width="22" height="8" aria-hidden>
+        <path d="M1 4 H21" stroke="var(--line-soft)" strokeWidth="1.4" />
+      </svg>
+      Shared officer or address
+    </span>
+  ),
+};
+
+export function Legend({ items = ["person", "company", "trust", "owns", "controls", "trace"] }: { items?: string[] }) {
+  return (
+    <div className="legend" aria-label="Key">
+      {items.map((k) => KEY_ITEMS[k])}
+    </div>
+  );
+}
+
+/** Changes, key, zoom out, zoom in, fit. */
+export function ChartTools({ compare, legend, extra }: { compare?: CompareProps; legend?: string[] | false; extra?: ReactNode }) {
+  const board = useBoard();
+  const [picking, setPicking] = useState(false);
+  return (
+    <div className="chart-tools" role="toolbar" aria-label="Chart tools">
+      {compare?.onToggle && (
+        <Tip label={compare.compare ? `Showing changes since ${fmtDate(compare.compare)}` : "Show changes since onboarding"}>
+          <button type="button" aria-pressed={!!compare.compare} onClick={compare.onToggle} aria-label="Show what changed">
+            <GitCompareArrows />
+            <span>Changes</span>
+          </button>
+        </Tip>
       )}
-      {onPick && (
+      {compare?.onPick && compare.compare && (
         <Popover open={picking} onOpenChange={setPicking}>
           <PopoverTrigger asChild>
-            <button type="button" className="asat-pick" aria-label="Change the compare date">
-              <CalendarRange size={15} />
+            <button type="button" aria-label="Change the compare date">
+              <CalendarRange />
             </button>
           </PopoverTrigger>
           <PopoverContent align="end" className="w-[220px] p-3">
@@ -103,11 +163,11 @@ export function AsAt({ asAt, compare, compareLabel, onToggle, onPick }: CompareP
               <Input
                 type="date"
                 aria-label="Compare with date"
-                defaultValue={compare ?? undefined}
-                max={asAt}
+                defaultValue={compare.compare ?? undefined}
+                max={compare.asAt}
                 onChange={(e) => {
                   if (e.target.value) {
-                    onPick(e.target.value);
+                    compare.onPick?.(e.target.value);
                     setPicking(false);
                   }
                 }}
@@ -116,196 +176,64 @@ export function AsAt({ asAt, compare, compareLabel, onToggle, onPick }: CompareP
           </PopoverContent>
         </Popover>
       )}
-    </div>
-  );
-}
-
-/** Zoom, fit, trace and focus. */
-export function ChartTools({ onThread, threadLabel = "Trace from the selected person", extra }: { onThread?: () => void; threadLabel?: string; extra?: ReactNode }) {
-  const board = useBoard();
-  const [focus, setFocus] = useState(false);
-  return (
-    <div className="chart-tools" role="toolbar" aria-label="Chart tools">
-      <button type="button" aria-label="Zoom in" title="Zoom in" onClick={() => board.engine()?.zoomBy(1.4)}>
-        <Plus />
-      </button>
-      <button type="button" aria-label="Zoom out" title="Zoom out" onClick={() => board.engine()?.zoomBy(1 / 1.4)}>
-        <Minus />
-      </button>
-      <button type="button" aria-label="Fit to screen" title="Fit to screen" onClick={() => board.engine()?.fit()}>
-        <Scan />
-      </button>
-      {onThread && (
-        <button type="button" className="tool-word" aria-label={threadLabel} title={`${threadLabel} (T)`} onClick={onThread}>
-          <Spline />
-          <span>Trace</span>
-        </button>
-      )}
+      {compare?.onToggle && <span className="sep" aria-hidden />}
       {extra}
-      <button
-        type="button"
-        aria-label="Focus mode: show only what is linked to the selection"
-        title="Focus on the selection"
-        aria-pressed={focus}
-        onClick={() => {
-          board.engine()?.setFocusMode(!focus);
-          setFocus(!focus);
-        }}
-      >
-        <Focus />
-      </button>
+      {legend !== false && (
+        <Popover>
+          <Tip label="Key">
+            <PopoverTrigger asChild>
+              <button type="button" aria-label="Key">
+                <Info />
+              </button>
+            </PopoverTrigger>
+          </Tip>
+          <PopoverContent align="end" className="w-[220px] p-4">
+            <Legend items={legend} />
+          </PopoverContent>
+        </Popover>
+      )}
+      <Tip label="Zoom out (⌘ scroll)">
+        <button type="button" aria-label="Zoom out" onClick={() => board.engine()?.zoomBy(1 / 1.4)}>
+          <Minus />
+        </button>
+      </Tip>
+      <Tip label="Zoom in (⌘ scroll)">
+        <button type="button" aria-label="Zoom in" onClick={() => board.engine()?.zoomBy(1.4)}>
+          <Plus />
+        </button>
+      </Tip>
+      <Tip label="Fit">
+        <button type="button" aria-label="Fit to screen" onClick={() => board.engine()?.fit()}>
+          <Scan />
+        </button>
+      </Tip>
     </div>
   );
 }
 
-/** The minimap, redrawn: one tick per layer of the structure, with what sits on it, and the visible window bracketed.
- * On the client book it is a small map drawn with the same glyphs, with crop marks for the window. */
-export function DepthGauge() {
-  const board = useBoard();
-  const snap = useMemo(() => board.engine()?.snapshot() ?? null, [board, board.version]); // eslint-disable-line react-hooks/exhaustive-deps
-  if (!snap || !snap.nodes.length) return null;
-  if (snap.book) {
-    const xs = snap.nodes.map((n) => n.x);
-    const ys = snap.nodes.map((n) => n.y);
-    const [minX, maxX, minY, maxY] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
-    const W = 132;
-    const H = 88;
-    const s = Math.min((W - 12) / (maxX - minX || 1), (H - 12) / (maxY - minY || 1));
-    const tx = (x: number) => 6 + (x - minX) * s;
-    const ty = (y: number) => 6 + (y - minY) * s;
-    const x1 = Math.max(1, tx(snap.view.x));
-    const y1 = Math.max(1, ty(snap.view.y));
-    const x2 = Math.min(W - 1, tx(snap.view.x + snap.view.w));
-    const y2 = Math.min(H - 1, ty(snap.view.y + snap.view.h));
-    const c = 7;
-    return (
-      <div className="gauge book-map" aria-hidden="true">
-        <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H}>
-          {snap.nodes.map((n) =>
-            n.client ? <rect key={n.id} x={tx(n.x) - 2} y={ty(n.y) - 2} width={4} height={4} className="g-client" /> : <circle key={n.id} cx={tx(n.x)} cy={ty(n.y)} r={1.2} className="g-party" />,
-          )}
-          {x2 - x1 > 8 && y2 - y1 > 8 && <path className="g-window" d={`M${x1},${y1 + c} V${y1} H${x1 + c} M${x2 - c},${y1} H${x2} V${y1 + c} M${x2},${y2 - c} V${y2} H${x2 - c} M${x1 + c},${y2} H${x1} V${y2 - c}`} />}
-        </svg>
-      </div>
-    );
-  }
-  const top = snap.view.y;
-  const bottom = snap.view.y + snap.view.h;
-  return (
-    <nav className="gauge depth" aria-label="Layers">
-      <ol>
-        {snap.rows
-          .slice()
-          .sort((a, b) => a.y - b.y)
-          .map((r) => {
-            const on = snap.nodes.filter((n) => Math.abs(n.y - r.y) < 4);
-            const inView = r.y >= top && r.y <= bottom;
-            const traced = on.some((n) => n.onString);
-            return (
-              <li key={r.y}>
-                <button type="button" className={cn("g-row", inView && "in-view", traced && "traced")} onClick={() => board.engine()?.flyToRow(r.y)} aria-label={`${r.label}: ${on.length} ${on.length === 1 ? "party" : "parties"}. Show this layer`}>
-                  <span className="g-lbl">{r.label === "Client" ? "C" : r.label === "Base" ? "B" : r.label.replace(/^Layer /, "")}</span>
-                  <span className="g-tick" aria-hidden />
-                  <span className="g-glyphs" aria-hidden>
-                    {on.slice(0, 5).map((n) => (
-                      <i key={n.id} className={cn("g-g", `g-${n.kind}`, n.onString && "on")} />
-                    ))}
-                    {on.length > 5 && <i className="g-more">+{on.length - 5}</i>}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-      </ol>
-    </nav>
-  );
-}
-
-export function Legend({ items = ["person", "company", "trust", "owns", "controls", "trace"] }: { items?: string[] }) {
-  const all: Record<string, ReactNode> = {
-    person: (
-      <span key="p">
-        <KindGlyph kind="person" size={12} />
-        Person
-      </span>
-    ),
-    company: (
-      <span key="c">
-        <KindGlyph kind="company" size={12} />
-        Company
-      </span>
-    ),
-    trust: (
-      <span key="t">
-        <KindGlyph kind="trust" size={12} />
-        Trust
-      </span>
-    ),
-    owns: (
-      <span key="o">
-        <svg width="22" height="8" aria-hidden>
-          <path d="M1 4 H21" stroke="var(--line-own)" strokeWidth="1.6" />
-        </svg>
-        Owns
-      </span>
-    ),
-    controls: (
-      <span key="ct">
-        <svg width="22" height="8" aria-hidden>
-          <path d="M1 4 H21" stroke="var(--line-ctrl)" strokeWidth="1.6" strokeDasharray="5 3" />
-        </svg>
-        Controls
-      </span>
-    ),
-    trace: (
-      <span key="s">
-        <svg width="22" height="8" aria-hidden>
-          <path d="M1 4 H21" stroke="var(--moss)" strokeWidth="4" strokeLinecap="round" />
-        </svg>
-        Traced to the owner
-      </span>
-    ),
-    shared: (
-      <span key="sh">
-        <svg width="22" height="8" aria-hidden>
-          <path d="M1 4 H21" stroke="var(--line-faint)" strokeWidth="1.4" />
-        </svg>
-        Shared officer or address
-      </span>
-    ),
-  };
-  return (
-    <div className="legend" aria-label="Legend">
-      {items.map((k) => all[k])}
-    </div>
-  );
-}
-
-/** The trace written out: the hops from the person to the client and the result. */
-export function TracePath({ hops, end }: { hops: string[]; end?: string }) {
+/** The traced owner as one chip: their name and effective share; the hops are in the tooltip. */
+export function TraceChip({ hops, end, onClick }: { hops: string[]; end?: string; onClick?: () => void }) {
   if (hops.length < 2) return null;
+  const label = `Path: ${hops.join(", then ")}${end ? `. Effective share ${end}` : ""}`;
   return (
-    <div className="trace-path" role="note" aria-label={`Trace: ${hops.join(", then ")}${end ? `, ${end}` : ""}`}>
-      <span className="k">Trace</span>
-      {hops.map((h, i) => (
-        <span key={i} className="hop">
-          {h}
-        </span>
-      ))}
-      {end && <b className="end">{end}</b>}
-    </div>
+    <Tip label={hops.join(" → ")}>
+      <button type="button" className="chip" onClick={onClick} aria-label={label}>
+        <span className="sw" aria-hidden />
+        {hops[0]}
+        {end && <b>{end}</b>}
+      </button>
+    </Tip>
   );
 }
 
-/** A full-width chart band: bar, canvas (with the depth gauge) and foot. Mounts the page's one chart. */
+/** A chart card: the canvas, the toolbar and up to two overlay slots. Mounts the page's one chart. */
 export function ChartBand({
   label,
-  exhibit = "Exhibit A",
-  title,
   compare,
   tools,
   legend,
   trace,
+  onTrace,
   foot,
   height = "tall",
   className,
@@ -316,11 +244,12 @@ export function ChartBand({
   bar?: ReactNode;
   label: string;
   exhibit?: string;
-  title: string;
+  title?: string;
   compare?: CompareProps;
-  tools?: { onThread?: () => void; threadLabel?: string; extra?: ReactNode } | false;
+  tools?: { extra?: ReactNode } | false;
   legend?: string[] | false;
   trace?: { hops: string[]; end?: string } | null;
+  onTrace?: () => void;
   foot?: ReactNode;
   height?: "tall" | "mid" | "short" | "book";
   className?: string;
@@ -329,32 +258,22 @@ export function ChartBand({
 }) {
   return (
     <section className={cn("chart-band", `h-${height}`, restricted && "restricted", className)} aria-label={label}>
-      <header className="chart-bar">
-        <div className="cb-title">
-          <span className="k">{exhibit}</span>
-          <b>{title}</b>
-        </div>
-        {compare && <AsAt {...compare} />}
-        {bar}
-        <div className="cb-grow" />
-        {tools !== false && <ChartTools {...(tools ?? {})} />}
-      </header>
       <div className="chart-frame">
         <BoardStage label={label} />
-        <DepthGauge />
+        {bar && <div className="chart-overlay-tl">{bar}</div>}
+        {tools !== false && (
+          <div className="chart-overlay-tr">
+            <ChartTools compare={compare} legend={legend} extra={tools?.extra} />
+          </div>
+        )}
+        {(trace || foot) && (
+          <div className="chart-overlay-bl">
+            {trace ? <TraceChip hops={trace.hops} end={trace.end} onClick={onTrace} /> : null}
+            {foot}
+          </div>
+        )}
         {children}
       </div>
-      {(legend !== false || trace || foot) && (
-        <footer className="chart-foot">
-          {trace ? <TracePath hops={trace.hops} end={trace.end} /> : null}
-          {foot}
-          <div className="cb-grow" />
-          {legend !== false && <Legend items={legend} />}
-          <span className="zoom-hint" aria-hidden>
-            ⌘ or Ctrl + scroll to zoom
-          </span>
-        </footer>
-      )}
     </section>
   );
 }

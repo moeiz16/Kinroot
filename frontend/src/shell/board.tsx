@@ -35,8 +35,8 @@ interface Wire {
 }
 const BoardContext = createContext<BoardApi | null>(null);
 
-// Room inside the chart canvas: layer labels on the left, the depth gauge on the right.
-const CHROME = { top: 34, bottom: 30, left: 92, right: 76 };
+// Room inside the chart canvas: the toolbar on top, the trace chip at the foot.
+const CHROME = { top: 60, bottom: 56, left: 28, right: 28 };
 
 export function BoardProvider({ children }: { children: ReactNode }) {
   const engineRef = useRef<BoardEngine | null>(null);
