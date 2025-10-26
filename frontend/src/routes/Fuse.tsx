@@ -1,15 +1,15 @@
-// Fuse or split, face-off skeleton: Record A and Record B face each other across the verdict column (the
-// likelihood, the scale) and every field is zipped across with an agreement mark (= same, ≈ close, ≠ differs).
-// Below, the chart shows both records joined by the zip; drag one onto the other to fuse. Below 40 kept apart,
-// 97+ fused automatically; in between a person decides in the decision bar.
+// Duplicates (fuse or split). The list is one queue of possible duplicates. A pair shows Record A beside Record B,
+// field by field, with the likelihood and the policy scale between them; the chart shows both records and what
+// they are linked to (drag one onto the other to fuse). Below 40 kept apart, 97+ fused automatically; in between a
+// person decides in the bar at the foot. Fused records can be split again from Decided.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { GitFork, Merge, Move, Split } from "lucide-react";
+import { GitMerge, Merge, Split } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Table, TableBody } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { errorMessage } from "../api/client";
 import { api } from "../api/endpoints";
 import type { GraphPayload, MatchCandidate, MatchReason, PartyRecord } from "../api/types";
@@ -20,9 +20,11 @@ import { fmtDate } from "../lib/dates";
 import { addressText, likelihood } from "../lib/format";
 import { useAuth } from "../lib/auth";
 import { useBoard, useBoardScene } from "../shell/board";
-import { ChartBand, KindGlyph, Status } from "../shell/chart";
-import { Band, DecisionBar, Masthead, Page, PageBody, QueuePager, SectionTabs, useHop } from "../shell/page";
+import { ChartBand, Status } from "../shell/chart";
+import { DecisionBar, Page, PageHeader, QueuePager, Section, SectionTabs, useTitle } from "../shell/page";
+import { Compare, type CompareRow } from "./Compare";
 import { NotAvailable } from "./NotFound";
+import { ReviewsHeader } from "./ReviewTabs";
 
 function mergePayloads(ps: GraphPayload[]): GraphPayload {
   const nodes = new Map<string, GraphPayload["nodes"][number]>();
@@ -35,7 +37,7 @@ function mergePayloads(ps: GraphPayload[]): GraphPayload {
 }
 
 /** Both records side by side, what each one is linked to above, and anything linked to both below. */
-export function fuseScene(c: MatchCandidate, a: GraphPayload, b: GraphPayload, clientNames: Map<string, string>): Scene {
+export function fuseScene(c: MatchCandidate, a: GraphPayload, b: GraphPayload, _clientNames?: Map<string, string>): Scene {
   const merged = mergePayloads([a, b]);
   const model = fromPayload(merged);
   const A = c.left.id;
@@ -59,9 +61,9 @@ export function fuseScene(c: MatchCandidate, a: GraphPayload, b: GraphPayload, c
   const mid = (pa.x + pb.x) / 2;
   const gap = 170;
   out = out.map((n) => {
-    if (n.id === A) return { ...n, x: mid - gap, cand: true, rec: `Record A · ${c.left.source === "manual" ? "entered by hand" : `from ${clientNames.get(c.clientIds[1] ?? c.clientIds[0] ?? "") ?? "the register"}`}`, sub: c.left.birthDate ? `Born ${fmtDate(c.left.birthDate)}` : n.sub };
-    if (n.id === B) return { ...n, x: mid + gap, cand: true, rec: `Record B · ${c.right.source === "manual" ? "new this week" : "from the register"}`, sub: c.right.birthDate ? `Born ${fmtDate(c.right.birthDate)}` : n.sub };
-    if (linked(n.id, A) && linked(n.id, B)) return { ...n, sub: `${n.sub ? n.sub + " · " : ""}linked to both`, x: mid };
+    if (n.id === A) return { ...n, x: mid - gap, cand: true, rec: "Record A", sub: c.left.birthDate ? `Born ${fmtDate(c.left.birthDate)}` : n.sub };
+    if (n.id === B) return { ...n, x: mid + gap, cand: true, rec: "Record B", sub: c.right.birthDate ? `Born ${fmtDate(c.right.birthDate)}` : n.sub };
+    if (linked(n.id, A) && linked(n.id, B)) return { ...n, x: mid };
     return n;
   });
   const edges: BEdge[] = model.edges.filter((e) => out.some((n) => n.id === e.s) && out.some((n) => n.id === e.t));
@@ -121,7 +123,8 @@ export default function Fuse() {
   const [tab, setTab] = useState("match");
   const [note, setNote] = useState("");
   const [noteError, setNoteError] = useState(false);
-  const noteRef = useRef<HTMLInputElement>(null);
+  const [apart, setApart] = useState(false);
+  const noteRef = useRef<HTMLTextAreaElement>(null);
   const allowed = can("resolution:read");
   const list = useQuery({ queryKey: ["candidates", "pending"], queryFn: () => api.resolution.candidates({ pageSize: 50 }), enabled: allowed });
   const past = useQuery({ queryKey: ["candidates", "decided"], queryFn: () => api.resolution.candidates({ status: "all", pageSize: 50 }), enabled: allowed });
@@ -146,7 +149,8 @@ export default function Fuse() {
   const decide = useMutation({
     mutationFn: (d: "merge" | "not_match") => api.resolution.decide(current!.id, d, note),
     onSuccess: (out) => {
-      toast(out.status === "merged" ? `Fused into one record. Both originals are kept, and you can split them again.` : "Kept apart. Your reason is in the activity log.");
+      toast(out.status === "merged" ? "Fused. You can split them again." : "Kept apart.");
+      setApart(false);
       void qc.invalidateQueries({ queryKey: ["candidates"] });
       void qc.invalidateQueries({ queryKey: ["dashboard"] });
       next();
@@ -160,13 +164,17 @@ export default function Fuse() {
   }, [current, can, board, decide]);
   const keepApart = useCallback(() => {
     if (!current || !can("resolution:decide") || current.status !== "pending") return;
+    if (!apart) {
+      setApart(true);
+      return;
+    }
     if (note.trim().length < 3) {
       setNoteError(true);
       noteRef.current?.focus();
       return;
     }
     decide.mutate("not_match");
-  }, [current, can, note, decide]);
+  }, [current, can, note, decide, apart]);
 
   // The stitched seam with drag-to-fuse, once the scene is on the board.
   useEffect(() => {
@@ -174,7 +182,7 @@ export default function Fuse() {
     const t = setTimeout(() => {
       board
         .engine()
-        ?.setSeam(current.left.id, current.right.id, `<div class="k"><b>${Math.round(current.score.probability * 100)}</b><small>in 100 likely<br>the same ${current.left.kind === "person" ? "person" : "company"}</small></div>`, current.status === "pending" && can("resolution:decide") ? () => void fuse() : undefined);
+        ?.setSeam(current.left.id, current.right.id, "", current.status === "pending" && can("resolution:decide") ? () => void fuse() : undefined);
     }, 120);
     return () => clearTimeout(t);
   }, [scene, current, board.version > 0]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -197,7 +205,7 @@ export default function Fuse() {
       return api.parties.split(c.left.id, [c.right.id], "Split after review");
     },
     onSuccess: () => {
-      toast("Split into two records. Both decisions are in the activity log.");
+      toast("Split into two records.");
       void qc.invalidateQueries({ queryKey: ["candidates"] });
     },
     onError: (e) => toast(errorMessage(e)),
@@ -213,314 +221,222 @@ export default function Fuse() {
       .sort((a, b) => Number(b.feature === "dob_exact") - Number(a.feature === "dob_exact") || Math.abs(b.contribution) - Math.abs(a.contribution))[0];
   const fields = ["Birth date", "Address", "Name", "Linked to", "ID document", "Middle name"];
 
-  useHop(id && current ? `${current.left.name} · ${current.right.name}` : null, current?.left.kind === "person" ? "person" : "company");
+  useTitle(id && current ? current.left.name : null);
   if (!allowed) return <NotAvailable />;
   const kindWord = current?.left.kind === "person" ? "person" : "company";
   const pending = current?.status === "pending";
   if (!id)
     return (
-      <Page skeleton="register" label="Fuse or split">
-        <Masthead
-          size="poster"
-          refLine={
-            <>
-              <b>Possible duplicates</b>
-              <span className="sep">/</span>
-              <span>below {review} kept apart · {auto}+ fused for you · in between, you decide</span>
-            </>
-          }
-          title={
-            <>
-              Fuse or split <span className="mast-count">{items.length}</span>
-            </>
-          }
-        />
-        <PageBody>
-          {!items.length && <p className="lede">Every possible duplicate has been decided. New ones appear here when a record is added or imported.</p>}
-          <ul className="register-list">
-            {items.map((c) => (
-              <li key={c.id}>
-                <Link to={`/fuse/${c.id}`} className="register-row">
-                  <span className="rr-kind">
-                    <KindGlyph kind={c.left.kind} size={13} /> {c.left.kind === "person" ? "Person" : "Company"}
+      <Page label="Duplicates">
+        <ReviewsHeader />
+        <ul className="items">
+          {items.map((c) => (
+            <li key={c.id}>
+              <Link to={`/fuse/${c.id}`} className="item">
+                <span className="item-ico" aria-hidden>
+                  <GitMerge />
+                </span>
+                <span className="item-main">
+                  <span className="item-title">
+                    {c.left.name} and {c.right.name}
                   </span>
-                  <b className="rr-title">
-                    {c.left.name} <span className="vs">and</span> {c.right.name}
-                  </b>
-                  <span className="rr-score">
-                    <b>{Math.round(c.score.probability * 100)}</b> in 100
-                  </span>
-                  <span className="rr-when">{c.clientIds.map((x) => names.get(x)).filter(Boolean).slice(0, 2).join(" · ")}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-          {decided.length > 0 && (
-            <Band n="02" title="Past decisions" aside={`${decided.length} decided`}>
-              <ul className="register-list quiet">
-                {decided.slice(0, 12).map((c) => (
-                  <li key={c.id}>
-                    <Link to={`/fuse/${c.id}`} className="register-row">
-                      <span className="rr-kind">{c.status === "auto_merged" ? "Fused automatically" : c.status === "merged" ? "Fused" : c.status === "deferred" ? "Deferred" : "Kept apart"}</span>
-                      <b className="rr-title">
-                        {c.left.name} <span className="vs">and</span> {c.right.name}
-                      </b>
-                      <span className="rr-score">
-                        <b>{Math.round(c.score.probability * 100)}</b> in 100
+                  <span className="item-sub">{c.clientIds.map((x) => names.get(x)).filter(Boolean).slice(0, 2).join(" · ") || (c.left.kind === "person" ? "Person" : "Company")}</span>
+                </span>
+                <span className="item-end">{likelihood(c.score.probability)}</span>
+              </Link>
+            </li>
+          ))}
+          {!items.length && <li className="empty">No duplicates to decide</li>}
+        </ul>
+        {decided.length > 0 && (
+          <Section title="Decided">
+            <ul className="items">
+              {decided.slice(0, 12).map((c) => (
+                <li key={c.id}>
+                  <Link to={`/fuse/${c.id}`} className="item">
+                    <span className="item-main">
+                      <span className="item-title">
+                        {c.left.name} and {c.right.name}
                       </span>
-                      <span className="rr-when">{c.decidedBy ?? ""}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </Band>
-          )}
-        </PageBody>
+                      <span className="item-sub">{c.decidedBy ?? ""}</span>
+                    </span>
+                    <span className="item-end">{c.status === "auto_merged" ? "Fused automatically" : c.status === "merged" ? "Fused" : c.status === "deferred" ? "Deferred" : "Kept apart"}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </Section>
+        )}
       </Page>
     );
   const scale = current ? Math.max(...current.score.reasons.map((x) => Math.abs(x.contribution)), 0.01) : 1;
-  const lead = current ? (
-    <p className="faceoff-lede">
-      {current.score.probability >= 0.75 ? "Probably the same " : "Possibly the same "}
-      {kindWord}. {current.score.reasons.filter((r) => r.direction === "for" && !(r.feature === "dob_partial" && current.score.reasons.some((x) => x.feature === "dob_exact" && x.direction === "for"))).slice(0, 2).map((r, i) => (i === 0 ? r.label : r.label.charAt(0).toLowerCase() + r.label.slice(1))).join(" and ")}.{" "}
-      {current.score.reasons.find((r) => r.direction === "against") ? `${current.score.reasons.find((r) => r.direction === "against")!.label}.` : ""}
-      {pending && Math.round(current.score.probability * 100) >= auto && heldBack(current.score.features) ? ` Not fused automatically because ${heldBack(current.score.features)}: records that conflict always wait for a person.` : ""}
-    </p>
-  ) : null;
+  const p = current ? Math.round(current.score.probability * 100) : 0;
+  const held = current && pending && p >= auto ? heldBack(current.score.features) : null;
+  const rows: CompareRow[] = current
+    ? fields
+        .map((f): CompareRow | null => {
+          const r = reasonFor(f);
+          const va = f === "Linked to" ? (r ? r.label.replace(/^Both linked to /, "") : null) : fieldValue(current.left, f);
+          const vb = f === "Linked to" ? (r ? r.label.replace(/^Both linked to /, "") : null) : fieldValue(current.right, f);
+          if (!va && !vb && !r) return null;
+          let eff = effectOf(r, scale);
+          if (f === "Birth date" && r && va && va === vb) eff = { ...eff, glyph: "=", word: "Same date of birth" };
+          if (!r && va && vb) eff = va.trim().toLowerCase() === vb.trim().toLowerCase() ? { glyph: "=", word: "The same", up: 0, down: 0 } : { glyph: "≠", word: "Different", up: 0, down: 0 };
+          return { field: f, a: va, b: vb, mark: eff.glyph, word: eff.word };
+        })
+        .filter((x): x is CompareRow => x !== null)
+    : [];
   return (
-    <Page skeleton="faceoff" label="Match file">
-      <Masthead
-        size="name"
-        refLine={
-          current ? (
-            <>
-              <b>Possible duplicate</b>
-              <span className="sep">/</span>
-              <span>Found in {current.clientIds.map((x) => names.get(x)).filter(Boolean).slice(0, 2).join(" and ") || "the client book"}</span>
-            </>
-          ) : (
-            <b>Fuse or split</b>
-          )
-        }
+    <Page label="Possible duplicate">
+      <PageHeader
+        back={{ to: "/fuse", label: "Duplicates" }}
         title={current ? `${current.left.name} and ${current.right.name}` : "Nothing to decide"}
-        stamps={
-          current && (
-            <>
-              <Status tone={pending ? "review" : "neutral"}>{pending ? "You decide" : `Decided: ${current.status.replace("_", " ")}`}</Status>
-              <span className="meta">
-                {likelihood(current.score.probability)} likely the same {kindWord}
-              </span>
-            </>
-          )
+        status={
+          current &&
+          (pending ? (
+            <span title={held ? `Not fused automatically: ${held}` : undefined}>
+              <Status tone="review">Same {kindWord}?</Status>
+            </span>
+          ) : (
+            <Status tone="neutral">{current.status === "auto_merged" ? "Fused automatically" : current.status === "merged" ? "Fused" : current.status === "deferred" ? "Deferred" : "Kept apart"}</Status>
+          ))
         }
-        tools={<QueuePager label="Possible duplicates" items={items.map((c) => ({ id: c.id, title: `${c.left.name} · ${c.right.name}`, detail: `${likelihood(c.score.probability)} · ${c.left.kind === "person" ? "person" : "company"}` }))} current={current?.id} onPick={(x) => nav(`/fuse/${x}`)} />}
+        actions={<QueuePager label="Possible duplicates" items={items.map((c) => ({ id: c.id, title: `${c.left.name} · ${c.right.name}`, detail: `${likelihood(c.score.probability)} · ${c.left.kind === "person" ? "person" : "company"}` }))} current={current?.id} onPick={(x) => nav(`/fuse/${x}`)} />}
       />
-      <SectionTabs
-        label="Match file"
-        tabs={[
-          { id: "match", label: "Match file" },
-          { id: "a", label: "Record A" },
-          { id: "b", label: "Record B" },
-          { id: "past", label: "Past decisions", count: decided.length },
-        ]}
-        active={tab}
-        onTab={setTab}
-      >
-        {!current ? (
-          <p className="lede">Every possible duplicate has been decided. New ones appear here when a record is added or imported.</p>
-        ) : tab === "a" || tab === "b" ? (
-          <RecordView r={tab === "a" ? current.left : current.right} label={tab === "a" ? "Record A" : "Record B"} />
-        ) : tab === "past" ? (
-          <>
-            <h2 className="title">Past decisions</h2>
-            <p className="note">Fusing keeps both original records. Split a fused record to unpick it.</p>
-            <Table>
-              <TableBody>
-                {decided.map((c) => (
-                  <tr key={c.id}>
-                    <td className="who">
-                      <b>
-                        {c.left.name} · {c.right.name}
-                      </b>
-                      <small>
-                        {c.status === "auto_merged" ? "Fused automatically" : c.status === "merged" ? "Fused" : c.status === "deferred" ? "Deferred" : "Kept apart"} · {c.decidedBy ?? ""} · {likelihood(c.score.probability)}
-                      </small>
-                    </td>
-                    <td className="st">
-                      {(c.status === "merged" || c.status === "auto_merged") && can("resolution:decide") && (
-                        <Button size="sm" onClick={() => split.mutate(c)} disabled={split.isPending}>
-                          <Split /> Split into two
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </TableBody>
-            </Table>
-          </>
-        ) : (
-          <div className="faceoff">
-            <div className="fo-head fo-a">
-              <span className="micro">Record A</span>
-              <b>
-                <KindGlyph kind={current.left.kind} size={16} />
-                {current.left.name}
-              </b>
-              <small>{current.left.source === "manual" ? "Entered by hand" : "From the register"}</small>
-            </div>
-            <div className="fo-verdict slab">
-              <div className="fo-num" aria-hidden>
-                {Math.round(current.score.probability * 100)}
-              </div>
-              <div className="fo-cap">in 100 likely the same {kindWord}</div>
-              <div className="scale" role="img" aria-label={`Match likelihood ${likelihood(current.score.probability)}. ${review} to ${auto} needs a person to decide.`}>
-                <div className="bar" style={{ gridTemplateColumns: `${review}fr ${auto - review}fr ${100 - auto}fr` }}>
-                  <span className="z1">Apart</span>
-                  <span className="z2">You decide</span>
-                  <span className="z3" title="Fused automatically">
-                    ✓
-                  </span>
-                  <i className="marker" style={{ left: `calc(${current.score.probability * 100}% - 1px)` }} />
-                </div>
-                <div className="ticks">
-                  <span>0 · below {review} kept apart</span>
-                  <span>{auto}+ fused for you · 100</span>
-                </div>
-              </div>
-            </div>
-            <div className="fo-head fo-b">
-              <span className="micro">Record B</span>
-              <b>
-                <KindGlyph kind={current.right.kind} size={16} />
-                {current.right.name}
-              </b>
-              <small>{current.right.source === "manual" ? "New this week" : "From the register"}</small>
-            </div>
-            {lead}
-            <table className="zipper" aria-label="What agrees and what does not">
-              <thead>
-                <tr>
-                  <th scope="col" className="za">
-                    Record A
-                  </th>
-                  <th scope="col" className="zf">
-                    Field and effect
-                  </th>
-                  <th scope="col" className="zb">
-                    Record B
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {fields.map((f) => {
-                  const r = reasonFor(f);
-                  const va = f === "Linked to" ? (r ? r.label.replace(/^Both linked to /, "") : null) : fieldValue(current.left, f);
-                  const vb = f === "Linked to" ? (r ? r.label.replace(/^Both linked to /, "") : null) : fieldValue(current.right, f);
-                  if (!va && !vb && !r) return null;
-                  let eff = effectOf(r, scale);
-                  if (f === "Birth date" && r && va && va === vb) eff = { ...eff, glyph: "=", word: "Same date of birth" };
-                  if (!r && va && vb) eff = va.trim().toLowerCase() === vb.trim().toLowerCase() ? { glyph: "=", word: "The same", up: 0, down: 0 } : { glyph: "≠", word: "Different", up: 0, down: 0 };
-                  return (
-                    <tr key={f} className={eff.glyph === "≠" ? "differs" : eff.glyph === "—" ? "unknown" : "agrees"}>
-                      <td className={`za v${va ? "" : " none"}${f === "Birth date" ? " mono" : ""}`}>{va ?? "Not provided"}</td>
-                      <th scope="row" className="zf">
-                        <span className="zf-name">{f}</span>
-                        <span className="zf-mark" aria-hidden>
-                          {eff.glyph}
-                        </span>
-                        <span className="zf-word">{eff.word}</span>
-                        <span className="push" aria-hidden>
-                          <i className="down" style={{ width: `${eff.down}%` }} />
-                          <i className="up" style={{ width: `${eff.up}%` }} />
-                        </span>
-                      </th>
-                      <td className={`zb v${vb ? "" : " none"}${f === "Birth date" ? " mono" : ""}`}>{vb ?? "Not provided"}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </SectionTabs>
       {current && (
-        <ChartBand
-          label="Both records and what they are linked to"
-          exhibit="Exhibit"
-          title="Both records and what they are linked to"
-          height="mid"
-          legend={["person", "company", "owns", "controls"]}
-          tools={{ extra: <button type="button" aria-label="Split a fused record" title="Split a fused record" onClick={() => setTab("past")}><GitFork /></button> }}
-          foot={
-            pending ? (
-              <span className="chart-hint">
-                <Move aria-hidden /> Drag one record onto the other to fuse.
-              </span>
-            ) : null
-          }
-        />
+        <SectionTabs
+          label="Possible duplicate"
+          tabs={[
+            { id: "match", label: "Comparison" },
+            { id: "a", label: "Record A" },
+            { id: "b", label: "Record B" },
+            { id: "past", label: "Decided", count: decided.length || undefined },
+          ]}
+          active={tab}
+          onTab={setTab}
+        >
+          {tab === "a" || tab === "b" ? (
+            <RecordView r={tab === "a" ? current.left : current.right} />
+          ) : tab === "past" ? (
+            <ul className="items">
+              {decided.map((c) => (
+                <li key={c.id} className="item">
+                  <span className="item-main">
+                    <span className="item-title">
+                      {c.left.name} · {c.right.name}
+                    </span>
+                    <span className="item-sub">
+                      {c.status === "auto_merged" ? "Fused automatically" : c.status === "merged" ? "Fused" : c.status === "deferred" ? "Deferred" : "Kept apart"}
+                      {c.decidedBy ? ` · ${c.decidedBy}` : ""}
+                    </span>
+                  </span>
+                  <span className="item-end">
+                    {(c.status === "merged" || c.status === "auto_merged") && can("resolution:decide") && (
+                      <Button size="sm" variant="line" onClick={() => split.mutate(c)} disabled={split.isPending}>
+                        <Split /> Split
+                      </Button>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <Compare
+              a={
+                <>
+                  <span className="cmp-k">Record A</span>
+                  <b>{current.left.name}</b>
+                </>
+              }
+              b={
+                <>
+                  <span className="cmp-k">Record B</span>
+                  <b>{current.right.name}</b>
+                </>
+              }
+              score={p}
+              scoreWord={`likely the same ${kindWord}`}
+              missingA="Not provided"
+              missingB="Not provided"
+              rows={rows}
+              extra={
+                <div className="scale" role="img" aria-label={`Match likelihood ${p} in 100. Below ${review} kept apart, ${auto} and above fused automatically, in between you decide.`}>
+                  <div className="bar" style={{ gridTemplateColumns: `${review}fr ${auto - review}fr ${100 - auto}fr` }}>
+                    <span className="z1">Apart</span>
+                    <span className="z2">You decide</span>
+                    <span className="z3">Auto</span>
+                    <i className="marker" style={{ left: `calc(${p}% - 1px)` }} />
+                  </div>
+                </div>
+              }
+            />
+          )}
+        </SectionTabs>
       )}
+      {current && tab === "match" && <ChartBand label="Both records and what they are linked to" height="mid" legend={["person", "company", "owns", "controls"]} className="mt-5" foot={pending && can("resolution:decide") ? <span className="chip">Drag one onto the other to fuse</span> : null} />}
       {current && (
         <DecisionBar label="Decision">
           {pending ? (
             can("resolution:decide") ? (
-              <div className="decide-grid">
-                <Input
-                  ref={noteRef}
-                  aria-label="Reason"
-                  aria-invalid={noteError}
-                  aria-describedby={noteError ? "reason-err" : "fuse-note"}
-                  placeholder="Reason (needed to keep apart)"
-                  value={note}
-                  onChange={(e) => {
-                    setNote(e.target.value);
-                    setNoteError(false);
-                  }}
-                />
-                <div className="row">
-                  <Button variant="primary" onClick={() => void fuse()} disabled={decide.isPending}>
-                    <Merge /> Fuse into one {kindWord}
-                  </Button>
-                  <Button onClick={keepApart} disabled={decide.isPending}>
-                    <Split /> Keep apart
-                  </Button>
-                </div>
-                <div className="kb" aria-hidden>
-                  <span>
-                    <span className="kbd">F</span> fuse
-                  </span>
-                  <span>
-                    <span className="kbd">K</span> keep apart
-                  </span>
-                  <span>
-                    <span className="kbd">J</span> next pair
-                  </span>
-                </div>
-                {noteError ? (
-                  <p className="note-error" id="reason-err">
-                    Give a reason before keeping them apart.
-                  </p>
-                ) : (
-                  <p className="note" id="fuse-note">
-                    Fusing keeps both original records. You can split them again later, and both decisions are kept in the activity log.
-                  </p>
-                )}
+              <div className="row">
+                <Button variant="primary" onClick={() => void fuse()} disabled={decide.isPending} title="F">
+                  <Merge /> Fuse
+                </Button>
+                <Button variant="line" onClick={keepApart} disabled={decide.isPending} title="K">
+                  <Split /> Keep apart
+                </Button>
+                <Button variant="quiet" onClick={next} title="J">
+                  Next
+                </Button>
               </div>
             ) : (
-              <p className="note-info">Only the compliance officer decides whether two records are the same.</p>
+              <p className="note-info">The compliance officer decides</p>
             )
           ) : (
-            <p className="note-info">
-              Decided: {current.status.replace("_", " ")} by {current.decidedBy}.
-            </p>
+            <p className="note-info">{current.decidedBy ? `Decided by ${current.decidedBy}` : "Decided"}</p>
           )}
         </DecisionBar>
       )}
+      <Dialog open={apart} onOpenChange={(o) => (setApart(o), setNoteError(false))}>
+        <DialogContent className="sm:max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle>Keep apart</DialogTitle>
+            <DialogDescription>Why are they different?</DialogDescription>
+          </DialogHeader>
+          <label className="field">
+            <span>Reason</span>
+            <Textarea
+              ref={noteRef}
+              rows={3}
+              aria-invalid={noteError}
+              aria-describedby={noteError ? "reason-err" : undefined}
+              value={note}
+              onChange={(e) => {
+                setNote(e.target.value);
+                setNoteError(false);
+              }}
+            />
+          </label>
+          {noteError && (
+            <p className="note-error" id="reason-err" role="alert">
+              Give a reason.
+            </p>
+          )}
+          <DialogFooter>
+            <Button variant="quiet" onClick={() => setApart(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={keepApart} disabled={decide.isPending}>
+              Keep apart
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Page>
   );
 }
 
-function RecordView({ r, label }: { r: PartyRecord; label: string }) {
+function RecordView({ r }: { r: PartyRecord }) {
   const rows: [string, string | undefined][] = [
     ["Name", r.name],
     ["Kind", r.kind],
@@ -532,21 +448,15 @@ function RecordView({ r, label }: { r: PartyRecord; label: string }) {
     ["Source", r.source === "manual" ? "Entered by hand" : r.source === "seed" ? "Register extract" : r.source],
   ];
   return (
-    <>
-      <div className="eyebrow">{label} · as first recorded</div>
-      <h2 className="title">{r.name}</h2>
-      <Table className="record-table">
-        <TableBody>
-          {rows.map(([k, v]) => (
-            <tr key={k}>
-              <th scope="row">
-                {k}
-              </th>
-              <td className={v ? "" : "muted"}>{v ?? "Not provided"}</td>
-            </tr>
-          ))}
-        </TableBody>
-      </Table>
-    </>
+    <div className="card card-pad">
+      <dl className="facts">
+        {rows.map(([k, v]) => (
+          <div key={k} style={{ display: "contents" }}>
+            <dt>{k}</dt>
+            <dd className={v ? undefined : "muted"}>{v ?? "Not provided"}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
   );
 }

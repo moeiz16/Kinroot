@@ -1,9 +1,9 @@
-// The Desk (home), desk skeleton: a poster with the count of decisions waiting on the signed-in person, the ticket
-// rail (every waiting decision as a ticket, earliest due first), and the book chart: the whole client book as one
-// network, clustered by shared officers, owners and addresses. Lenses recolour it; hovering a ticket lights its client.
+// Home: what waits on the signed-in person (one row per decision, earliest due first) beside the client book, the
+// whole book as one network clustered by shared officers, owners and addresses. Lenses re-light it; hovering a row
+// lights its client; clicking a client opens its dossier.
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, BellRing, CalendarClock, ChevronLeft, ChevronRight, FileLock2, GitMerge, PenLine, Scale, ShieldAlert } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { BellRing, CalendarClock, GitMerge, Lock, PenLine, Scale, ShieldAlert } from "lucide-react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { api } from "../api/endpoints";
@@ -15,15 +15,14 @@ import { daysBetween, daysFromToday, fmtDate, today } from "../lib/dates";
 import { deadlineLook, ratingLook } from "../lib/format";
 import { useAuth } from "../lib/auth";
 import { useBoard, useBoardHandlers, useBoardScene } from "../shell/board";
-import { ChartBand, Status } from "../shell/chart";
-import { Page } from "../shell/page";
-import { prefersReduced } from "../lib/theme";
+import { ChartBand } from "../shell/chart";
+import { Page, PageHeader } from "../shell/page";
 
 export type Lens = "risk" | "review" | "shared" | "screening";
 const LENSES: { id: Lens; label: string }[] = [
   { id: "risk", label: "Risk" },
-  { id: "review", label: "Review due" },
-  { id: "shared", label: "Shared officers" },
+  { id: "review", label: "Due" },
+  { id: "shared", label: "Shared" },
   { id: "screening", label: "Screening" },
 ];
 const clientKind: Record<Client["kind"], BKind> = { individual: "person", company: "company", trust: "trust", partnership: "partnership" };
@@ -45,8 +44,8 @@ export function constellationScene(payload: GraphPayload, clients: Client[], clu
         client: true,
         rating: c.rating,
         clientId: c.id,
-        flags: lens === "screening" && hit ? [{ text: `▲ Possible ${hit.entry.listKind === "pep" ? "PEP" : "sanctions"} match`, level: "high" }] : [],
-        tag: lens === "review" && due ? `Review ${fmtDate(c.nextReviewOn, { year: false })}${c.nextReviewOn! < today() ? " · overdue" : ""}` : undefined,
+        flags: lens === "screening" && hit ? [{ text: "Possible match", level: "high" }] : [],
+        tag: lens === "review" && due ? (c.nextReviewOn! < today() ? "Overdue" : fmtDate(c.nextReviewOn, { year: false })) : undefined,
         aria: `${c.name}, client, rated ${ratingLook(c.rating).word}${due ? `, review due ${fmtDate(c.nextReviewOn)}` : ""}`,
         x: 0,
         y: 0,
@@ -76,30 +75,30 @@ export function constellationScene(payload: GraphPayload, clients: Client[], clu
   if (lens === "review") {
     const due = live.filter((c) => c.nextReviewOn && c.nextReviewOn <= daysFromToday(60));
     dim = new Set(due.map((c) => c.partyId));
-    caption = `${due.length} reviews due in 60 days · ${due.filter((c) => c.nextReviewOn! < today()).length} overdue`;
+    caption = `${due.length} reviews due in 60 days`;
   } else if (lens === "shared") {
     dim = new Set(clusters.flatMap((c) => [...c.partyIds, ...c.clientIds.map((id) => clients.find((x) => x.id === id)?.partyId ?? "")]));
-    caption = `${clusters.length} groups of clients share an officer or address`;
+    caption = `${clusters.length} groups share an officer or address`;
   } else if (lens === "screening") {
     const flagged = live.filter((c) => hits.some((h) => h.clientId === c.id && h.status === "pending"));
     dim = new Set(flagged.map((c) => c.partyId));
-    caption = `${flagged.length} clients with a possible match waiting`;
+    caption = `${flagged.length} with a possible match`;
   } else {
     const n = (r: string) => live.filter((c) => c.rating === r).length;
-    caption = `${live.length} clients · ${n("high")} high · ${n("medium")} review · ${n("low")} clear`;
+    caption = `${live.length} clients · ${n("high")} high`;
   }
   return { scene: { key: `constellation-${lens}`, nodes, edges, layout: "given" }, dim, caption };
 }
 
-const TRAY_WORD: Record<TrayItem["kind"], string> = { signoff: "Sign-off", hit_review: "Screening", merge_review: "Fuse or split", disagreement: "Second opinion", alert: "Alert", review_due: "Review" };
+const TRAY_WORD: Record<TrayItem["kind"], string> = { signoff: "Sign-off", hit_review: "Screening", merge_review: "Duplicate", disagreement: "Second opinion", alert: "Alert", review_due: "Review" };
 const TRAY_ICON: Record<TrayItem["kind"] | "report", ReactNode> = {
-  signoff: <PenLine size={14} />,
-  hit_review: <ShieldAlert size={14} />,
-  merge_review: <GitMerge size={14} />,
-  disagreement: <Scale size={14} />,
-  alert: <BellRing size={14} />,
-  review_due: <CalendarClock size={14} />,
-  report: <FileLock2 size={14} />,
+  signoff: <PenLine />,
+  hit_review: <ShieldAlert />,
+  merge_review: <GitMerge />,
+  disagreement: <Scale />,
+  alert: <BellRing />,
+  review_due: <CalendarClock />,
+  report: <Lock />,
 };
 
 /** Where a docket entry opens: the API's href is a route in this app; the kind decides when it is missing. */
@@ -147,67 +146,36 @@ export function docketRows(tray: TrayItem[], cases: { id: string; title: string;
   for (const c of cases) {
     if (c.status !== "open" || c.smrStatus === "submitted") continue;
     const look = deadlineLook(c as never);
-    rows.push({ id: `report:${c.id}`, kind: "report", word: "Report (restricted)", title: c.title.split(" · ")[0]!, subtitle: "Suspicious matter report · restricted", dueOn: c.deadlineOn, due: { text: look.text.replace(" (3-day limit)", ""), late: look.tone === "high" }, href: `/reports/${c.id}`, clientId: null });
+    rows.push({ id: `report:${c.id}`, kind: "report", word: "Report", title: c.title.split(" · ")[0]!, subtitle: "Restricted", dueOn: c.deadlineOn, due: { text: look.text.replace(" (3-day limit)", ""), late: look.tone === "high" }, href: `/reports/${c.id}`, clientId: null });
   }
   return rows.sort((a, b) => (a.dueOn || "9999").localeCompare(b.dueOn || "9999"));
 }
 
-/** The ticket rail: each waiting decision as a ticket, earliest due first. `vertical` stacks them (phones, Waiting). */
-export function Tickets({ rows, caption, onHover, vertical }: { rows: DocketRow[]; caption: string; onHover?: (r: DocketRow | null) => void; vertical?: boolean }) {
-  const reduced = prefersReduced();
-  const rail = useRef<HTMLOListElement>(null);
-  const scroll = (dir: number) => rail.current?.scrollBy({ left: dir * 560, behavior: reduced ? "auto" : "smooth" });
-  // The earliest ticket is always in view when the rail fills.
-  const first = rows[0]?.id;
-  useEffect(() => {
-    if (rail.current) rail.current.scrollLeft = 0;
-  }, [first]);
+/** What waits on you, earliest due first: one row per decision (title, kind and when it is due). */
+export function Tickets({ rows, caption, onHover }: { rows: DocketRow[]; caption: string; onHover?: (r: DocketRow | null) => void; vertical?: boolean }) {
   return (
-    <section className={`tickets${vertical ? " vertical" : ""}`} aria-label="Waiting decisions">
-      {!vertical && rows.length > 4 && (
-        <div className="tickets-nav">
-          <span className="k">
-            {rows.length} tickets · earliest due first
-          </span>
-          <button type="button" aria-label="Earlier tickets" onClick={() => scroll(-1)}>
-            <ChevronLeft />
-          </button>
-          <button type="button" aria-label="Later tickets" onClick={() => scroll(1)}>
-            <ChevronRight />
-          </button>
-        </div>
-      )}
-      <ol ref={rail} className="ticket-rail" aria-label={caption}>
-        {rows.map((r, i) => (
-          <li key={r.id} className={reduced ? undefined : "ticket-in"} style={reduced ? undefined : { animationDelay: `${Math.min(i, 8) * 40}ms` }}>
-            <Link to={r.href} className={`ticket k-${r.kind}${r.due.late ? " late" : ""}`} onMouseEnter={() => onHover?.(r)} onMouseLeave={() => onHover?.(null)} onFocus={() => onHover?.(r)} onBlur={() => onHover?.(null)}>
-              <span className="t-kind">
-                <span className="g" aria-hidden>
-                  {TRAY_ICON[r.kind]}
-                </span>
-                {r.word}
-              </span>
-              <b className="t-title">{r.title}</b>
-              <small className="t-sub">{r.subtitle}</small>
-              <span className="t-due">
-                <span className="k">Due</span>
-                <span className="v">
-                  {r.due.late && <span aria-hidden>▲ </span>}
-                  {r.dueOn ? r.due.text : "No deadline"}
-                </span>
-                <ArrowRight aria-hidden />
-              </span>
-            </Link>
-          </li>
-        ))}
-        {!rows.length && <li className="ticket-empty">Nothing is waiting. New decisions appear here as soon as they arrive.</li>}
-      </ol>
-    </section>
+    <ol className="items" aria-label={caption}>
+      {rows.map((r) => (
+        <li key={r.id}>
+          <Link to={r.href} className="item" onMouseEnter={() => onHover?.(r)} onMouseLeave={() => onHover?.(null)} onFocus={() => onHover?.(r)} onBlur={() => onHover?.(null)}>
+            <span className="item-ico" aria-hidden>
+              {TRAY_ICON[r.kind]}
+            </span>
+            <span className="item-main">
+              <span className="item-title">{r.title}</span>
+              <span className="item-sub">{r.word}</span>
+            </span>
+            <span className="item-end">{r.dueOn ? <span className={r.due.late ? "late" : undefined}>{r.due.text}</span> : null}</span>
+          </Link>
+        </li>
+      ))}
+      {!rows.length && <li className="empty">Nothing waiting</li>}
+    </ol>
   );
 }
 
 export default function BoardHome() {
-  const { me, can } = useAuth();
+  const { can } = useAuth();
   const nav = useNavigate();
   const board = useBoard();
   const [params, setParams] = useSearchParams();
@@ -250,52 +218,26 @@ export default function BoardHome() {
   });
 
   const rows = useMemo(() => docketRows(dash.data?.fileTray ?? [], cases.data?.items ?? []), [dash.data, cases.data]);
-  const first = me?.user.fullName.split(" ")[0];
-  const caption = rows.length ? `${rows.length} waiting for you` : `Nothing waiting for ${first ?? "you"}`;
-  const late = rows.filter((r) => r.due.late).length;
-  const live = clients.data?.items.filter((c) => c.status !== "exited").length ?? 0;
+  const caption = rows.length ? `${rows.length} waiting for you` : "Nothing waiting";
   const hover = (r: DocketRow | null) => {
     const partyId = r?.clientId ? clients.data?.items.find((c) => c.id === r.clientId)?.partyId : undefined;
     board.engine()?.setSelected(partyId ?? null);
   };
   return (
-    <Page skeleton="desk" label="Desk">
-      <header className="desk-poster">
-        <div className="mast-ref">
-          <b>{me?.activeOrg?.name}</b>
-          <span className="sep">/</span>
-          <span>Desk as at {fmtDate(today())}</span>
+    <Page label="Home" className="home-page">
+      <PageHeader title="Waiting for you" count={rows.length} />
+      <div className="home">
+        <div className="home-list">
+          <Tickets rows={rows} caption={caption} onHover={hover} />
         </div>
-        <h1 className="dp-title">
-          <span className="dp-num set">{rows.length}</span>{" "}
-          <span className="dp-words set">{rows.length ? "waiting for you" : `Nothing waiting for ${first ?? "you"}`}</span>
-        </h1>
-        <div className="dp-foot">
-          <p className="dp-sub">{me?.membership?.roleLabel ? `Decisions for ${me.user.fullName}, ${me.membership.roleLabel}. Earliest due first.` : "Earliest due first."}</p>
-          <div className="dp-stamps">
-            {late > 0 && <Status tone="high">{late} late</Status>}
-            <Status tone="neutral" glyph="○">
-              {live} clients in the book
-            </Status>
-          </div>
-        </div>
-      </header>
-      <Tickets rows={rows} caption={caption} onHover={hover} />
-      <ChartBand
-        label="The client book"
-        exhibit="Exhibit"
-        title="The client book"
-        height="book"
-        legend={["company", "trust", "person", "shared"]}
-        tools={{}}
-        bar={
-          <div className="lenses">
-            <span className="k" id="lens-label">
-              Lens
-            </span>
+        <ChartBand
+          label="The client book"
+          height="book"
+          legend={["company", "trust", "person", "shared"]}
+          bar={
             <ToggleGroup
               type="single"
-              aria-labelledby="lens-label"
+              aria-label="Lens"
               value={lens}
               onValueChange={(v) => {
                 if (!v) return;
@@ -309,25 +251,22 @@ export default function BoardHome() {
                 </ToggleGroupItem>
               ))}
             </ToggleGroup>
-          </div>
-        }
-        foot={
-          <span className="lens-cap" role="status">
-            {built?.caption ?? "Loading the client book…"}
-          </span>
-        }
-      >
-        {lens === "shared" && clusters.data && (
-          <div className="cluster-list">
-            <div className="k">Select a group to highlight it</div>
-            {clusters.data.slice(0, 5).map((c) => (
-              <button key={c.id} type="button" className="cluster-cap" aria-pressed={selectedCluster === c.id} onClick={() => setSelectedCluster(selectedCluster === c.id ? null : c.id)}>
-                {c.label}
-              </button>
-            ))}
-          </div>
-        )}
-      </ChartBand>
+          }
+          foot={
+            <>
+              <span className="chip" role="status">
+                {built?.caption ?? "Loading"}
+              </span>
+              {lens === "shared" &&
+                clusters.data?.slice(0, 4).map((c) => (
+                  <button key={c.id} type="button" className="chip" aria-pressed={selectedCluster === c.id} onClick={() => setSelectedCluster(selectedCluster === c.id ? null : c.id)}>
+                    {c.label}
+                  </button>
+                ))}
+            </>
+          }
+        />
+      </div>
     </Page>
   );
 }
