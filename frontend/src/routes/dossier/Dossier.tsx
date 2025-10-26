@@ -1,23 +1,20 @@
-// The client dossier, chart-over-record skeleton: the masthead (matter reference, the name in capitals, stamps), the
-// structure chart full width (owners above the client, the trace to each beneficial owner, before/after tags against
-// onboarding), section words over the record, and the sign-off in the decision bar at the foot of the window.
+// The client dossier, in layers: the name and rating; the ownership chart traced to the main beneficial owner (the
+// hero); tabs under it for the record; a drawer for whoever you click on the chart; sign-off as one header button.
 import { useQuery } from "@tanstack/react-query";
-import { Pin } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { api } from "../../api/endpoints";
 import { stringsForOwner } from "../../graph/transforms";
 import type { StringSpec } from "../../graph/model";
-import { dueIn, fmtDate, today } from "../../lib/dates";
-import { COUNTRY, KIND_LABEL } from "../../lib/format";
+import { today } from "../../lib/dates";
 import { useAuth } from "../../lib/auth";
 import { useBoard, useBoardHandlers, useBoardScene } from "../../shell/board";
 import { ChartBand, RatingTag, Status } from "../../shell/chart";
-import { DecisionBar, Masthead, Page, SectionTabs, useHop, type SectionTab } from "../../shell/page";
+import { Page, PageHeader, SectionTabs, useTitle, type SectionTab } from "../../shell/page";
 import { NotAvailable } from "../NotFound";
 import { DocumentsPanel, OwnersPanel, RestrictedPanel, RiskPanel, ScreeningPanel, SummaryPanel, TimelinePanel, type PanelProps } from "./panels";
+import { PartyDrawer } from "./PartyDrawer";
 import { SignOffBox } from "./SignOffBox";
 import { useStructure } from "./structure";
 
@@ -26,12 +23,12 @@ export default function Dossier() {
   const nav = useNavigate();
   const board = useBoard();
   const { can } = useAuth();
-  const [compare, setCompare] = useState<string | null | undefined>(undefined);
-  const [pinned, setPinned] = useState(false);
+  const [compare, setCompare] = useState<string | null>(null);
   const [pulled, setPulled] = useState<StringSpec | null>(null);
+  const [party, setParty] = useState<string | null>(null);
 
   const client = useQuery({ queryKey: ["client", id], queryFn: () => api.clients.get(id), retry: false });
-  const compareFrom = compare === undefined ? (client.data?.onboardedOn ?? null) : compare;
+  const compareFrom = compare;
   const { structure } = useStructure(client.data ? id : undefined, compareFrom);
   const risk = useQuery({ queryKey: ["risk", id], queryFn: () => api.clients.risk(id), enabled: !!client.data });
   const edd = useQuery({ queryKey: ["edd", id], queryFn: () => api.clients.edd(id), enabled: !!client.data });
@@ -47,7 +44,7 @@ export default function Dossier() {
     if (structure && client.data) board.engine()?.setSelected(client.data.partyId);
   }, [structure, client.data, board.engine, board.version]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => setPulled(structure?.strings[0] ?? null), [structure]);
-  useHop(client.data?.name, client.data?.kind === "individual" ? "person" : client.data?.kind === "trust" ? "trust" : client.data?.kind === "partnership" ? "partnership" : "company");
+  useTitle(client.data?.name);
 
   const pullThread = useCallback(
     async (partyId: string | null) => {
@@ -85,10 +82,8 @@ export default function Dossier() {
   useBoardHandlers({
     onActivate: (nodeId) => {
       const n = structure?.nodes.find((x) => x.id === nodeId);
-      if (n?.clientId && n.clientId !== id && !n.client) {
-        nav(`/clients/${n.clientId}/summary`);
-        return;
-      }
+      setParty(nodeId);
+      if (n?.client || n?.clientId) return;
       void pullThread(nodeId);
     },
     onThread: (nodeId) => void pullThread(nodeId),
@@ -115,73 +110,29 @@ export default function Dossier() {
     { id: "timeline", label: "Timeline" },
     ...(caseRec ? [{ id: "restricted", label: "Restricted", locked: true }] : []),
   ];
-  const props: PanelProps = { client: c, structure, risk: risk.data, edd: edd.data, docs: docs.data ?? [], hits: hits.data?.items ?? [], onCite, onParty: (pid) => board.engine()?.focusNode(pid), onThread: (pid) => void pullThread(pid) };
+  const props: PanelProps = { client: c, structure, risk: risk.data, edd: edd.data, docs: docs.data ?? [], hits: hits.data?.items ?? [], onCite, onParty: (pid) => board.engine()?.focusNode(pid), onThread: (pid) => void pullThread(pid), onOpen: (pid) => { setParty(pid); void pullThread(pid); } };
   const panel =
     tab === "owners" ? <OwnersPanel {...props} /> : tab === "screening" ? <ScreeningPanel {...props} /> : tab === "risk" ? <RiskPanel {...props} /> : tab === "documents" ? <DocumentsPanel {...props} /> : tab === "timeline" ? <TimelinePanel {...props} audit={audit.data?.items ?? []} pins={pins.data ?? []} /> : tab === "restricted" && caseRec ? <RestrictedPanel caseRec={caseRec} /> : <SummaryPanel {...props} />;
-  const clientNode = structure?.nodes.find((n) => n.client);
   const trailHops = pulled ? pulled.ids.map((x) => structure?.names(x) ?? "") : [];
-  const dd = edd.data?.required ? (edd.data.status === "approved" ? "Enhanced due diligence complete" : "Enhanced due diligence open") : c.status === "onboarding" ? "Onboarding in progress" : "Standard due diligence";
 
   return (
-    <Page skeleton="chart" label={`Client dossier: ${c.name}`}>
-      <Masthead
-        size="name"
-        refLine={
-          <>
-            <span>Client file</span>
-            <b>{c.matterReference ?? c.id.slice(0, 8)}</b>
-            <span className="sep">/</span>
-            <span>Fee earner {c.assignedTo?.fullName ?? "unassigned"}</span>
-            {c.sample && (
-              <>
-                <span className="sep">/</span>
-                <span>Sample data</span>
-              </>
-            )}
-          </>
-        }
+    <Page label={`Client dossier: ${c.name}`}>
+      <PageHeader
+        back={{ to: "/clients", label: "Clients" }}
         title={c.name}
-        sub={
-          <span className="mast-facts">
-            {clientNode?.sub && clientNode.sub !== "Client" ? <span>{clientNode.sub}</span> : null}
-            <span>{KIND_LABEL[c.kind]}</span>
-            <span>{COUNTRY[c.jurisdiction] ?? c.jurisdiction}</span>
-            <span>{c.onboardedOn ? `Onboarded ${fmtDate(c.onboardedOn)}` : "Onboarding"}</span>
-          </span>
-        }
-        stamps={
-          <>
-            <RatingTag r={c.rating} />
-            {c.status === "blocked" ? <Status tone="high">Work paused: confirmed sanctions match</Status> : <Status tone={edd.data?.required && edd.data.status !== "approved" ? "review" : "neutral"}>{dd}</Status>}
-            {c.nextReviewOn && (
-              <span className="meta" title={fmtDate(c.nextReviewOn)}>
-                Next periodic review {dueIn(c.nextReviewOn)}
-              </span>
-            )}
-          </>
-        }
-        tools={
-          <Button variant="line" size="sm" aria-pressed={pinned} aria-label={pinned ? "Unpin this dossier" : "Keep this dossier open"} onClick={() => setPinned(!pinned)} className={pinned ? "pressed" : undefined}>
-            <Pin /> {pinned ? "Kept open" : "Keep open"}
-          </Button>
-        }
+        status={c.status === "blocked" ? <Status tone="high">Work paused</Status> : <RatingTag r={c.rating} />}
+        actions={edd.data && <SignOffBox client={c} edd={edd.data} />}
       />
       <ChartBand
         label="Ownership and control"
-        exhibit="Exhibit A"
-        title="Ownership and control"
         compare={{ asAt: today(), compare: compareFrom, compareLabel: compareFrom === c.onboardedOn ? "onboarding" : undefined, onToggle: () => setCompare(compareFrom ? null : (c.onboardedOn ?? null)), onPick: (d) => setCompare(d) }}
-        tools={{ onThread: () => void pullThread(board.focused ?? structure?.ubo?.owners[0]?.partyId ?? null) }}
         trace={trailHops.length > 1 ? { hops: trailHops, end: pulled?.tag ? pulled.tag.value : undefined } : null}
+        onTrace={() => pulled && setParty(pulled.ids[0] ?? null)}
       />
-      <SectionTabs label={`Client dossier: ${c.name}`} tabs={tabs} active={tab} onTab={(t) => nav(`/clients/${id}/${t}`)} onEscape={pinned ? undefined : () => nav("/board")} className="record">
+      <SectionTabs label={`Client dossier: ${c.name}`} tabs={tabs} active={tab} onTab={(t) => nav(`/clients/${id}/${t}`)} className="record">
         {panel}
       </SectionTabs>
-      {tab !== "restricted" && edd.data && (
-        <DecisionBar label="Sign-off">
-          <SignOffBox client={c} edd={edd.data} />
-        </DecisionBar>
-      )}
+      <PartyDrawer partyId={party} structure={structure} clientId={id} docs={docs.data ?? []} hits={hits.data?.items ?? []} onClose={() => setParty(null)} />
     </Page>
   );
 }

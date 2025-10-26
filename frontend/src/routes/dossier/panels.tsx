@@ -1,7 +1,7 @@
-// Dossier sections. Every section is a register or a reasoned list, laid out on the page grid; numbers are mono.
+// Dossier tabs. Each is one table or one short list; detail about a party lives in the drawer.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText, Lock, RefreshCcw, Upload } from "lucide-react";
-import { useRef, useState, type ReactNode } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -12,9 +12,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { errorMessage } from "../../api/client";
 import { api } from "../../api/endpoints";
-import type { AuditEntry, BeneficialOwner, Case, Client, DocType, DocumentRec, Edd, PinnedAnswer, RiskAssessment, ScreeningHit } from "../../api/types";
-import { fmtDate, fmtDateTime, relativeDays } from "../../lib/dates";
+import type { AuditEntry, Case, Client, DocType, DocumentRec, Edd, PinnedAnswer, RiskAssessment, ScreeningHit } from "../../api/types";
+import { dueIn, fmtDate, fmtDateTime, relativeDays } from "../../lib/dates";
 import { bytes, likelihood, ratingLook } from "../../lib/format";
+import { Section } from "../../shell/page";
+import { hasId } from "./PartyDrawer";
 import { useAuth } from "../../lib/auth";
 import { RatingTag, Status } from "../../shell/chart";
 import { HoldBox, SecondOpinionBox } from "./HoldBox";
@@ -30,104 +32,95 @@ export interface PanelProps {
   onCite: (edgeId: string) => void;
   onParty: (partyId: string) => void;
   onThread: (partyId: string) => void;
+  /** open the party drawer (and trace them) */
+  onOpen?: (partyId: string) => void;
 }
 
 export function Cite({ id, label, onCite }: { id: string; label: string | undefined; onCite: (id: string) => void }) {
   if (!label) return null;
   return (
-    <button className="cite" onClick={() => onCite(id)} aria-label={`Show link ${label} on the board`}>
+    <button className="cite" onClick={() => onCite(id)} aria-label={`Show link ${label} on the board`} title="Show on the chart">
       {label}
     </button>
   );
 }
 
-function hasId(docs: DocumentRec[], partyId: string) {
-  return docs.some((d) => d.partyId === partyId && ["passport", "drivers_licence", "birth_certificate", "company_extract", "trust_deed"].includes(d.docType));
-}
-
-function pathText(o: BeneficialOwner, names: (id: string) => string): ReactNode {
-  const p = o.paths.find((x) => x.effectivePct != null) ?? o.paths[0];
-  if (!p) return null;
-  const via = p.nodeIds.slice(1, -1).map(names);
-  if (o.via === "control" || p.effectivePct == null) return `Controls as ${o.controlRoles.join(" and ").toLowerCase()}${via.length ? ` of ${via[0]}` : ""}`;
-  if (!via.length) return "Owns directly";
-  return (
-    <>
-      Owns through{" "}
-      {via.map((v, i) => (
-        <span key={i}>
-          {i > 0 && <span className="arr" aria-hidden> → </span>}
-          {i > 0 && <span className="sr-only"> then </span>}
-          {v}
-        </span>
-      ))}
-    </>
-  );
-}
-
 export function SummaryPanel(p: PanelProps) {
-  const { client, structure, risk, docs } = p;
+  const { client, structure, risk, docs, edd } = p;
   const ubo = structure?.ubo;
   const look = ratingLook(client.rating);
   const owners = ubo?.owners.filter((o) => o.isUbo) ?? [];
   const unexplained = ubo?.unexplainedPct ?? 0;
   const unknownOwnerNode = structure?.nodes.find((n) => n.kind === "unknown");
   const unknownParent = unknownOwnerNode ? structure?.edges.find((e) => e.s === unknownOwnerNode.id)?.t : undefined;
+  const dd = edd?.required ? (edd.status === "approved" ? "Enhanced · complete" : "Enhanced · open") : client.status === "onboarding" ? "Onboarding" : "Standard";
+  const open = (id: string) => (p.onOpen ? p.onOpen(id) : p.onThread(id));
   return (
-    <div className="paras">
-      <section className="para">
-        <h2>
-          Beneficial owners <span className="aside">{ubo?.thresholdPct ?? 25}% or more, or control</span>
-        </h2>
-        <Table>
-          <TableBody>
-            {owners.map((o, i) => (
-              <tr key={o.partyId} className="rowlink" onClick={() => p.onThread(o.partyId)}>
-                <td className="mark">{i === 0 && (o.effectivePct ?? 0) > 0 && <i aria-hidden />}</td>
-                <td className="who">
-                  <button className="rowbtn" onClick={() => p.onThread(o.partyId)} aria-label={`${o.name}: trace on the chart`}>
-                    <b>{o.name}</b>
-                  </button>
-                  <small>{pathText(o, structure!.names)}</small>
-                </td>
-                <td className="num">{o.effectivePct ? `${o.effectivePct}%` : "—"}</td>
-                <td className="st">{hasId(docs, o.partyId) ? <Status tone="clear">ID verified</Status> : <Status tone="review">Ask client</Status>}</td>
-              </tr>
-            ))}
-            {unexplained > 0 && (
-              <tr>
-                <td className="mark" />
-                <td className="who">
-                  <b style={{ fontStyle: "italic", fontWeight: 500 }}>Not yet known</b>
-                  <small>Owners of {unknownParent ? structure!.names(unknownParent) : "part of the structure"}</small>
-                </td>
-                <td className="num">≤ {unexplained}%</td>
-                <td className="st">
-                  <Status tone="review">Ask client</Status>
-                </td>
-              </tr>
-            )}
-            {!owners.length && !unexplained && (
-              <tr>
-                <td className="mark" />
-                <td className="who" colSpan={3}>
-                  <small>{client.kind === "individual" ? "The client is the beneficial owner." : "No one reaches the threshold. Record the senior managing officials instead."}</small>
-                </td>
-              </tr>
-            )}
-          </TableBody>
-        </Table>
-      </section>
-
-      {risk && (
-        <section className="para">
-          <h2>
-            Why this client is rated {look.word} <span className="aside mono">{risk.score} / 100</span>
-          </h2>
-          <ReasonList risk={risk} structure={structure} onCite={p.onCite} limit={4} />
-          <MethodLine risk={risk} />
-        </section>
-      )}
+    <div className="summary-grid">
+      <div>
+        <Section title="Beneficial owners">
+          <div className="card">
+            <Table>
+              <TableBody>
+                {owners.map((o) => (
+                  <tr key={o.partyId} className="rowlink" onClick={() => open(o.partyId)}>
+                    <td className="who">
+                      <button className="rowbtn" onClick={(e) => (e.stopPropagation(), open(o.partyId))} aria-label={`${o.name}: show on the chart`}>
+                        <b>{o.name}</b>
+                      </button>
+                      <small>{o.via === "control" || o.effectivePct == null ? "Control" : "Ownership"}</small>
+                    </td>
+                    <td className="num">{o.effectivePct ? `${o.effectivePct}%` : "—"}</td>
+                    <td className="st num">{hasId(docs, o.partyId) ? <Status tone="clear">ID verified</Status> : <Status tone="review">Ask client</Status>}</td>
+                  </tr>
+                ))}
+                {unexplained > 0 && (
+                  <tr>
+                    <td className="who">
+                      <b className="muted">Not yet known</b>
+                      <small>Owners of {unknownParent ? structure!.names(unknownParent) : "part of the structure"}</small>
+                    </td>
+                    <td className="num">≤ {unexplained}%</td>
+                    <td className="st num">
+                      <Status tone="review">Ask client</Status>
+                    </td>
+                  </tr>
+                )}
+                {!owners.length && !unexplained && (
+                  <tr>
+                    <td className="muted" colSpan={3}>
+                      {client.kind === "individual" ? "The client is the beneficial owner." : "No one reaches the threshold."}
+                    </td>
+                  </tr>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </Section>
+        {risk && (
+          <Section title={`Why ${look.word.toLowerCase()}`} aside={`${risk.score} / 100`}>
+            <ReasonList risk={risk} structure={structure} onCite={p.onCite} limit={3} />
+          </Section>
+        )}
+      </div>
+      <Section title="File">
+        <dl className="facts card card-pad">
+          <dt>Due diligence</dt>
+          <dd>{dd}</dd>
+          <dt>Next review</dt>
+          <dd>{client.nextReviewOn ? dueIn(client.nextReviewOn).replace(/^./, (x) => x.toUpperCase()) : "—"}</dd>
+          <dt>Fee earner</dt>
+          <dd>{client.assignedTo?.fullName ?? "Unassigned"}</dd>
+          <dt>Onboarded</dt>
+          <dd>{client.onboardedOn ? fmtDate(client.onboardedOn) : "In progress"}</dd>
+          {client.matterReference && (
+            <>
+              <dt>Matter</dt>
+              <dd className="mono">{client.matterReference}</dd>
+            </>
+          )}
+        </dl>
+      </Section>
     </div>
   );
 }
@@ -135,17 +128,10 @@ export function SummaryPanel(p: PanelProps) {
 export function MethodLine({ risk }: { risk: RiskAssessment }) {
   const ch = risk.challenger;
   return (
-    <div className="method">
-      <span>
-        Risk method <b>{risk.methodologyVersion.replace("KR-RM-", "v")}</b>
-        {risk.override ? `, rating set by ${risk.override.byName}` : ", rated by the firm's rules"}
-      </span>
-      {ch && (
-        <span>
-          Second opinion: <b>{ratingLook(ch.rating).word}</b> ({ch.agreement === "agree" ? "agrees" : "disagrees, sent to review"})
-        </span>
-      )}
-    </div>
+    <p className="note method">
+      {risk.override ? `Set by ${risk.override.byName}` : `Firm rules ${risk.methodologyVersion.replace("KR-RM-", "v")}`}
+      {ch && ` · second opinion ${ch.agreement === "agree" ? "agrees" : `says ${ratingLook(ch.rating).word.toLowerCase()}`}`}
+    </p>
   );
 }
 
@@ -163,7 +149,7 @@ export function ReasonList({ risk, structure, onCite, limit }: { risk: RiskAsses
                 <Cite key={e.id} id={e.id} label={structure?.cites.get(e.id)} onCite={onCite} />
               ))}
           </span>
-          <span className={`w${r.points > 0 ? " up" : ""}`}>{r.points > 0 ? `+${r.points}` : `−${Math.abs(r.points)}`}</span>
+          <span className={`w${r.points > 0 ? " up" : ""}`} aria-label={`${r.points > 0 ? "plus" : "minus"} ${Math.abs(r.points)} points`}>{r.points > 0 ? `+${r.points}` : `−${Math.abs(r.points)}`}</span>
         </li>
       ))}
     </ol>
@@ -172,22 +158,19 @@ export function ReasonList({ risk, structure, onCite, limit }: { risk: RiskAsses
 
 export function OwnersPanel(p: PanelProps) {
   const { structure, docs, hits } = p;
-  if (!structure) return <p className="muted">Loading the structure…</p>;
+  if (!structure) return null;
   const owners = new Map((structure.ubo?.owners ?? []).map((o) => [o.partyId, o]));
   const rows = structure.nodes.filter((n) => !n.client).sort((a, b) => a.level - b.level || a.x - b.x);
+  const open = (id: string) => (p.onOpen ? p.onOpen(id) : p.onParty(id));
   return (
-    <>
-      <h2 className="title">
-        Everyone in the structure
-      </h2>
-      <p className="lede">
-        The same structure as the chart, as a register. Each link shows where it came from.
-      </p>
-      <Table className="owners-ledger" style={{ marginTop: 18 }}>
+    <div className="card">
+      <Table className="owners-ledger" aria-label="Everyone in the structure">
         <TableHeader>
           <TableRow>
             <TableHead scope="col">Party</TableHead>
-            <TableHead scope="col">How they connect</TableHead>
+            <TableHead scope="col" className="hide-sm">
+              Connection
+            </TableHead>
             <TableHead scope="col" className="num">
               Share
             </TableHead>
@@ -197,45 +180,43 @@ export function OwnersPanel(p: PanelProps) {
         <TableBody>
           {rows.map((n) => {
             const o = owners.get(n.id);
-            const links = structure.edges.filter((e) => e.s === n.id);
-            const hit = hits.find((h) => h.partyId === n.id);
+            const links = structure.edges.filter((e) => e.s === n.id && !e.removed);
+            const hit = hits.find((h) => h.partyId === n.id && h.status !== "false_positive");
             return (
-              <tr key={n.id} className="rowlink">
+              <tr key={n.id} className="rowlink" onClick={() => open(n.id)}>
                 <td className="who">
-                  <button className="rowbtn" onClick={() => p.onParty(n.id)}>
-                    <b className={o?.isUbo ? "is-owner" : undefined}>{n.label}</b>
+                  <button className="rowbtn" onClick={(e) => (e.stopPropagation(), open(n.id))}>
+                    <b>{n.label}</b>
                   </button>
-                  <small>{n.kind === "unknown" ? "Not yet known" : n.kind === "stack" ? n.sub : n.sub}</small>
+                  {o?.isUbo && <small>Beneficial owner</small>}
                 </td>
-                <td>
-                  {links.map((e) => (
+                <td className="hide-sm">
+                  {links.slice(0, 2).map((e) => (
                     <div key={e.id} className="link-line">
-                      {e.removed ? "Was " : ""}
-                      {e.kind === "own" ? `owns ${e.label}` : e.kind === "unknown" ? `holds ${e.label}` : (e.label ?? "").toLowerCase()} of {structure.names(e.t)}{" "}
-                      {e.citation && (
-                        <span className="src mono">
-                          <Cite id={e.id} label={e.citation} onCite={p.onCite} /> · {e.source ?? "register"}
-                          {e.validFrom ? ` ${fmtDate(e.validFrom, { year: true })}` : ""}
-                        </span>
-                      )}
+                      {e.kind === "own" ? `Owns ${e.label}` : e.kind === "unknown" ? `Holds ${e.label}` : (e.label ?? "")} of {structure.names(e.t)} {e.citation && <Cite id={e.id} label={e.citation} onCite={p.onCite} />}
                     </div>
                   ))}
                 </td>
                 <td className="num">{o?.effectivePct ? `${o.effectivePct}%` : "—"}</td>
                 <td className="st">
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-start" }}>
-                    {o?.isUbo && <Status tone="high" glyph="●">Beneficial owner</Status>}
-                    {n.kind === "person" || n.kind === "company" || n.kind === "trust" ? hasId(docs, n.id) ? <Status tone="clear">ID verified</Status> : <Status tone="review">Ask client</Status> : <Status tone="unknown">Not yet known</Status>}
-                    {n.pep && <Status tone="review">PEP</Status>}
-                    {hit && <Status tone={hit.status === "true_match" ? "high" : hit.status === "pending" ? "review" : "clear"}>{hit.status === "pending" ? "Possible match" : hit.status === "true_match" ? "Confirmed match" : "Not a match"}</Status>}
-                  </div>
+                  {hit ? (
+                    <Status tone={hit.status === "true_match" ? "high" : "review"}>{hit.status === "pending" ? "Possible match" : hit.status === "true_match" ? "Confirmed match" : "Escalated"}</Status>
+                  ) : n.kind === "person" || n.kind === "company" || n.kind === "trust" ? (
+                    hasId(docs, n.id) ? (
+                      <Status tone="clear">ID verified</Status>
+                    ) : (
+                      <Status tone="review">Ask client</Status>
+                    )
+                  ) : (
+                    <Status tone="unknown">Not yet known</Status>
+                  )}
                 </td>
               </tr>
             );
           })}
         </TableBody>
       </Table>
-    </>
+    </div>
   );
 }
 
@@ -247,7 +228,7 @@ export function ScreeningPanel(p: PanelProps) {
   const run = useMutation({
     mutationFn: () => api.clients.screen(client.id),
     onSuccess: () => {
-      setMsg("Screening finished. No new matches.");
+      setMsg("No new matches.");
       void qc.invalidateQueries({ queryKey: ["hits"] });
     },
     onError: (e) => setMsg(errorMessage(e)),
@@ -260,8 +241,9 @@ export function ScreeningPanel(p: PanelProps) {
     if (h.status === "pending")
       return (
         <Badge asChild tone="high">
-          <Link to={`/screening/${h.id}`}>
-            <span className="g">▲</span>Possible match · {likelihood(h.score)}
+          <Link to={`/screening/${h.id}`} title={`${likelihood(h.score)} likely the same`}>
+            <span className="g" aria-hidden />
+            Possible match
           </Link>
         </Badge>
       );
@@ -269,47 +251,50 @@ export function ScreeningPanel(p: PanelProps) {
   };
   return (
     <>
-      <h2 className="title">
-        Screening
-      </h2>
-      <div className="meta">
-        Last screened {lastScreened ? fmtDate(lastScreened) : "not yet"} · re-screened automatically on every list update
-      </div>
-      <Table style={{ marginTop: 18 }}>
-        <TableHeader>
-          <TableRow>
-            <TableHead scope="col">Party</TableHead>
-            <TableHead scope="col">Sanctions lists</TableHead>
-            <TableHead scope="col">PEP lists</TableHead>
-            <TableHead scope="col">Adverse media</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {parties.map((n) => (
-            <tr key={n.id}>
-              <td className="who">
-                <b>{n.label}</b>
-                <small>{n.client ? "Client" : n.kind === "person" ? "Person" : "Entity"}</small>
-              </td>
-              <td>{cell(n.id, "sanctions")}</td>
-              <td>{cell(n.id, "pep")}</td>
-              <td>
-                <span className="muted" style={{ fontSize: 12.5 }}>
-                  Not checked yet: no source connected
-                </span>
-              </td>
-            </tr>
-          ))}
-        </TableBody>
-      </Table>
-      {can("screening:run") && (
-        <div style={{ marginTop: 18, display: "flex", gap: 12, alignItems: "center" }}>
-          <Button onClick={() => run.mutate()} disabled={run.isPending}>
-            <RefreshCcw /> {run.isPending ? "Screening…" : "Screen again now"}
+      <div className="tab-bar">
+        <span className="note">Last screened {lastScreened ? fmtDate(lastScreened) : "not yet"}</span>
+        {msg && (
+          <span role="status" className="note">
+            {msg}
+          </span>
+        )}
+        <span className="grow" />
+        {can("screening:run") && (
+          <Button variant="line" size="sm" onClick={() => run.mutate()} disabled={run.isPending}>
+            <RefreshCcw /> {run.isPending ? "Screening…" : "Screen again"}
           </Button>
-          {msg && <span role="status">{msg}</span>}
-        </div>
-      )}
+        )}
+      </div>
+      <div className="card">
+        <Table aria-label="Screening">
+          <TableHeader>
+            <TableRow>
+              <TableHead scope="col">Party</TableHead>
+              <TableHead scope="col">Sanctions</TableHead>
+              <TableHead scope="col">PEP</TableHead>
+              <TableHead scope="col" className="hide-sm">
+                Adverse media
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {parties.map((n) => (
+              <tr key={n.id}>
+                <td className="who">
+                  <b>{n.label}</b>
+                </td>
+                <td>{cell(n.id, "sanctions")}</td>
+                <td>{cell(n.id, "pep")}</td>
+                <td className="hide-sm">
+                  <span className="muted" title="No source connected">
+                    Not connected
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </>
   );
 }
@@ -326,7 +311,7 @@ export function RiskPanel(p: PanelProps) {
     onSuccess: () => {
       setOverride(null);
       setMsg(null);
-      toast("Rating changed. Your reason is in the activity log.");
+      toast("Rating changed.");
       void qc.invalidateQueries({ queryKey: ["risk", client.id] });
       void qc.invalidateQueries({ queryKey: ["client", client.id] });
     },
@@ -336,86 +321,46 @@ export function RiskPanel(p: PanelProps) {
     mutationFn: (key: string) => api.clients.eddMeasure(client.id, key, { status: "done", note: "Evidence received and checked." }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["edd", client.id] }),
   });
-  if (!risk) return <p className="muted">This client has not been rated yet. Finish onboarding to see the first rating.</p>;
+  if (!risk) return <p className="muted">Not rated yet.</p>;
   return (
     <>
-      <h2 className="title">
-        Rated {ratingLook(risk.override?.rating ?? risk.rating).word}, {risk.score} out of 100
-      </h2>
-      <div className="meta">
-        Assessed {fmtDate(risk.assessedAt.slice(0, 10))} · thresholds Clear &lt; 30 ≤ Review &lt; 60 ≤ High
-      </div>
-      <section className="section">
-        <h2>Every reason, with points</h2>
-        <ReasonList risk={risk} structure={structure} onCite={p.onCite} />
-        <MethodLine risk={risk} />
-        {risk.challenger?.agreement === "disagree" && (
-          <p className="note-info" style={{ marginTop: 12 }}>
-            The second opinion rates this client {ratingLook(risk.challenger.rating).word}. The firm’s rules stay the decision of record; the compliance officer reviews the difference.
-          </p>
-        )}
-      </section>
-      {edd?.required && (
-        <section className="section">
-          <h2>Enhanced checks</h2>
-          {edd.triggers.map((t) => (
-            <p key={t.code} className="trigger">
-              Triggered because {t.message.charAt(0).toLowerCase() + t.message.slice(1)}
-            </p>
-          ))}
-          <Table>
-            <TableBody>
-              {edd.measures.map((m) => (
-                <tr key={m.key}>
-                  <td className="who">
-                    <b>{m.label}</b>
-                    {m.completedBy && <small>Done by {m.completedBy} {m.completedAt ? `on ${fmtDate(m.completedAt.slice(0, 10))}` : ""}</small>}
-                  </td>
-                  <td className="st" style={{ textAlign: "right" }}>
-                    {m.status === "done" ? (
-                      <Status tone="clear">Done</Status>
-                    ) : m.key !== "senior_approval" && can("edd:manage") ? (
-                      <Button size="sm" onClick={() => measure.mutate(m.key)}>
-                        Mark as received
-                      </Button>
-                    ) : (
-                      <Status tone="review">Waiting</Status>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </TableBody>
-          </Table>
-        </section>
-      )}
-      <SecondOpinionBox client={client} risk={risk} />
-      <HoldBox client={client} />
-      {can("risk:override") && (
-        <section className="section">
-          <h2>Change the rating</h2>
+      <div className="tab-bar">
+        <span className="score">
+          <b>{risk.score}</b> / 100
+        </span>
+        <RatingTag r={risk.override?.rating ?? risk.rating} />
+        <span className="note">{fmtDate(risk.assessedAt.slice(0, 10))}</span>
+        <span className="grow" />
+        {can("risk:override") && (
           <Dialog open={!!override} onOpenChange={(o) => setOverride(o ? { rating: client.rating ?? "medium", reason: "" } : null)}>
             <DialogTrigger asChild>
-              <Button>Set the rating by hand</Button>
+              <Button variant="line" size="sm">
+                Change rating
+              </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[520px]">
+            <DialogContent className="sm:max-w-[480px]">
               <DialogHeader>
-                <DialogTitle>Set the rating for {client.name}</DialogTitle>
-                <DialogDescription>The firm’s rules stay on record beside your rating. Lowering a rating needs a reason of at least 20 characters.</DialogDescription>
+                <DialogTitle>Change the rating</DialogTitle>
+                <DialogDescription>The firm’s rating stays on record beside yours.</DialogDescription>
               </DialogHeader>
               {override && (
                 <div className="grid gap-3.5">
                   <ToggleGroup type="single" aria-label="New rating" value={override.rating} onValueChange={(v) => v && setOverride({ ...override, rating: v as "low" | "medium" | "high" })} className="justify-start">
                     {(["low", "medium", "high"] as const).map((r) => (
                       <ToggleGroupItem key={r} value={r} className="px-3">
-                        {ratingLook(r).glyph} {ratingLook(r).word}
+                        {ratingLook(r).word}
                       </ToggleGroupItem>
                     ))}
                   </ToggleGroup>
                   <label className="field">
                     <span>Reason</span>
-                    <Textarea value={override.reason} onChange={(e) => setOverride({ ...override, reason: e.target.value })} />
+                    <Textarea value={override.reason} onChange={(e) => setOverride({ ...override, reason: e.target.value })} placeholder="At least 20 characters to lower a rating" />
                   </label>
-                  {msg && <p className="note-error" role="alert">{msg}</p>}
+                  {msg && (
+                    <p className="note-error" role="alert">
+                      {msg}
+                    </p>
+                  )}
                 </div>
               )}
               <DialogFooter>
@@ -423,30 +368,66 @@ export function RiskPanel(p: PanelProps) {
                   Cancel
                 </Button>
                 <Button variant="primary" onClick={() => ov.mutate()} disabled={ov.isPending}>
-                  Save the rating
+                  Save
                 </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        </section>
+        )}
+      </div>
+      <Section title="Reasons">
+        <ReasonList risk={risk} structure={structure} onCite={p.onCite} />
+        <MethodLine risk={risk} />
+      </Section>
+      {edd?.required && (
+        <Section title="Enhanced checks" aside={edd.triggers[0] ? edd.triggers[0].message : undefined}>
+          <div className="card">
+            <Table>
+              <TableBody>
+                {edd.measures.map((m) => (
+                  <tr key={m.key}>
+                    <td className="who">
+                      <b>{m.label}</b>
+                      {m.completedBy && <small>{m.completedBy}</small>}
+                    </td>
+                    <td className="st num">
+                      {m.status === "done" ? (
+                        <Status tone="clear">Done</Status>
+                      ) : m.key !== "senior_approval" && can("edd:manage") ? (
+                        <Button size="sm" variant="line" onClick={() => measure.mutate(m.key)}>
+                          Mark received
+                        </Button>
+                      ) : (
+                        <Status tone="review">Waiting</Status>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </Section>
       )}
+      <SecondOpinionBox client={client} risk={risk} />
+      <HoldBox client={client} />
       {history.data && history.data.length > 1 && (
-        <section className="section">
-          <h2>Earlier ratings</h2>
-          <Table>
-            <TableBody>
-              {history.data.slice(1).map((h) => (
-                <tr key={h.id}>
-                  <td className="mono" style={{ width: 120 }}>{fmtDate(h.assessedAt.slice(0, 10))}</td>
-                  <td>
-                    <RatingTag r={h.override?.rating ?? h.rating} small />
-                  </td>
-                  <td className="num">{h.score} / 100</td>
-                </tr>
-              ))}
-            </TableBody>
-          </Table>
-        </section>
+        <Section title="Earlier ratings">
+          <div className="card">
+            <Table>
+              <TableBody>
+                {history.data.slice(1).map((h) => (
+                  <tr key={h.id}>
+                    <td style={{ width: 140 }}>{fmtDate(h.assessedAt.slice(0, 10))}</td>
+                    <td>
+                      <RatingTag r={h.override?.rating ?? h.rating} small />
+                    </td>
+                    <td className="num">{h.score} / 100</td>
+                  </tr>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </Section>
       )}
     </>
   );
@@ -476,25 +457,26 @@ export function DocumentsPanel(p: PanelProps) {
   };
   return (
     <>
-      <h2 className="title">
-        Documents
-      </h2>
-      <div className="meta">Kept until 7 years after the relationship ends</div>
-      <ul className="doc-list">
-        {docs.map((d) => (
-          <li key={d.id}>
-            <FileText aria-hidden />
-            <div>
-              <b>{DOC_LABEL[d.docType]}</b> <span className="muted">· {structure?.names(d.partyId) ?? ""}</span>
-              <small>
-                {d.fileName} · {bytes(d.sizeBytes)} · added by {d.uploadedBy} on {fmtDate(d.uploadedAt.slice(0, 10))}
-              </small>
-            </div>
-            <Status tone="clear">Verified</Status>
-          </li>
-        ))}
-        {!docs.length && <li className="muted">No documents yet.</li>}
-      </ul>
+      <div className="card">
+        <ul className="doc-list">
+          {docs.map((d) => (
+            <li key={d.id}>
+              <FileText aria-hidden />
+              <div>
+                <b>{DOC_LABEL[d.docType]}</b>
+                <small>
+                  {structure?.names(d.partyId) ?? ""} · {fmtDate(d.uploadedAt.slice(0, 10))}
+                </small>
+              </div>
+              <span className="muted hide-sm" title={`${d.fileName} · ${bytes(d.sizeBytes)} · ${d.uploadedBy}`}>
+                {bytes(d.sizeBytes)}
+              </span>
+              <Status tone="clear">Verified</Status>
+            </li>
+          ))}
+          {!docs.length && <li className="empty">No documents yet</li>}
+        </ul>
+      </div>
       {can("identity:verify") && (
         <div
           className={`dropzone${over ? " over" : ""}`}
@@ -511,11 +493,10 @@ export function DocumentsPanel(p: PanelProps) {
         >
           <Upload aria-hidden />
           <span>
-            Drop an identity document or register extract here, or{" "}
+            Drop a file or{" "}
             <Button variant="link" onClick={() => inputRef.current?.click()}>
-              choose a file
+              choose one
             </Button>
-            . PDF, PNG or JPG up to 10 MB.
           </span>
           <input ref={inputRef} type="file" accept=".pdf,.png,.jpg,.jpeg" hidden onChange={(e) => take(e.target.files)} />
         </div>
@@ -548,16 +529,10 @@ export function TimelinePanel(p: PanelProps & { audit: AuditEntry[]; pins?: Pinn
   events.sort((a, b) => b.date.localeCompare(a.date));
   return (
     <>
-      <h2 className="title">
-        Timeline
-      </h2>
-      <p className="lede">
-        The same structure told as dated events, newest first.
-      </p>
       <ol className="timeline">
         {events.slice(0, 60).map((e, i) => (
           <li key={i}>
-            <time className="mono">{e.date.length > 10 ? fmtDateTime(e.date) : fmtDate(e.date)}</time>
+            <time>{e.date.length > 10 ? fmtDateTime(e.date) : fmtDate(e.date)}</time>
             <span>
               {e.text}
               {e.edgeId && structure?.cites.get(e.edgeId) && (
@@ -587,24 +562,16 @@ export function TimelinePanel(p: PanelProps & { audit: AuditEntry[]; pins?: Pinn
 
 export function RestrictedPanel({ caseRec }: { caseRec: Case }) {
   return (
-    <div className="restricted-panel">
-      <div className="restricted-band">
-        <Lock size={14} aria-hidden /> Restricted. Do not discuss this with the client or anyone outside this list.
+    <div className="card card-pad restricted-panel">
+      <div className="flex items-center gap-2">
+        <Lock size={16} aria-hidden />
+        <b>{caseRec.title.split(" · ")[0]}</b>
       </div>
-      <div className="eyebrow">Case · visible to {caseRec.access?.map((a) => a.fullName).join(" and ") ?? "the compliance officer"}</div>
-      <h2 className="title">
-        {caseRec.title.split(" · ")[0]}
-      </h2>
-      <p className="meta">
-        Opened {fmtDate(caseRec.openedAt.slice(0, 10))} by {caseRec.openedBy} · report due {fmtDate(caseRec.deadlineOn)} ({relativeDays(caseRec.deadlineOn)})
+      <p className="note">
+        Report due {fmtDate(caseRec.deadlineOn)} ({relativeDays(caseRec.deadlineOn)}) · visible to {caseRec.access?.map((a) => a.fullName).join(" and ") ?? "the compliance officer"}
       </p>
-      <p className="lede">
-        Work on this file continues as normal. Steps that could alert the client wait for the compliance officer’s go-ahead.
-      </p>
-      <Button asChild variant="ink" style={{ marginTop: 16 }}>
-        <Link to={`/reports/${caseRec.id}`}>
-          <Lock /> Open the case file
-        </Link>
+      <Button asChild variant="line" size="sm" className="mt-3 w-fit">
+        <Link to={`/reports/${caseRec.id}`}>Open the case</Link>
       </Button>
     </div>
   );
