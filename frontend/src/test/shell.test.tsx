@@ -1,4 +1,4 @@
-// The shell: ticket ordering and due wording, section-word keys, the queue pager, the trail, the Index and Find.
+// The shell: waiting-list ordering and due wording, tab keys, the queue pager, the top bar and Search.
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
@@ -7,14 +7,12 @@ import type { TrayItem } from "../api/types";
 import { daysFromToday } from "../lib/dates";
 import { docketRows, dueText } from "../routes/BoardHome";
 import { QueuePager, SectionTabs } from "../shell/page";
-import { clearTrail, hopKey, recordHop, setTrailOwner, useTrail } from "../shell/trail";
 import { rounded } from "../graph/engine";
-import { renderHook, act } from "@testing-library/react";
 import { renderApp } from "./render";
 
 const slip = (id: string, dueOn: string | null, kind: TrayItem["kind"] = "hit_review"): TrayItem => ({ kind, id, clientId: "c1", title: `Item ${id}`, subtitle: "", dueOn, href: "" });
 
-describe("the ticket rail", () => {
+describe("the waiting list", () => {
   it("words due dates from today", () => {
     expect(dueText(null)).toEqual({ text: "—", late: false });
     expect(dueText(daysFromToday(0)).text).toBe("Due today");
@@ -48,7 +46,7 @@ function Tabbed({ onEscape }: { onEscape?: () => void }) {
   );
 }
 
-describe("section words", () => {
+describe("tabs", () => {
   it("move with ] and [ and close with Esc", async () => {
     const esc = vi.fn();
     render(<Tabbed onEscape={esc} />);
@@ -92,42 +90,6 @@ describe("queue pager", () => {
   });
 });
 
-describe("the trail", () => {
-  it("adds new places and cuts back to a place already on it", () => {
-    setTrailOwner("test-user");
-    clearTrail();
-    const { result } = renderHook(() => useTrail());
-    act(() => {
-      recordHop({ key: "/board", path: "/board", label: "Desk", kind: "page" });
-      recordHop({ key: "/clients", path: "/clients", label: "Clients", kind: "page" });
-      recordHop({ key: "/clients/c1/summary", path: "/clients/c1/summary", label: "Harbour Quay", kind: "company" });
-    });
-    expect(result.current.map((h) => h.label)).toEqual(["Desk", "Clients", "Harbour Quay"]);
-    act(() => recordHop({ key: "/clients", path: "/clients", label: "Clients", kind: "page" }));
-    expect(result.current.map((h) => h.label)).toEqual(["Desk", "Clients"]);
-  });
-  it("treats a dossier's sections as one place", () => {
-    expect(hopKey("/clients/c1/owners")).toBe("/clients/c1");
-    expect(hopKey("/clients/c1")).toBe("/clients/c1");
-    expect(hopKey("/settings/members")).toBe("/settings");
-  });
-  it("keeps the last six places", () => {
-    setTrailOwner("test-user-2");
-    clearTrail();
-    const { result } = renderHook(() => useTrail());
-    act(() => {
-      for (let i = 0; i < 9; i++) recordHop({ key: `/p${i}`, path: `/p${i}`, label: `P${i}`, kind: "page" });
-    });
-    expect(result.current).toHaveLength(6);
-    expect(result.current[0]!.label).toBe("P3");
-  });
-  it("shows your path through the files in the bar", async () => {
-    renderApp("/board");
-    const trail = await screen.findByRole("navigation", { name: "Your trail" }, { timeout: 4000 });
-    expect(within(trail).getByText("Desk")).toBeInTheDocument();
-  });
-});
-
 describe("chart lines", () => {
   it("round the corners of an elbow", () => {
     const d = rounded([{ x: 0, y: 0 }, { x: 0, y: 50 }, { x: 80, y: 50 }, { x: 80, y: 100 }], 9);
@@ -137,30 +99,29 @@ describe("chart lines", () => {
   });
 });
 
-describe("the index", () => {
-  it("opens with the Index button and lists every place", async () => {
-    renderApp("/board");
-    await userEvent.click(await screen.findByRole("button", { name: "Open the index of every page" }, { timeout: 4000 }));
-    const nav = await screen.findByRole("navigation", { name: "Main" });
-    expect(within(nav).getByRole("link", { name: /Clients/ })).toBeInTheDocument();
-    expect(within(nav).getByRole("link", { name: /Activity log/ })).toBeInTheDocument();
+describe("the top bar", () => {
+  it("names five plain places and marks where you are", async () => {
+    renderApp("/clients");
+    const nav = await screen.findByRole("navigation", { name: "Main" }, { timeout: 4000 });
+    for (const word of ["Home", "Clients", "Reviews", "Programme"]) expect(within(nav).getByRole("link", { name: new RegExp(word) })).toBeInTheDocument();
+    expect(within(nav).getByRole("link", { name: "Clients" })).toHaveAttribute("aria-current", "page");
   });
-  it("opens with the . key", async () => {
+  it("keeps the activity log and settings in the account menu", async () => {
     renderApp("/board");
-    await screen.findByRole("button", { name: "Open the index of every page" }, { timeout: 4000 });
-    fireEvent.keyDown(window, { key: "." });
-    expect(await screen.findByRole("dialog", { name: "Index" })).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("button", { name: /Account menu/ }, { timeout: 4000 }));
+    expect(await screen.findByRole("menuitem", { name: /Activity log/ })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /Settings/ })).toBeInTheDocument();
   });
 });
 
-describe("find", () => {
-  it("opens with / and goes to part of the file", async () => {
+describe("search", () => {
+  it("opens with / and goes to a page", async () => {
     renderApp("/board");
     await screen.findByRole("button", { name: "Find a person, company or trust" }, { timeout: 4000 });
     fireEvent.keyDown(window, { key: "/" });
     const input = await screen.findByPlaceholderText("Find a person, company or trust");
     await userEvent.type(input, "activity");
     await userEvent.click(await screen.findByRole("option", { name: "Activity log" }));
-    expect(await screen.findByRole("heading", { name: "Activity log" }, { timeout: 4000 })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /^Activity log/ }, { timeout: 4000 })).toBeInTheDocument();
   });
 });
