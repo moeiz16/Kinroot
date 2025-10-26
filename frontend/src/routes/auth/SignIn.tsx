@@ -31,25 +31,19 @@ export default function SignIn() {
 
   return (
     <AuthCard
-      tab="Sign in"
-      title="Sign in to your firm’s files"
+      title="Sign in"
       foot={
         <>
-          <Button variant="link" onClick={() => go(DEMO_PEOPLE[0]!.email, DEMO_PASSWORD)} disabled={busy}>
-            Open Harbourline’s files →
-          </Button>
-          <small>Sample firm · sample data. Or open the files as:</small>
-          <div className="demo-roles">
-            {DEMO_PEOPLE.map((p) => (
-              <Button key={p.email} size="sm" onClick={() => go(p.email, DEMO_PASSWORD)} disabled={busy}>
-                {p.role} · {p.name}
-              </Button>
-            ))}
-          </div>
+          <span>
+            New firm?{" "}
+            <Link className="link" to="/sign-up">
+              Set up
+            </Link>
+          </span>
         </>
       }
     >
-      {params.get("expired") && <p className="note-info">Your session ended after a period without activity. Sign in again to carry on.</p>}
+      {params.get("expired") && <p className="note-info">Your session ended. Sign in again.</p>}
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -70,15 +64,21 @@ export default function SignIn() {
             {error}
           </p>
         )}
-        <div className="row">
-          <Button variant="primary" type="submit" disabled={busy}>
-            {busy ? "Signing in…" : "Sign in"}
-          </Button>
-          <span className="muted" style={{ fontSize: 13 }}>
-            New firm? <Link className="link" to="/sign-up">Set up your firm</Link>
-          </span>
-        </div>
+        <Button variant="primary" type="submit" disabled={busy} className="w-full">
+          {busy ? "Signing in…" : "Sign in"}
+        </Button>
       </form>
+      <details className="demo" open={params.get("demo") === "1" || undefined}>
+        <summary>Use a sample account</summary>
+        <div className="demo-roles">
+          {DEMO_PEOPLE.map((p) => (
+            <button key={p.email} type="button" className="demo-role" onClick={() => go(p.email, DEMO_PASSWORD)} disabled={busy}>
+              <b>{p.role}</b>
+              <span>{p.name}</span>
+            </button>
+          ))}
+        </div>
+      </details>
     </AuthCard>
   );
 }

@@ -1,18 +1,18 @@
-// Public landing: the answer is the headline. The poster asks WHO REALLY OWNS YOUR CLIENT?; under it, a sample
-// client's structure chart rises, the moss trace climbs from the client to the owner, and the giant figure counts
-// to the answer (49.6%). Three sample switches swap the poster. Then three bands: who it is for, the obligations,
-// and how files are kept safe. See DESIGN.md §5.
-import { ArrowRight, Spline } from "lucide-react";
+// Public landing: one question, one sentence, one button, and a live sample chart that traces a client to its owner
+// (the share counts up in a chip). Sample switches swap the structure; a risk chip opens the reasons. Then three
+// one-line points and the compliance line. See DESIGN.md §3.
+import { ArrowRight, BellRing, Moon, ShieldCheck, Spline, Sun } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { BoardEngine, webglAvailable } from "../graph/engine";
 import { DEMO_PASSWORD, useAuth } from "../lib/auth";
 import { tranche2Line } from "../lib/dates";
-import { prefersReduced } from "../lib/theme";
+import { applyTheme, prefersReduced, useTheme } from "../lib/theme";
 import { PHONE, useMedia } from "../lib/useMedia";
-import { KindGlyph, Mark } from "../shell/chart";
+import { Mark } from "../shell/chart";
 import { SCENARIOS, type Scenario } from "./landing/scenarios";
 import "./landing/landing.css";
 
@@ -32,6 +32,10 @@ export default function Landing() {
   const [opening, setOpening] = useState(false);
   const nav = useNavigate();
   const { signIn } = useAuth();
+  const theme = useTheme();
+  useEffect(() => {
+    document.title = "Kinroot · Who really owns your client?";
+  }, []);
 
   useEffect(() => {
     if (!host.current || !canDraw) return;
@@ -47,7 +51,7 @@ export default function Landing() {
   }, [canDraw, reduced]);
 
   useEffect(() => {
-    engine.current?.setInsets(phone ? { top: 24, left: 8, right: 8, bottom: 20 } : { top: 64, left: 560, right: 40, bottom: 30 });
+    engine.current?.setInsets(phone ? { top: 70, left: 8, right: 8, bottom: 70 } : { top: 70, left: 40, right: 40, bottom: 70 });
   }, [phone, canDraw]);
 
   /** Count the figure up while the trace climbs. */
@@ -61,9 +65,9 @@ export default function Landing() {
       }
       const t0 = performance.now();
       await new Promise<void>((done) => {
-        const step = (now: number) => {
+        const step = () => {
           if (runId.current !== id) return done();
-          const t = Math.min(1, (now - t0) / dur);
+          const t = Math.min(1, (performance.now() - t0) / dur);
           const v = to * (1 - Math.pow(1 - t, 2.4));
           setFigure(`${v.toFixed(decimals)}%`);
           if (t < 1) requestAnimationFrame(step);
@@ -129,6 +133,7 @@ export default function Landing() {
   };
 
   const a = scenario.answer;
+  const noOwner = figureOf(a.figure) === 0;
   return (
     <div className="landing">
       <header className="lp-top">
@@ -137,9 +142,9 @@ export default function Landing() {
           <span className="wm">Kinroot</span>
         </Link>
         <nav className="lp-nav" aria-label="Main">
-          <a href="#who">Who it is for</a>
-          <a href="#regimes">Tranche 2 and the UK MLR</a>
-          <a href="#safe">How we keep files safe</a>
+          <button type="button" className="bar-icon" aria-label={theme === "dark" ? "Light mode" : "Dark mode"} onClick={() => applyTheme(theme === "dark" ? "light" : "dark", true)}>
+            {theme === "dark" ? <Sun /> : <Moon />}
+          </button>
           <Link to="/sign-in" className="lp-signin">
             Sign in
           </Link>
@@ -147,177 +152,76 @@ export default function Landing() {
       </header>
 
       <main>
-        <section className={`lp-hero ${phase}`} aria-label="A sample client, traced">
-          <div className="lp-kicker">Client due diligence for law firms, accountants and conveyancers</div>
-          <h1 className="lp-title">
-            <span className="set">Who really owns your client?</span>
-          </h1>
-
-          <div className="lp-stage">
-            <div className="lp-answer" aria-live="polite">
-              <span className="k">Sample client</span>
-              <b className="lp-client">
-                <KindGlyph kind={scenario.nodes.find((n) => n.client)?.kind ?? "company"} size={15} />
-                {scenario.name}
-              </b>
-              <div className="lp-figure" aria-hidden={phase !== "done"}>
-                {figure}
-              </div>
-              <p className="lp-who">
-                <b>{a.who}</b> {a.line}
-              </p>
-              <div className="lp-working">
-                <span className="k">Working</span> {a.working}
-              </div>
-            </div>
-            <div ref={host} className="chart" aria-hidden={!canDraw} />
-            <div className="lp-switch" role="group" aria-label="Sample structures">
-              {SCENARIOS.map((s) => (
-                <button key={s.id} type="button" className="lp-chip" aria-pressed={scenario.id === s.id} onClick={() => void run(s)}>
-                  {s.chip ?? "Company with an offshore layer"}
-                </button>
-              ))}
-            </div>
-            <span className="lp-sample">Sample structure · not a real company</span>
-          </div>
-
-          <div className="lp-under">
-            <div className="lp-verdict">
-              <span className={`lp-look ${scenario.slip.look}`}>
-                <span aria-hidden>{scenario.slip.look === "high" ? "▲" : "◆"}</span> {scenario.slip.look === "high" ? "High" : "Review"} · {scenario.slip.lead}
-              </span>
-              <h2>{scenario.slip.title}</h2>
-              <p>{scenario.slip.next}</p>
-            </div>
-            <ol className="lp-reasons">
-              {scenario.slip.reasons.map((r) => (
-                <li key={r.n}>
-                  <span className="n">{String(r.n).padStart(2, "0")}</span>
-                  <span>{r.text}</span>
-                </li>
-              ))}
-            </ol>
-            <div className="lp-cta">
-              <Button variant="primary" onClick={() => void run(scenario)}>
-                <Spline />
-                Trace a sample client
-              </Button>
-              <Button variant="ink" onClick={openFiles} disabled={opening}>
-                {opening ? "Opening…" : "Open Harbourline’s files"} <ArrowRight />
-              </Button>
-              <p className="lp-fine">
-                Designed to support the AML/CTF Act 2006 and the UK Money Laundering Regulations 2017. <span>{tranche2Line()}</span>
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <section className="lp-band" id="who">
-          <header className="lp-band-head">
-            <span className="n">01</span>
-            <h2>Three people sign off on a client. Each sees the part they need.</h2>
-          </header>
-          <ol className="lp-roles">
-            <li>
-              <span className="lp-role">Fee earners</span>
-              <h3>Open a matter without a week of forms.</h3>
-              <p>Send the client one link. Identity checks, ownership and consent arrive in the file, already traced to the people behind it.</p>
-            </li>
-            <li>
-              <span className="lp-role">Compliance officers</span>
-              <h3>Sign off with the reasons in front of them.</h3>
-              <p>Every rating comes with the sentences behind it, each citing the link it rests on. Enhanced checks are triggered for you, and nothing proceeds until you sign.</p>
-            </li>
-            <li>
-              <span className="lp-role">Partners</span>
-              <h3>Know the firm’s exposure on one page.</h3>
-              <p>Overdue reviews, high-risk clients and open screening matches, in plain words, ready for the next partners’ meeting.</p>
-            </li>
-          </ol>
-        </section>
-
-        <section className="lp-band" id="regimes">
-          <header className="lp-band-head">
-            <span className="n">02</span>
-            <h2>Built for Tranche 2 and the UK MLR 2017.</h2>
-          </header>
-          <p className="lp-band-sub">Obligation by obligation, this is where Kinroot does the work. It is designed to support your AML/CTF programme; your firm stays responsible for it.</p>
-          <Table className="obligations">
-            <TableHeader>
-              <TableRow>
-                <TableHead scope="col">Obligation</TableHead>
-                <TableHead scope="col">Australia: AML/CTF Act 2006</TableHead>
-                <TableHead scope="col">United Kingdom: MLR 2017</TableHead>
-                <TableHead scope="col">In Kinroot</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {[
-                ["Know who you act for", "Customer due diligence before providing a designated service", "Regulation 28 customer due diligence", "Onboarding with identity checks, consent and the client link"],
-                ["Find the real owners", "Beneficial owners at 25% or control", "Beneficial owners over 25% or control", "The trace: compounded ownership through every layer"],
-                ["Check the lists", "Sanctions and politically exposed persons", "Sanctions, PEPs and family members", "Screening with match likelihood and a reasoned decision"],
-                ["Look harder when it matters", "Enhanced due diligence for higher risk", "Regulation 33 enhanced due diligence", "Triggers, measures and two-stage sign-off"],
-                ["Keep watching", "Ongoing customer due diligence", "Ongoing monitoring", "Alerts when owners, officers or lists change"],
-                ["Report suspicion", "Suspicious matter reports within 3 business days", "Suspicious activity reports to the NCA", "Restricted case files and a draft ready for you to lodge"],
-                ["Keep the records", "7 years", "5 years", "A sealed activity log and a retention schedule"],
-              ].map((r) => (
-                <tr key={r[0]}>
-                  <td className="who">
-                    <b>{r[0]}</b>
-                  </td>
-                  <td>{r[1]}</td>
-                  <td>{r[2]}</td>
-                  <td className="in-kinroot">{r[3]}</td>
-                </tr>
-              ))}
-            </TableBody>
-          </Table>
-        </section>
-
-        <section className="lp-band" id="safe">
-          <header className="lp-band-head">
-            <span className="n">03</span>
-            <h2>How we keep files safe.</h2>
-          </header>
-          <ol className="lp-safe">
-            <li>
-              <h3>Australian files stay in Australia.</h3>
-              <p>Data for Australian firms is stored in Sydney; UK firms are stored in the UK.</p>
-            </li>
-            <li>
-              <h3>Every decision is sealed to the one before it.</h3>
-              <p>A changed or missing entry in the activity log shows up as soon as anyone verifies the chain.</p>
-            </li>
-            <li>
-              <h3>Restricted reports stay restricted.</h3>
-              <p>Only the compliance officer and named people can see that a report exists. Everyone else sees nothing at all, so nobody tips off the client.</p>
-            </li>
-            <li>
-              <h3>Seven years, then a reviewed disposal.</h3>
-              <p>Records are kept for the statutory period after the relationship ends, and nothing is deleted without a person approving it.</p>
-            </li>
-          </ol>
-        </section>
-
-        <section className="lp-closing">
-          <h2>Who is behind your next client?</h2>
+        <section className="lp-hero" aria-label="A sample client, traced">
+          <h1 className="lp-title">Who really owns your client?</h1>
+          <p className="lp-sub">Kinroot traces every layer of a client to the people behind it.</p>
           <div className="lp-cta">
-            <Button
-              variant="primary"
-              onClick={() => {
-                window.scrollTo({ top: 0, behavior: reduced ? "auto" : "smooth" });
-                setTimeout(() => void run(scenario), reduced ? 0 : 500);
-              }}
-            >
-              <Spline />
-              Trace a sample client
-            </Button>
-            <Button variant="line" onClick={openFiles}>
-              Open Harbourline’s files <ArrowRight />
+            <Button variant="primary" onClick={openFiles} disabled={opening}>
+              {opening ? "Opening…" : "Open the sample firm"} <ArrowRight />
             </Button>
           </div>
-          <p className="lp-fine">Kinroot · Sample firm and sample data throughout · Designed to support, not replace, your AML/CTF programme.</p>
+
+          <div className={`lp-stage ${phase}`}>
+            <div ref={host} className="chart" aria-hidden={!canDraw} />
+            <div className="lp-switch">
+              <ToggleGroup type="single" aria-label="Sample structures" value={scenario.id} onValueChange={(v) => v && void run(SCENARIOS.find((s) => s.id === v)!)}>
+                {SCENARIOS.map((s) => (
+                  <ToggleGroupItem key={s.id} value={s.id} aria-label={s.chip ?? "Company with an offshore layer"}>
+                    {s.chip ?? "Offshore layer"}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+            </div>
+            <span className="lp-sample">Sample</span>
+            <div className="lp-answer" aria-live="polite">
+              <span className="chip lp-owner" title={`${a.who} ${a.line}`}>
+                <span className="sw" aria-hidden />
+                {noOwner ? "No owner found" : a.who}
+                {!noOwner && <b aria-hidden={phase !== "done"}>{figure}</b>}
+              </span>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button type="button" className="chip">
+                    <span className={`dot ${scenario.slip.look === "high" ? "lp-high" : "lp-review"}`} aria-hidden />
+                    {scenario.slip.look === "high" ? "High risk" : "Review"}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="start" side="top" className="w-[320px] p-4">
+                  <p className="lp-pop-title">{scenario.slip.title}</p>
+                  <ol className="lp-reasons">
+                    {scenario.slip.reasons.map((r) => (
+                      <li key={r.n}>{r.text}</li>
+                    ))}
+                  </ol>
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
         </section>
+
+        <section className="lp-points" aria-label="What Kinroot does">
+          <div>
+            <Spline aria-hidden />
+            <h2>Trace the owners</h2>
+            <p>Every layer, multiplied through to the person.</p>
+          </div>
+          <div>
+            <ShieldCheck aria-hidden />
+            <h2>Check the lists</h2>
+            <p>Sanctions and PEP matches, each decided with a reason.</p>
+          </div>
+          <div>
+            <BellRing aria-hidden />
+            <h2>Keep watch</h2>
+            <p>Alerts when owners, officers or lists change.</p>
+          </div>
+        </section>
+
+        <footer className="lp-foot">
+          <span>Designed to support the AML/CTF Act 2006 and the UK Money Laundering Regulations 2017.</span>
+          <span>{tranche2Line()}</span>
+          <span>Sample firm and data.</span>
+        </footer>
       </main>
     </div>
   );

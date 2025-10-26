@@ -22,14 +22,14 @@ export default function AcceptInvite() {
 
   if (inv.isError)
     return (
-      <AuthCard tab="Invitation" title="This invitation can’t be used">
+      <AuthCard title="This invitation can’t be used">
         <p>It may have expired or already been accepted. Ask the person who invited you to send a new one.</p>
         <Link className="link" to="/sign-in">
           Go to sign in
         </Link>
       </AuthCard>
     );
-  if (!inv.data) return <AuthCard tab="Invitation" title="Opening your invitation…">{null}</AuthCard>;
+  if (!inv.data) return <AuthCard title="Opening your invitation…">{null}</AuthCard>;
   const i = inv.data;
   const signedInAsInvitee = me?.user.email === i.email;
   const submit = async (e: React.FormEvent) => {
@@ -48,9 +48,10 @@ export default function AcceptInvite() {
     }
   };
   return (
-    <AuthCard tab="Invitation" title={`Join ${i.orgName}`}>
-      <p>
-        You’ve been invited as <b>{i.roleLabel}</b> using <span className="mono">{i.email}</span>. The invitation is open until {fmtDate(i.expiresAt.slice(0, 10))}.
+    <AuthCard title={`Join ${i.orgName}`}>
+      <p className="invite-line" title={`Open until ${fmtDate(i.expiresAt.slice(0, 10))}`}>
+        <b>{i.roleLabel}</b>
+        <span className="muted">{i.email}</span>
       </p>
       <form onSubmit={submit} noValidate>
         {!signedInAsInvitee && (
@@ -61,18 +62,16 @@ export default function AcceptInvite() {
               {errors.fullName && <span className="note-error">{errors.fullName}</span>}
             </label>
             <label className="field">
-              <span>Choose a password (12 characters or more)</span>
+              <span>Password (12+ characters)</span>
               <Input type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} aria-invalid={!!errors.password} />
               {errors.password && <span className="note-error">{errors.password}</span>}
             </label>
           </>
         )}
         {error && <p className="note-error" role="alert">{error}</p>}
-        <div className="row">
-          <Button variant="primary" type="submit" disabled={busy}>
-            {busy ? "Joining…" : `Join ${i.orgName.split(" (")[0]}`}
-          </Button>
-        </div>
+        <Button variant="primary" type="submit" disabled={busy} className="w-full">
+          {busy ? "Joining…" : "Join"}
+        </Button>
       </form>
     </AuthCard>
   );

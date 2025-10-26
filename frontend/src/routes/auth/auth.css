@@ -1,28 +1,19 @@
-/* Sign-in, sign-up, invitations: the form skeleton (DESIGN.md §4). */
-.auth { position: relative; min-height: 100vh; overflow: hidden; background: var(--paper); display: flex; flex-direction: column; }
-.auth-art { position: absolute; right: -60px; bottom: -110px; width: min(58vw, 860px); height: auto; opacity: 0.5; pointer-events: none; }
-.auth-art .art-trace { stroke-dasharray: 1200; stroke-dashoffset: 1200; animation: climb 1.6s 0.4s var(--ease-set) forwards; }
-@keyframes climb { to { stroke-dashoffset: 0; } }
-.auth-top { position: relative; z-index: 2; display: flex; align-items: center; gap: 18px; padding: 0 var(--gutter); height: var(--bar-h); border-bottom: 3px solid var(--ink); }
-.auth-tab { font: 500 11px/1 var(--f-mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--moss-ink); border-left: 1px solid var(--rule); padding-left: 18px; }
-.auth-main { position: relative; z-index: 2; flex: 1; padding: clamp(28px, 6vh, 72px) var(--gutter) 80px; max-width: 1240px; }
-.auth-ref { font: 500 10.5px/1.3 var(--f-mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 14px; }
-.auth-title { font: 800 clamp(42px, 6.6vw, 104px)/0.88 var(--f-display); text-transform: uppercase; letter-spacing: -0.02em; max-width: 13ch; text-wrap: balance; }
-.auth-title .set { display: inline-block; animation: set 0.5s var(--ease-set) both; }
-.auth-body { margin-top: 30px; max-width: 980px; }
-.auth-body > p { font-size: 16px; color: var(--ink-2); max-width: 70ch; }
-.auth-body form { display: flex; flex-wrap: wrap; gap: 16px 18px; align-items: flex-end; padding: 20px 22px; background: var(--surface); border: 1.5px solid var(--ink); border-radius: var(--r-leaf-lg); box-shadow: var(--plate-shadow); }
-.auth-body form > .field { flex: 1 1 250px; }
-.auth-body form > .note-error, .auth-body form > .note-info { flex-basis: 100%; }
-.auth-body form > .row { flex: 0 1 auto; padding-bottom: 1px; }
-.auth-body form > .row { gap: 18px; }
-.auth-body .note-info { margin: 0 0 14px; }
-.auth-foot { margin-top: 26px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; }
-.auth-foot small { display: block; color: var(--muted); font-size: 12.5px; flex-basis: 100%; }
-.auth-foot .demo-roles { display: flex; flex-wrap: wrap; gap: 8px; flex-basis: 100%; }
-.auth-foot .demo-roles [data-slot="button"] { background: var(--surface); }
-@media (max-width: 760px) {
-  .auth-art { width: 130vw; right: -30vw; opacity: 0.28; }
-  .auth-body form { grid-template-columns: 1fr; padding: 16px; }
-  .auth-title { font-size: 40px; }
-}
+/* Sign-in, set-up and invitations: one centred card. */
+.auth { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; padding: 40px 16px; background: var(--bg); }
+.auth-mark .wm { font-size: 18px; }
+.auth-card { width: 100%; max-width: 400px; padding: 28px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--float); }
+.auth-title { font: 500 22px/1.25 var(--f-sans); letter-spacing: -0.01em; margin-bottom: 20px; }
+.auth-body form { display: grid; gap: 14px; }
+.auth-body form [data-slot="button"] { margin-top: 4px; height: 40px; }
+.auth-foot { font-size: 13.5px; color: var(--muted); }
+.demo { margin-top: 18px; border-top: 1px solid var(--border); padding-top: 14px; }
+.demo summary { cursor: pointer; font: 500 13.5px/1.3 var(--f-sans); color: var(--fg-2); list-style: none; display: flex; justify-content: space-between; align-items: center; }
+.demo summary::-webkit-details-marker { display: none; }
+.demo summary::after { content: "+"; color: var(--muted); font-size: 16px; }
+.demo[open] summary::after { content: "–"; }
+.demo-roles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.demo-role { display: grid; gap: 2px; text-align: left; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); }
+.demo-role:hover { border-color: var(--accent); }
+.demo-role b { font: 500 13px/1.3 var(--f-sans); }
+.demo-role span { font-size: 12px; color: var(--muted); }
+.invite-line { display: grid; gap: 2px; margin-bottom: 16px; font-size: 14px; }

@@ -52,30 +52,28 @@ export default function SignUp() {
     </label>
   );
   return (
-    <AuthCard tab="Set up" title="Set up your firm on Kinroot" foot={<span className="muted" style={{ fontSize: 13 }}>Already set up? <Link className="link" to="/sign-in">Sign in</Link></span>}>
+    <AuthCard title="Set up your firm" foot={<span>Already set up? <Link className="link" to="/sign-in">Sign in</Link></span>}>
       <form onSubmit={submit} noValidate>
         {field("fullName", "Your name", "text", "name")}
         {field("email", "Work email", "email", "email")}
         {field("firmName", "Firm name", "text", "organization")}
         <label className="field">
-          <span>Where the firm is regulated</span>
+          <span>Country</span>
           <Select value={f.country} onValueChange={(v) => setF({ ...f, country: v as Country })}>
             <SelectTrigger aria-label="Where the firm is regulated" className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="AU">Australia (AML/CTF Act 2006, Tranche 2)</SelectItem>
-              <SelectItem value="GB">United Kingdom (MLR 2017)</SelectItem>
+              <SelectItem value="AU">Australia</SelectItem>
+              <SelectItem value="GB">United Kingdom</SelectItem>
             </SelectContent>
           </Select>
         </label>
-        {field("password", "Password (12 characters or more)", "password", "new-password")}
+        {field("password", "Password (12+ characters)", "password", "new-password")}
         {error && <p className="note-error" role="alert">{error}</p>}
-        <div className="row">
-          <Button variant="primary" type="submit" disabled={busy}>
-            {busy ? "Setting up…" : "Set up the firm"}
-          </Button>
-        </div>
+        <Button variant="primary" type="submit" disabled={busy} className="w-full">
+          {busy ? "Setting up…" : "Set up the firm"}
+        </Button>
       </form>
     </AuthCard>
   );
