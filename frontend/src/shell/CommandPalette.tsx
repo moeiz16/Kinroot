@@ -1,5 +1,5 @@
-// Find anything: people, companies and trusts on the board, and every part of the file. Opens with `/` or ⌘K
-// anywhere, or from Find in the trail bar.
+// Search: people, companies and trusts in the firm's files, and every page. Opens with `/` or ⌘K anywhere, or from
+// Search in the top bar.
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
@@ -11,7 +11,7 @@ import { ratingLook } from "../lib/format";
 import { KindGlyph } from "./chart";
 
 const listeners = new Set<() => void>();
-/** Open the palette from anywhere (spine, exhibit). */
+/** Open search from anywhere. */
 export function openFind(): void {
   listeners.forEach((l) => l());
 }
@@ -52,15 +52,15 @@ export function CommandPalette() {
   };
   const party = (n: GraphNode) => go(n.clientId ? `/clients/${n.clientId}/summary` : `/ask?q=${encodeURIComponent(`How is ${n.label} linked to our clients?`)}`);
   const places = [
-    { to: "/board", label: "Desk: what is waiting and the client book" },
-    { to: "/clients", label: "Client book" },
-    can("clients:onboard") && { to: "/onboard", label: "Onboard a client" },
-    can("resolution:read") && { to: "/fuse", label: "Fuse or split" },
-    { to: "/screening", label: "Screening matches" },
-    { to: "/alerts", label: "Monitoring alerts" },
-    can("smr:read") && { to: "/reports", label: "Reports (restricted)" },
-    can("assistant:use") && { to: "/ask", label: "Ask the board" },
-    { to: "/programme", label: "Compliance programme" },
+    { to: "/board", label: "Home" },
+    { to: "/clients", label: "Clients" },
+    can("clients:onboard") && { to: "/onboard", label: "New client" },
+    can("resolution:read") && { to: "/fuse", label: "Duplicates" },
+    { to: "/screening", label: "Screening" },
+    { to: "/alerts", label: "Alerts" },
+    can("smr:read") && { to: "/reports", label: "Reports" },
+    can("assistant:use") && { to: "/ask", label: "Ask" },
+    { to: "/programme", label: "Programme" },
     can("audit:read") && { to: "/activity", label: "Activity log" },
     { to: "/settings/firm", label: "Settings" },
   ].filter(Boolean) as { to: string; label: string; key?: string }[];
@@ -74,29 +74,29 @@ export function CommandPalette() {
         setOpen(o);
         if (!o) setQ("");
       }}
-      title="Find"
-      description="Find a person, company or trust, or go to part of the file"
+      title="Search"
+      description="Find a person, company or trust, or go to a page"
       shouldFilter={false}
       className="top-[18%] translate-y-0 sm:max-w-[620px]"
     >
       <CommandInput value={q} onValueChange={setQ} placeholder="Find a person, company or trust" aria-label="Find a person, company or trust" />
       <CommandList>
-        <CommandEmpty>{q.trim().length > 1 ? "No one by that name in your files." : "Type two letters or more."}</CommandEmpty>
+        <CommandEmpty>{q.trim().length > 1 ? "No one by that name." : "Type a name."}</CommandEmpty>
         {data.length > 0 && (
-          <CommandGroup heading="People, companies and trusts">
+          <CommandGroup heading="Parties">
             {data.map((n) => (
               <CommandItem key={n.id} value={`party-${n.id}`} onSelect={() => party(n)}>
                 <Glyph kind={n.kind} />
                 <span className="min-w-0 flex-1">
-                  <b className="block truncate font-bold">{n.label}</b>
-                  <small className="text-muted">{n.clientId ? `Client · ${ratingLook(n.riskRating).word}` : n.kind === "person" ? "Person · ask how they are linked" : n.kind === "trust" ? "Trust" : "Company"}</small>
+                  <b className="block truncate font-medium">{n.label}</b>
+                  <small className="text-muted">{n.clientId ? `Client · ${ratingLook(n.riskRating).word}` : n.kind === "person" ? "Person" : n.kind === "trust" ? "Trust" : "Company"}</small>
                 </span>
               </CommandItem>
             ))}
           </CommandGroup>
         )}
         {shown.length > 0 && (
-          <CommandGroup heading="Go to">
+          <CommandGroup heading="Pages">
             {shown.map((p) => (
               <CommandItem key={p.to} value={`go-${p.to}`} onSelect={() => go(p.to)}>
                 {p.label}
