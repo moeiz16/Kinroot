@@ -1,7 +1,7 @@
-// Activity log, register skeleton: every row is sealed to the one before it. "Verify the chain" walks the seals
-// row by row and closes each chain link.
+// Activity log: one table of who did what and when; every row is sealed to the one before it. Verify walks the
+// seals row by row and ticks each one.
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { Download, Lock, ShieldCheck } from "lucide-react";
+import { Check, Download, ShieldCheck } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,14 +13,14 @@ import { fmtDateTime } from "../lib/dates";
 import { prefersReduced } from "../lib/theme";
 import { useAuth } from "../lib/auth";
 import { Status } from "../shell/chart";
-import { Masthead, Page, PageBody } from "../shell/page";
+import { Page, PageHeader, useTitle } from "../shell/page";
 import { NotAvailable } from "./NotFound";
 
 const ACTIONS = [
   { v: "all", label: "Every action" },
   { v: "client", label: "Client files" },
   { v: "screening", label: "Screening" },
-  { v: "resolution", label: "Fuse or split" },
+  { v: "resolution", label: "Duplicates" },
   { v: "signoff", label: "Sign-offs" },
   { v: "risk", label: "Ratings" },
   { v: "auth", label: "Sign-ins" },
@@ -47,6 +47,7 @@ export default function Activity() {
   });
   const total = q.data?.pages[0]?.total ?? 0;
   const rows = useMemo(() => q.data?.pages.flatMap((p) => p.items) ?? [], [q.data]);
+  useTitle("Activity log");
   if (!can("audit:read")) return <NotAvailable />;
 
   const verify = async () => {
@@ -70,57 +71,62 @@ export default function Activity() {
   };
 
   return (
-    <Page skeleton="register" label="Activity log">
-      <Masthead
-        size="poster"
-        refLine={
-          <>
-            <b>Sealed record of every decision</b>
-            <span className="sep">/</span>
-            <span>{total.toLocaleString("en-AU")} entries</span>
-          </>
-        }
+    <Page label="Activity log">
+      <PageHeader
         title="Activity log"
-        tools={
+        count={total}
+        status={
+          result &&
+          (result.valid ? (
+            <span role="status">
+              <Status tone="clear">Chain verified</Status>
+            </span>
+          ) : (
+            <span role="status" title={`The seal on entry ${result.brokenAt} does not match the entry before it.`}>
+              <Status tone="high">Chain broken</Status>
+            </span>
+          ))
+        }
+        actions={
           <>
-            <Button onClick={exportCsv}>
+            <Button variant="line" onClick={exportCsv}>
               <Download /> Export
             </Button>
-            <Button variant="ink" onClick={verify} disabled={verifying}>
-              <ShieldCheck /> {verifying ? "Checking the seals…" : "Verify the chain"}
+            <Button variant="primary" onClick={verify} disabled={verifying}>
+              <ShieldCheck /> {verifying ? "Checking…" : "Verify"}
             </Button>
           </>
         }
       />
-      <PageBody>
-        <div className="register-tools">
-          <label className="sort">
-            <span className="muted">Action</span>
-            <Select value={action} onValueChange={setAction}>
-              <SelectTrigger aria-label="Action" className="w-[200px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ACTIONS.map((a) => (
-                  <SelectItem key={a.v} value={a.v}>
-                    {a.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </label>
-          <label className="sort">
-            <span className="muted">From</span>
-            <Input type="date" aria-label="From date" className="w-[180px]" value={from} onChange={(e) => setFrom(e.target.value)} />
-          </label>
-        </div>
+      <div className="filters">
+        <Select value={action} onValueChange={setAction}>
+          <SelectTrigger aria-label="Action" className="w-[180px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {ACTIONS.map((a) => (
+              <SelectItem key={a.v} value={a.v}>
+                {a.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Input type="date" aria-label="From date" className="w-[170px]" value={from} onChange={(e) => setFrom(e.target.value)} />
+      </div>
+      <div className="card table-card">
         <Table className="activity" aria-label="Activity log entries">
           <TableHeader>
             <TableRow>
-              <TableHead scope="col" className="w-when">When</TableHead>
-              <TableHead scope="col" className="w-who">Who</TableHead>
+              <TableHead scope="col" className="w-when">
+                When
+              </TableHead>
+              <TableHead scope="col" className="w-who">
+                Who
+              </TableHead>
               <TableHead scope="col">What</TableHead>
-              <TableHead scope="col" className="w-seal">Seal</TableHead>
+              <TableHead scope="col" className="w-seal hide-sm">
+                Seal
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -128,7 +134,7 @@ export default function Activity() {
               const restricted = !!r.metadata.restricted;
               return (
                 <tr key={r.id}>
-                  <td className="mono when">{fmtDateTime(r.createdAt)}</td>
+                  <td className="when">{fmtDateTime(r.createdAt)}</td>
                   <td>{r.actorName}</td>
                   <td>
                     {r.label}
@@ -139,13 +145,10 @@ export default function Activity() {
                       </>
                     )}
                   </td>
-                  <td>
-                    <span className={`seal${i < checked ? " closed" : ""}`} aria-label={`Seal ${r.hash.slice(0, 4)}${i < checked ? ", verified" : ""}`}>
-                      <span className="chain" aria-hidden>
-                        <span className="link-l" />
-                        <span className="link-r" />
-                      </span>
-                      {r.hash.slice(0, 4)}…
+                  <td className="hide-sm">
+                    <span className={`seal mono${i < checked ? " closed" : ""}`} aria-label={`Seal ${r.hash.slice(0, 4)}${i < checked ? ", verified" : ""}`} title={r.hash}>
+                      {i < checked ? <Check size={12} aria-hidden /> : null}
+                      {r.hash.slice(0, 6)}
                     </span>
                   </td>
                 </tr>
@@ -153,28 +156,12 @@ export default function Activity() {
             })}
           </TableBody>
         </Table>
-        {result && (
-          <div className="verify-line" role="status">
-            {result.valid ? (
-              <>
-                <Status tone="clear">Chain verified</Status> {result.checked.toLocaleString("en-AU")} entries, unbroken.
-              </>
-            ) : (
-              <>
-                <Status tone="high">Chain broken</Status> The seal on entry {result.brokenAt} does not match the entry before it.
-              </>
-            )}
-          </div>
-        )}
-        {q.hasNextPage && (
-          <Button className="more-btn" onClick={() => void q.fetchNextPage()}>
-            Show older entries
-          </Button>
-        )}
-        <p className="note lock-note">
-          <Lock size={12} aria-hidden /> Entries about restricted cases appear only for people who can see those cases. They stay in the chain for everyone.
-        </p>
-      </PageBody>
+      </div>
+      {q.hasNextPage && (
+        <Button variant="line" className="mt-4" onClick={() => void q.fetchNextPage()}>
+          Show older
+        </Button>
+      )}
     </Page>
   );
 }

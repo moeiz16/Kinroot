@@ -1,7 +1,7 @@
-// Onboarding, chart over record: the chart builds the structure live as owners are added (each new party rises
-// above the client), the numbered step ribbon sits over the form, and Back and Continue sit in the decision bar.
+// New client: a short form in five steps beside the chart, which builds the structure live as owners are added
+// (each new party rises above the client). Back and Continue sit in the bar at the foot.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BadgeCheck, Link2, Plus, Trash2 } from "lucide-react";
+import { BadgeCheck, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
@@ -19,8 +19,8 @@ import { initials } from "../graph/transforms";
 import { today } from "../lib/dates";
 import { KIND_LABEL, SERVICE_LABEL } from "../lib/format";
 import { useBoardHandlers, useBoardScene } from "../shell/board";
-import { ChartBand, RatingTag, Status } from "../shell/chart";
-import { DecisionBar, Masthead, Page, SectionTabs } from "../shell/page";
+import { ChartBand, KindGlyph, RatingTag, Status } from "../shell/chart";
+import { DecisionBar, Page, PageHeader, SectionTabs, useTitle } from "../shell/page";
 import { ReasonList } from "./dossier/panels";
 import { useStructure } from "./dossier/structure";
 
@@ -94,7 +94,7 @@ export function draftScene(c: DraftClient, parties: DraftParty[], canAdd: boolea
     });
     edges.push(HOLDS.includes(p.role) ? { id: `e-${p.key}`, s: p.key, t: "client", kind: p.pct ? "own" : "unknown", label: p.pct ? `${p.pct}%` : "?%", pct: p.pct ?? null } : { id: `e-${p.key}`, s: p.key, t: "client", kind: "ctrl", label: ROLE_LABEL[p.role] });
   });
-  if (canAdd) nodes.push({ id: "ghost", kind: "unknown", label: "Add an owner", sub: "or controller", glyph: "+", level: 1, from: "client", flags: [], aria: "Add an owner or controller", x: 0, y: 0 });
+  if (canAdd) nodes.push({ id: "ghost", kind: "unknown", label: "+ Add owner", glyph: "+", level: 1, from: "client", flags: [], aria: "Add an owner or controller", x: 0, y: 0 });
   // The key carries the draft's content: the board redraws as people are added, renamed or given a share.
   const key = `onboard-draft:${c.kind}:${c.name}:${parties.map((p) => `${p.kind}/${p.name}/${p.role}/${p.pct ?? ""}`).join("|")}:${canAdd ? 1 : 0}`;
   return { key, nodes: applyPositions(nodes, layered(nodes, edges, { nodeSep: 215 })), edges };
@@ -103,11 +103,11 @@ export function draftScene(c: DraftClient, parties: DraftParty[], canAdd: boolea
 // Consent comes before the identity check: the collection notice is given, and consent to an electronic check
 // recorded, before anyone's details are checked against an issuer (Privacy Act 1988; AML/CTF Rules safe harbour).
 const STEPS = [
-  { id: "client", label: "01 Client" },
-  { id: "people", label: "02 People and owners" },
-  { id: "consent", label: "03 Consent" },
-  { id: "identity", label: "04 Identity" },
-  { id: "review", label: "05 Review" },
+  { id: "client", label: "Client" },
+  { id: "people", label: "Owners" },
+  { id: "consent", label: "Consent" },
+  { id: "identity", label: "Identity" },
+  { id: "review", label: "Review" },
 ];
 const addressOf = (street: string | undefined, suburb: string | undefined, postcode: string | undefined, state: string) =>
   street?.trim() ? { line1: street.trim(), locality: suburb?.trim() || undefined, state, postcode: postcode?.trim() || undefined, country: "AU" } : undefined;
@@ -129,6 +129,7 @@ export default function Onboard() {
   const addParty = (kind: DraftParty["kind"]) => setParties((ps) => [...ps, { key: `d${++draftSeq}`, kind, name: "", role: ROLES[c.kind][0] ?? "owner" }]);
   useBoardHandlers({ onActivate: (id) => id === "ghost" && addParty("person") });
   const set = (k: string, patch: Partial<DraftParty>) => setParties((ps) => ps.map((p) => (p.key === k ? { ...p, ...patch } : p)));
+  useTitle("New client");
 
   const checkDuplicate = async (p: DraftParty) => {
     if (p.kind !== "person" || p.name.trim().length < 4) return;
@@ -241,27 +242,10 @@ export default function Onboard() {
   ];
 
   return (
-    <Page skeleton="chart" label="Onboard a client" className="onboard">
-      <Masthead
-        size="name"
-        refLine={
-          <>
-            <b>New client file</b>
-            {client?.matterReference ? (
-              <>
-                <span className="sep">/</span>
-                <span>{client.matterReference}</span>
-              </>
-            ) : null}
-            <span className="sep">/</span>
-            <span>{KIND_LABEL[c.kind]}</span>
-          </>
-        }
-        title={c.name || "Who is the client?"}
-        stamps={client ? <Status tone="review">File opened · not yet submitted</Status> : undefined}
-      />
-      <ChartBand label="The structure as you enter it" exhibit="Exhibit" title={c.name ? `${c.name} as entered` : "The structure as you enter it"} height="mid" legend={["person", "company", "trust", "owns", "controls"]} />
-      <SectionTabs label="Onboard a client" tabs={STEPS} active={step} onTab={(s) => (client || s === "client" ? setStep(s) : undefined)} onEscape={() => nav("/board")} className="steps">
+    <Page label="New client" className="onboard">
+      <PageHeader back={{ to: "/clients", label: "Clients" }} title={c.name || "New client"} status={client ? <Status tone="review">Draft</Status> : undefined} />
+      <div className="onboard-grid">
+      <SectionTabs label="New client" tabs={STEPS} active={step} onTab={(s) => (client || s === "client" ? setStep(s) : undefined)} className="steps">
         {err && (
           <p className="note-error" role="alert" style={{ marginBottom: 14 }}>
             {err}
@@ -269,9 +253,6 @@ export default function Onboard() {
         )}
         {step === "client" && (
           <>
-            <h2 className="title">
-              Who is the client?
-            </h2>
             <ToggleGroup type="single" aria-label="Client type" className="kind-pick" value={c.kind} onValueChange={(k) => k && !client && setC({ ...c, kind: k as ClientKind })}>
               {(Object.keys(KIND_LABEL) as ClientKind[]).map((k) => (
                 <ToggleGroupItem key={k} value={k} disabled={!!client && c.kind !== k}>
@@ -329,7 +310,7 @@ export default function Onboard() {
                 </div>
               )}
               <fieldset className="field" style={{ border: 0, padding: 0, margin: 0 }}>
-                <legend style={{ font: "600 12.5px/1.2 var(--f-sans)", color: "var(--ink-2)", marginBottom: 8 }}>What the firm will do for them</legend>
+                <legend className="legend-label">Services</legend>
                 <div className="svc-grid">
                   {(["property_transaction", "conveyancing", "managing_client_funds", "company_formation", "trust_formation", "tax_advice"] as Service[]).map((s) => (
                     <label key={s} className="check">
@@ -361,15 +342,14 @@ export default function Onboard() {
         )}
         {step === "people" && (
           <>
-            <h2 className="title">
-              Who owns or controls {c.kind === "trust" ? "the trust" : c.kind === "partnership" ? "the partnership" : "the company"}?
-            </h2>
-            <p className="note">Add everyone who holds a share or interest, and everyone who controls it. Kinroot works out who the beneficial owners are.</p>
             <div className="party-cards">
               {parties.map((p) => (
                 <div key={p.key} className={`party-card ${p.kind}`}>
                   <div className="pc-head">
-                    <span className="pc-kind">{p.kind === "person" ? "○ Person" : p.kind === "trust" ? "⬭ Trust" : "□ Company"}</span>
+                    <span className="pc-kind">
+                      <KindGlyph kind={p.kind} size={13} />
+                      {p.kind === "person" ? "Person" : p.kind === "trust" ? "Trust" : "Company"}
+                    </span>
                     {!p.serverId && (
                       <Button variant="quiet" size="icon" aria-label={`Remove ${p.name || "this party"}`} onClick={() => setParties((ps) => ps.filter((x) => x.key !== p.key))}>
                         <Trash2 />
@@ -429,7 +409,7 @@ export default function Onboard() {
                   </div>
                   {p.dupOf && (
                     <div className="dup-note">
-                      Looks like a person already on file: <b>{p.dupOf.name}</b>.{" "}
+                      Already on file? <b>{p.dupOf.name}</b>{" "}
                       {p.serverId ? (
                         <Button
                           variant="link"
@@ -441,7 +421,7 @@ export default function Onboard() {
                           Review the match
                         </Button>
                       ) : (
-                        <span className="muted">You can review the match once this step is saved.</span>
+                        <span className="muted">Review after saving</span>
                       )}
                     </div>
                   )}
@@ -453,27 +433,20 @@ export default function Onboard() {
                 <Plus /> Add a person
               </Button>
               <Button onClick={() => addParty("company")}>
-                <Plus /> Add a company or trust
+                <Plus /> Add a company
               </Button>
             </div>
-            <p className="note" style={{ marginTop: 14, display: "flex", gap: 6, alignItems: "center" }}>
-              <Link2 size={14} aria-hidden /> Coming soon: send the client a secure link to fill in their own owners and documents.
-            </p>
           </>
         )}
         {step === "identity" && (
           <>
-            <h2 className="title">
-              Check identity
-            </h2>
-            <p className="note">A document or electronic check for each person and entity. In this sample the check against the issuer is simulated.</p>
-            <Table style={{ marginTop: 14 }}>
+            <Table>
               <TableBody>
                 {toVerify.map((p) => (
                   <tr key={p.key}>
                     <td className="who">
                       <b>{p.name || "Unnamed"}</b>
-                      <small>{p.kind === "person" ? "Passport, driver licence or birth certificate" : "Register extract"}</small>
+                      <small>{p.kind === "person" ? "ID document" : "Register extract"}</small>
                     </td>
                     <td className="st" style={{ textAlign: "right" }}>
                       {p.verified ? (
@@ -481,10 +454,12 @@ export default function Onboard() {
                           <BadgeCheck size={14} aria-hidden /> Verified
                         </span>
                       ) : "partial" in p && p.partial ? (
-                        <Status tone="review">Partly matched: date of birth or address missing</Status>
+                        <span title="Date of birth or address missing">
+                          <Status tone="review">Partly matched</Status>
+                        </span>
                       ) : (
                         <Button size="sm" disabled={!p.partyId || verify.isPending} onClick={() => p.partyId && verify.mutate({ key: p.key, partyId: p.partyId })}>
-                          Check against the issuer
+                          Check
                         </Button>
                       )}
                     </td>
@@ -496,17 +471,15 @@ export default function Onboard() {
         )}
         {step === "consent" && (
           <>
-            <h2 className="title">
-              Collection notice and consent
-            </h2>
-            <div className="notice">
+            <details className="notice">
+              <summary>Collection notice</summary>
               We collect personal information to verify identity and meet our obligations under the AML/CTF Act 2006. We may check it with the document issuer or an electronic verification service. We handle it under the Privacy Act 1988 and keep it for 7 years after our relationship ends. You can ask to see or correct it at any time.
-            </div>
+            </details>
             <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
               {c.kind === "individual" && (
                 <label className="check">
                   <Checkbox checked={clientConsent} onCheckedChange={(v) => setClientConsent(v === true)} />
-                  {c.name} has read the notice and consents to the identity check.
+                  {c.name} consents
                 </label>
               )}
               {parties
@@ -514,7 +487,7 @@ export default function Onboard() {
                 .map((p) => (
                   <label key={p.key} className="check">
                     <Checkbox checked={!!p.consent} onCheckedChange={(v) => set(p.key, { consent: v === true })} />
-                    {p.name} has read the notice and consents to the identity check.
+                    {p.name} consents
                   </label>
                 ))}
             </div>
@@ -524,10 +497,6 @@ export default function Onboard() {
           <>
             {!submitted ? (
               <>
-                <h2 className="title">
-                  Ready to trace
-                </h2>
-                <p className="note">Kinroot screens everyone, traces the beneficial owners and gives the first rating with its reasons.</p>
                 <ul className="checklist">
                   {(checklist?.items ?? []).map((i) => (
                     <li key={i.key}>
@@ -538,17 +507,13 @@ export default function Onboard() {
               </>
             ) : (
               <>
-                <div className="eyebrow">First rating</div>
-                <h2 className="title">
-                  {submitted.name}
-                </h2>
-                <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 8 }}>
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                   <RatingTag r={submitted.rating} />
-                  {risk.data && <span className="mono">{risk.data.score} / 100</span>}
+                  {risk.data && <span className="note">{risk.data.score} / 100</span>}
                 </div>
                 {risk.data && (
                   <section className="section">
-                    <h2>Why</h2>
+                    <h2>Reasons</h2>
                     <ReasonList risk={risk.data} structure={structure} onCite={() => undefined} />
                   </section>
                 )}
@@ -557,11 +522,15 @@ export default function Onboard() {
           </>
         )}
       </SectionTabs>
+      <div className="onboard-chart">
+        <ChartBand label="The structure as you enter it" height="mid" legend={["person", "company", "trust", "owns", "controls"]} />
+      </div>
+      </div>
       <DecisionBar label="Next step">
         <div className="row" style={{ justifyContent: step === "client" ? "flex-end" : "space-between" }}>
           {step === "client" && (
             <Button variant="primary" onClick={() => create.mutate()} disabled={create.isPending}>
-              {client ? "Continue →" : "Open the file and continue →"}
+              Continue
             </Button>
           )}
           {step === "people" && (
@@ -570,7 +539,7 @@ export default function Onboard() {
                 Back
               </Button>
               <Button variant="primary" onClick={() => saveParties.mutate()} disabled={saveParties.isPending || !parties.length}>
-                Continue →
+                Continue
               </Button>
             </>
           )}
@@ -580,7 +549,7 @@ export default function Onboard() {
                 Back
               </Button>
               <Button variant="primary" onClick={() => consent.mutate()} disabled={consent.isPending}>
-                Record consent and continue →
+                Continue →
               </Button>
             </>
           )}
@@ -590,7 +559,7 @@ export default function Onboard() {
                 Back
               </Button>
               <Button variant="primary" onClick={() => toReview.mutate()} disabled={toReview.isPending}>
-                Continue →
+                Continue
               </Button>
             </>
           )}
@@ -601,12 +570,12 @@ export default function Onboard() {
                   Back
                 </Button>
                 <Button variant="primary" onClick={() => submit.mutate()} disabled={submit.isPending}>
-                  {submit.isPending ? "Tracing…" : "Create the file and trace"}
+                  {submit.isPending ? "Tracing…" : "Create and trace"}
                 </Button>
               </>
             ) : (
-              <Button variant="ink" onClick={() => nav(`/clients/${submitted.id}/summary`)}>
-                Open the dossier
+              <Button variant="primary" onClick={() => nav(`/clients/${submitted.id}/summary`)}>
+                Open the file
               </Button>
             ))}
         </div>

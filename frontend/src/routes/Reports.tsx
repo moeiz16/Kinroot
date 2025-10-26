@@ -1,7 +1,6 @@
 // Suspicious-matter report cases: restricted. Only the compliance officer and named people see this route; everyone
 // else gets the same "isn't available" page for restricted, missing and forbidden ids (tipping-off control).
-// Sealed skeleton: the page turns to an ink ground in both themes, with a hatched restriction band, a giant deadline
-// count and one centred document column.
+// The list is one table with deadlines; a case has tabs (grounds, evidence, draft, access) and the report actions.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, FileCheck2, Lock } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -14,13 +13,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { ApiError, errorMessage } from "../api/client";
 import { api } from "../api/endpoints";
 import type { Case, Concern, SmrDraft } from "../api/types";
-import { businessDaysUntil, fmtDate, fmtDateTime } from "../lib/dates";
+import { fmtDate, fmtDateTime } from "../lib/dates";
 import { deadlineLook } from "../lib/format";
 import { prefersReduced } from "../lib/theme";
 import { useAuth } from "../lib/auth";
 import { useBoardScene } from "../shell/board";
 import { ChartBand, Status } from "../shell/chart";
-import { DecisionBar, Masthead, Page, PageBody, SectionTabs, useHop } from "../shell/page";
+import { DecisionBar, Page, PageHeader, Section, SectionTabs, useTitle } from "../shell/page";
 import { NotAvailable } from "./NotFound";
 import { useStructure } from "./dossier/structure";
 
@@ -65,37 +64,22 @@ export default function Reports() {
   const nav = useNavigate();
   const list = useQuery({ queryKey: ["cases"], queryFn: api.cases.list, enabled: can("smr:read"), retry: false });
   const one = useQuery({ queryKey: ["case", id], queryFn: () => api.cases.get(id!), enabled: !!id, retry: false });
+  useTitle(id ? null : "Reports");
   if (!id && !can("smr:read")) return <NotAvailable />;
   if (one.isError) return <NotAvailable />;
-  if (id) return one.data ? <CaseFile c={one.data} onBack={can("smr:read") ? () => nav("/reports") : undefined} /> : null;
+  if (id) return one.data ? <CaseFile c={one.data} canList={can("smr:read")} /> : null;
   if (!list.data) return null;
   return (
-    <Page skeleton="sealed" label="Restricted cases" className="slab">
-      <SealBand />
-      <Masthead
-        size="poster"
-        restricted
-        refLine={
-          <>
-            <Lock size={12} aria-hidden />
-            <b>Restricted</b>
-            <span className="sep">/</span>
-            <span>visible to the compliance officer and named delegates</span>
-          </>
-        }
-        title={
-          <>
-            Cases <span className="mast-count">{list.data.total}</span>
-          </>
-        }
-        sub="Do not discuss these with the client or anyone outside each case’s list."
-      />
-      <PageBody className="sealed-col">
+    <Page label="Restricted cases">
+      <PageHeader title="Reports" count={list.data.total} status={<SealBand />} />
+      <div className="card table-card">
         <Table aria-label="Cases">
           <TableHeader>
             <TableRow>
               <TableHead scope="col">Case</TableHead>
-              <TableHead scope="col">Report</TableHead>
+              <TableHead scope="col" className="hide-sm">
+                Report
+              </TableHead>
               <TableHead scope="col" className="num">
                 Due
               </TableHead>
@@ -107,13 +91,10 @@ export default function Reports() {
               return (
                 <tr key={c.id} className="rowlink" onClick={() => nav(`/reports/${c.id}`)}>
                   <td className="who">
-                    <Link to={`/reports/${c.id}`} className="case-link">
-                      <Lock size={13} aria-hidden />
-                      <b>{c.title.split(" · ")[0]}</b>
-                    </Link>
+                    <Link to={`/reports/${c.id}`}>{c.title.split(" · ")[0]}</Link>
                     <small>{c.clientName}</small>
                   </td>
-                  <td>{c.smrStatus === "draft" ? "Draft" : c.smrStatus === "submitted" ? "Filed" : "No report"}</td>
+                  <td className="hide-sm">{c.smrStatus === "draft" ? "Draft" : c.smrStatus === "submitted" ? "Filed" : "None"}</td>
                   <td className="num">
                     <Status tone={d.tone}>{d.text.replace(" (3-day limit)", "")}</Status>
                   </td>
@@ -122,19 +103,19 @@ export default function Reports() {
             })}
           </TableBody>
         </Table>
-        <Concerns />
-      </PageBody>
+      </div>
+      <Concerns />
     </Page>
   );
 }
 
-/** The hatched restriction band at the top of every sealed page. */
+/** One quiet line on every restricted page. */
 function SealBand() {
   return (
-    <div className="seal-band" role="note">
-      <Lock size={14} aria-hidden />
-      <span>Restricted. Do not discuss this with the client or anyone outside this list.</span>
-    </div>
+    <span className="seal-band" title="Do not discuss with the client or anyone outside the case’s list.">
+      <Lock size={13} aria-hidden />
+      Restricted
+    </span>
   );
 }
 
@@ -156,38 +137,38 @@ function Concerns() {
   const items = concerns.data ?? [];
   if (!items.length) return null;
   return (
-    <section className="section concerns-band">
-      <h2>
-        Concerns from the team · {items.length} <span className="aside">The person who raised it only sees “received”</span>
-      </h2>
-      <ul className="concerns">
+    <Section title="Concerns from the team" aside={String(items.length)}>
+      <ul className="items">
         {items.map((c) => (
-          <li key={c.id}>
-            <b>{c.summary}</b>
-            <p>{c.details}</p>
-            <small>
-              {c.clientName ?? "No client named"} · raised by {c.raisedByName} · {fmtDate(c.receivedAt.slice(0, 10))}
-            </small>
-            <div className="concern-act">
+          <li key={c.id} className="item">
+            <span className="item-main">
+              <span className="item-title" title={c.details}>
+                {c.summary}
+              </span>
+              <span className="item-sub">
+                {c.clientName ?? "No client named"} · {c.raisedByName} · {fmtDate(c.receivedAt.slice(0, 10))}
+              </span>
+            </span>
+            <span className="item-end">
               {c.caseId ? (
-                <Button variant="link" onClick={() => nav(`/reports/${c.caseId}`)}>
-                  Open its case →
-                </Button>
+                <Link className="link" to={`/reports/${c.caseId}`}>
+                  Open case
+                </Link>
               ) : c.clientId && can("smr:write") ? (
-                <Button size="sm" disabled={open.isPending} onClick={() => open.mutate(c)}>
-                  <Lock /> Open a case
+                <Button size="sm" variant="line" disabled={open.isPending} onClick={() => open.mutate(c)}>
+                  Open a case
                 </Button>
               ) : null}
-            </div>
+            </span>
           </li>
         ))}
       </ul>
       {open.isError && <p className="note-error">{errorMessage(open.error)}</p>}
-    </section>
+    </Section>
   );
 }
 
-function CaseFile({ c, onBack }: { c: Case; onBack?: () => void }) {
+function CaseFile({ c, canList }: { c: Case; canList: boolean }) {
   const [tab, setTab] = useState("grounds");
   const qc = useQueryClient();
   const { can } = useAuth();
@@ -230,185 +211,135 @@ function CaseFile({ c, onBack }: { c: Case; onBack?: () => void }) {
   const d = deadlineLook(c);
   const tabs = [
     { id: "grounds", label: "Grounds" },
-    { id: "evidence", label: "Evidence", count: full ? (smr.data?.attachments.length ?? 0) : undefined },
+    { id: "evidence", label: "Evidence", count: full ? smr.data?.attachments.length || undefined : undefined },
     ...(full ? [{ id: "draft", label: "Draft report" }] : []),
     { id: "access", label: "Access" },
   ];
-  const regime = draft?.regime === "UK_SAR" ? "suspicious activity report" : "suspicious matter report";
-  useHop(c.title.split(" · ")[0], "restricted");
-  const days = businessDaysUntil(c.deadlineOn);
+  const regulator = draft?.regime === "UK_SAR" ? "the NCA" : "AUSTRAC";
+  useTitle(c.title.split(" · ")[0]);
   return (
-    <Page skeleton="sealed" label="Restricted case file" className="slab">
-      <SealBand />
-      <Masthead
-        size="name"
-        restricted
-        refLine={
-          <>
-            <Lock size={12} aria-hidden />
-            <b>Restricted</b>
-            <span className="sep">/</span>
-            <span>visible to {c.access ? c.access.map((a) => a.fullName).join(" and ") : "the people on this case"}</span>
-          </>
-        }
-        title={c.title.split(" · ")[0]}
-        sub={`${c.clientName} · opened ${fmtDate(c.openedAt.slice(0, 10))} by ${c.openedBy}`}
-        stamps={<Status tone={d.tone}>{d.text}</Status>}
-        tools={
-          <>
-            {c.smrStatus !== "submitted" && (
-              <div className="deadline" aria-hidden>
-                <span className="dl-num">{days < 0 ? -days : days}</span>
-                <span className="dl-cap">{days < 0 ? "business days overdue" : days === 1 ? "business day to report" : "business days to report"}</span>
-              </div>
-            )}
-            {onBack && (
-              <Button variant="line" size="sm" onClick={onBack}>
-                All cases
-              </Button>
-            )}
-          </>
-        }
-      />
-      <div className="sealed-col">
-        <SectionTabs label="Restricted case file" tabs={tabs} active={tab} onTab={setTab}>
-          {tab === "grounds" && (
-            <div className="paras">
-              <section className="para">
-                <h2>Grounds for suspicion</h2>
-                {full ? <p className="lede grounds">{c.grounds}</p> : <Redacted label="Grounds" lines={4} />}
-                {!full && <p className="note">You have summary access to this case. The grounds and the draft report are visible to the compliance officer only.</p>}
-              </section>
-              <section className="para">
-                <h2>Case history</h2>
-                <ol className="timeline">
-                  {(timeline.data ?? []).map((t, i) => (
-                    <li key={i}>
-                      <time className="mono">{fmtDateTime(t.at)}</time>
-                      <span>
-                        {t.label} <small>· {t.actorName}</small>
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              </section>
+    <Page label="Restricted case file">
+      <PageHeader back={canList ? { to: "/reports", label: "Reports" } : undefined} title={c.title.split(" · ")[0]} status={<Status tone={d.tone}>{d.text.replace(" (3-day limit)", "")}</Status>} actions={<SealBand />} />
+      <SectionTabs label="Restricted case file" tabs={tabs} active={tab} onTab={setTab}>
+        {tab === "grounds" && (
+          <div className="summary-grid">
+            <div className="card card-pad">{full ? <p className="grounds">{c.grounds}</p> : <Redacted label="Grounds" lines={4} />}</div>
+            <Section title="History" className="mt-0">
+              <ol className="timeline">
+                {(timeline.data ?? []).map((t, i) => (
+                  <li key={i}>
+                    <time>{fmtDateTime(t.at)}</time>
+                    <span>
+                      {t.label} <small>· {t.actorName}</small>
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </Section>
+          </div>
+        )}
+        {tab === "evidence" &&
+          (full ? (
+            <ul className="items">
+              {(smr.data?.attachments ?? []).map((a, i) => (
+                <li key={i} className="item">
+                  <span className="item-main">
+                    <span className="item-title">{a}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="card card-pad">
+              <Redacted label="Evidence" lines={3} />
             </div>
-          )}
-          {tab === "evidence" && (
-            <>
-              <h2 className="title">Evidence pinned from the chart</h2>
-              {full ? (
-                <ol className="reasons">
-                  {(smr.data?.attachments ?? []).map((a, i) => (
-                    <li key={i}>
-                      <span>{a}</span>
-                      <span />
-                    </li>
-                  ))}
-                </ol>
-              ) : (
-                <Redacted label="Evidence" lines={3} />
-              )}
-            </>
-          )}
-          {tab === "draft" && draft && (
-            <div className="draft">
-              <h2 className="title">Draft {regime}</h2>
-              <div className="meta">
-                Version {draft.version} · saved {fmtDateTime(draft.updatedAt)} by {draft.updatedBy}
-              </div>
-              <label className="field">
-                <span>Grounds for suspicion</span>
-                <Textarea rows={4} value={draft.suspicionGrounds ?? ""} onChange={(e) => setDraft({ ...draft, suspicionGrounds: e.target.value })} readOnly={!can("smr:write")} />
-              </label>
-              <section className="section">
-                <h2>Subjects</h2>
-                <Table>
-                  <TableBody>
-                    {draft.subjects.map((s) => (
-                      <tr key={s.partyId}>
-                        <td className="who">
-                          <b>{s.name}</b>
-                        </td>
-                        <td>{s.role}</td>
-                      </tr>
-                    ))}
-                  </TableBody>
-                </Table>
-              </section>
-              <section className="section">
-                <h2>Transactions</h2>
-                <Table>
-                  <TableBody>
-                    {draft.transactions.map((t, i) => (
-                      <tr key={i}>
-                        <td className="mono">{fmtDate(t.date)}</td>
-                        <td>{t.description}</td>
-                        <td className="num">
-                          {t.currency} {Number(t.amount).toLocaleString("en-AU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </td>
-                      </tr>
-                    ))}
-                  </TableBody>
-                </Table>
-              </section>
-              <label className="field">
-                <span>Narrative</span>
-                <Textarea rows={6} value={draft.narrative ?? ""} onChange={(e) => setDraft({ ...draft, narrative: e.target.value })} readOnly={!can("smr:write")} />
-              </label>
-            </div>
-          )}
-          {tab === "access" && (
-            <>
-              <h2 className="title">Who can see this case</h2>
-              <p className="lede">Restricted. Do not discuss this with the client or anyone outside this list.</p>
+          ))}
+        {tab === "draft" && draft && (
+          <div className="draft card card-pad">
+            <p className="note">
+              Saved {fmtDateTime(draft.updatedAt)} by {draft.updatedBy}
+            </p>
+            <label className="field">
+              <span>Grounds for suspicion</span>
+              <Textarea rows={4} value={draft.suspicionGrounds ?? ""} onChange={(e) => setDraft({ ...draft, suspicionGrounds: e.target.value })} readOnly={!can("smr:write")} />
+            </label>
+            <Section title="Subjects">
               <Table>
                 <TableBody>
-                  {(c.access ?? [{ userId: "you", fullName: "You", level: c.accessLevel }]).map((a) => (
-                    <tr key={a.userId}>
+                  {draft.subjects.map((s) => (
+                    <tr key={s.partyId}>
                       <td className="who">
-                        <b>{a.fullName}</b>
+                        <b>{s.name}</b>
                       </td>
-                      <td className="st">
-                        <Status tone="restricted">{a.level === "full" ? "Full access" : "Summary only"}</Status>
+                      <td>{s.role}</td>
+                    </tr>
+                  ))}
+                </TableBody>
+              </Table>
+            </Section>
+            <Section title="Transactions">
+              <Table>
+                <TableBody>
+                  {draft.transactions.map((t, i) => (
+                    <tr key={i}>
+                      <td>{fmtDate(t.date)}</td>
+                      <td>{t.description}</td>
+                      <td className="num">
+                        {t.currency} {Number(t.amount).toLocaleString("en-AU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
                     </tr>
                   ))}
                 </TableBody>
               </Table>
-              <p className="note">
-                Anyone else who opens a link to this case sees the same page as for a record that doesn’t exist.{" "}
-                <Link className="link" to="/activity">
-                  Case actions are sealed in the activity log.
-                </Link>
-              </p>
-            </>
-          )}
-        </SectionTabs>
-        <ChartBand label={full && subjects.size ? "Subjects of the report" : c.clientName} exhibit="Exhibit" title={full && subjects.size ? "Subjects of the report" : c.clientName} height="short" restricted legend={["person", "company", "owns", "controls"]} />
-      </div>
+            </Section>
+            <label className="field">
+              <span>Narrative</span>
+              <Textarea rows={6} value={draft.narrative ?? ""} onChange={(e) => setDraft({ ...draft, narrative: e.target.value })} readOnly={!can("smr:write")} />
+            </label>
+          </div>
+        )}
+        {tab === "access" && (
+          <div className="card">
+            <Table>
+              <TableBody>
+                {(c.access ?? [{ userId: "you", fullName: "You", level: c.accessLevel }]).map((a) => (
+                  <tr key={a.userId}>
+                    <td className="who">
+                      <b>{a.fullName}</b>
+                    </td>
+                    <td className="st num">
+                      <Status tone="restricted">{a.level === "full" ? "Full access" : "Summary only"}</Status>
+                    </td>
+                  </tr>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </SectionTabs>
+      {tab !== "draft" && <ChartBand label={full && subjects.size ? "Subjects of the report" : c.clientName} height="short" restricted legend={["person", "company", "owns", "controls"]} className="mt-5" />}
       {full && draft && (
-        <DecisionBar label="Report" className="sealed-decision">
+        <DecisionBar label="Report">
           <div className="row">
             {can("smr:write") && tab === "draft" && (
-              <Button variant="ink" onClick={() => save.mutate()} disabled={save.isPending}>
-                Save the draft
+              <Button variant="line" onClick={() => save.mutate()} disabled={save.isPending}>
+                Save
               </Button>
             )}
-            <Button onClick={() => exportDraft(c, draft)}>
-              <Download /> Export for {draft.regime === "UK_SAR" ? "the NCA" : "AUSTRAC"}
+            <Button variant="line" onClick={() => exportDraft(c, draft)} title={`A draft for the firm to lodge with ${regulator}`}>
+              <Download /> Export
             </Button>
             {can("smr:submit") && c.smrStatus !== "submitted" && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="primary">
-                    <FileCheck2 /> Mark as filed…
+                    <FileCheck2 /> Mark as filed
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Mark this report as filed?</AlertDialogTitle>
-                    <AlertDialogDescription>Do this after you have lodged it with {draft.regime === "UK_SAR" ? "the NCA" : "AUSTRAC"}. Kinroot never lodges a report on the firm’s behalf. The step is sealed in the activity log.</AlertDialogDescription>
+                    <AlertDialogTitle>Mark as filed?</AlertDialogTitle>
+                    <AlertDialogDescription>Only after you have lodged it with {regulator}. Kinroot never lodges reports.</AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Not yet</AlertDialogCancel>
@@ -417,7 +348,6 @@ function CaseFile({ c, onBack }: { c: Case; onBack?: () => void }) {
                 </AlertDialogContent>
               </AlertDialog>
             )}
-            <p className="note">Exports are drafts for the firm to lodge. Kinroot never lodges a report on the firm’s behalf.</p>
           </div>
         </DecisionBar>
       )}

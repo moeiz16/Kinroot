@@ -1,9 +1,9 @@
-// Settings, form skeleton: a poster title, section words (Firm · Members · Risk method · Screening lists · Retention ·
-// Notifications) and each section as label/field rows on the page grid.
+// Settings: a list of sections on the left (Firm · Members · Risk method · Screening lists · Retention ·
+// Notifications) and the chosen section beside it.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, Lock, UserPlus, X } from "lucide-react";
+import { Copy, UserPlus, X } from "lucide-react";
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,7 @@ import { listSourceLabel, ratingLook } from "../lib/format";
 import { applyTheme, useTheme } from "../lib/theme";
 import { useAuth } from "../lib/auth";
 import { Status } from "../shell/chart";
-import { Masthead, Page, SectionTabs } from "../shell/page";
+import { Page, PageHeader, useTitle } from "../shell/page";
 
 const SECTIONS = [
   { id: "firm", label: "Firm" },
@@ -34,31 +34,28 @@ const SECTIONS = [
 
 export default function Settings() {
   const { section = "firm" } = useParams();
-  const nav = useNavigate();
-  const { me } = useAuth();
   const members = useQuery({ queryKey: ["members"], queryFn: api.org.members });
+  useTitle("Settings");
   return (
-    <Page skeleton="form" label="Settings">
-      <Masthead
-        size="poster"
-        refLine={
-          <>
-            <b>Settings</b>
-            <span className="sep">/</span>
-            <span>{me?.activeOrg?.name}</span>
-          </>
-        }
-        title="The firm’s settings"
-      />
-      <SectionTabs label="Settings" tabs={SECTIONS.map((x) => ({ ...x, count: x.id === "members" ? members.data?.length : undefined }))} active={section} onTab={(id) => nav(`/settings/${id}`)}>
+    <Page label="Settings">
+      <PageHeader title="Settings" />
+      <div className="settings">
+        <nav className="settings-nav" aria-label="Settings sections">
+          {SECTIONS.map((x) => (
+            <Link key={x.id} to={`/settings/${x.id}`} aria-current={section === x.id ? "page" : undefined}>
+              {x.label}
+              {x.id === "members" && members.data && <span className="muted">{members.data.length}</span>}
+            </Link>
+          ))}
+        </nav>
         <div className="settings-body">{section === "members" ? <Members /> : section === "risk-method" ? <RiskMethod /> : section === "screening-lists" ? <Lists /> : section === "retention" ? <Retention /> : section === "notifications" ? <Notifications /> : <Firm />}</div>
-      </SectionTabs>
+      </div>
     </Page>
   );
 }
 
 function Firm() {
-  const { me, can } = useAuth();
+  const { can } = useAuth();
   const qc = useQueryClient();
   const org = useQuery({ queryKey: ["org"], queryFn: api.org.get });
   const members = useQuery({ queryKey: ["members"], queryFn: api.org.members });
@@ -70,7 +67,6 @@ function Firm() {
   const co = members.data?.find((m) => m.role === "compliance_officer");
   return (
     <>
-      <h2 className="title">The firm</h2>
       <Table style={{ marginTop: 14 }}>
         <TableBody>
           <tr>
@@ -97,7 +93,6 @@ function Firm() {
         </Button>
       )}
       {msg && <p role="status">{msg}</p>}
-      <p className="note" style={{ marginTop: 18 }}>Signed in as {me?.user.email}.</p>
     </>
   );
 }
@@ -131,7 +126,7 @@ function Members() {
   return (
     <>
       <div className="sheet-head">
-        <h2 className="title">Members</h2>
+        <span className="grow" />
         {can("members:manage") && (
           <Dialog
             open={inviting}
@@ -259,9 +254,6 @@ function Members() {
           </Table>
         </section>
       )}
-      <p className="note" style={{ marginTop: 16, display: "flex", gap: 6, alignItems: "center" }}>
-        <Lock size={12} aria-hidden /> Only the compliance officer and the people they name can see suspicious-matter reports. Roles alone never grant it.
-      </p>
     </>
   );
 }
@@ -274,10 +266,6 @@ function RiskMethod() {
   const current = m.data?.find((x) => x.status === "published");
   return (
     <>
-      <h2 className="title">Risk method</h2>
-      <p className="lede" style={{ fontSize: 15.5 }}>
-        The firm’s rules decide every rating. A second opinion checks each one; when they disagree, the client goes to the compliance officer and the rules stay the decision of record.
-      </p>
       <Table style={{ marginTop: 16 }}>
         <TableBody>
           {(m.data ?? []).map((x) => (
@@ -477,7 +465,6 @@ function Lists() {
   const rescreen = useMutation({ mutationFn: api.screening.rescreen, onSuccess: () => setMsg("Every client is being screened again. Alerts appear for anything new."), onError: (e) => setMsg(errorMessage(e)) });
   return (
     <>
-      <h2 className="title">Screening lists</h2>
       <Table style={{ marginTop: 14 }}>
         <TableHeader>
           <tr>
@@ -542,10 +529,12 @@ function Retention() {
   const uk = me?.activeOrg?.country === "GB";
   return (
     <>
-      <h2 className="title">Retention</h2>
-      <p className="lede" style={{ fontSize: 15.5 }}>
-        Records are kept for {years} years after the client relationship ends ({uk ? "UK MLR 2017, regulation 40" : "AML/CTF Act record keeping"}). Nothing is deleted automatically: a person reviews the disposal list and approves it.
-      </p>
+      <dl className="facts card card-pad">
+        <dt>Kept for</dt>
+        <dd>{years} years after the relationship ends</dd>
+        <dt>Required</dt>
+        <dd>{uk ? "5 years (MLR 2017)" : "7 years (AML/CTF Act)"}</dd>
+      </dl>
       {can("retention:manage") && (
         <section className="section">
           <h2>
@@ -597,8 +586,6 @@ function Notifications() {
   });
   return (
     <>
-      <h2 className="title">Notifications</h2>
-      <p className="lede" style={{ fontSize: 15.5 }}>What Kinroot tells the firm about by email, and when.</p>
       <div style={{ display: "grid", gap: 14, marginTop: 16, maxWidth: 520 }}>
         <label className="field">
           <span>Urgent alerts (a possible sanctions match, a confirmed match)</span>

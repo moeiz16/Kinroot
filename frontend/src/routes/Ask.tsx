@@ -1,11 +1,12 @@
-// Ask the board, chart over record: the question is the masthead, the written answer sits under it with numbered
-// citations, and the chart beneath draws only the path the answer used, each cited link numbered and traced in moss.
+// Ask: type a question about a person, company or trust; the answer comes back with numbered links, and the chart
+// beneath draws only the path the answer used, each cited link numbered and traced.
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { CornerDownLeft, Copy, Pin } from "lucide-react";
+import { ArrowUp, Copy, History, Loader2, Pin } from "lucide-react";
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { errorMessage } from "../api/client";
 import { api } from "../api/endpoints";
 import type { AssistantAnswer, GraphPayload } from "../api/types";
@@ -14,7 +15,7 @@ import type { Scene, StringSpec } from "../graph/model";
 import { fromPayload } from "../graph/transforms";
 import { useBoard, useBoardScene } from "../shell/board";
 import { ChartBand } from "../shell/chart";
-import { DecisionBar, Masthead, Page, PageBody, SectionTabs } from "../shell/page";
+import { Page, PageHeader, useTitle } from "../shell/page";
 
 /** Only the parties and links the answer used, as a structure chart, each cited link numbered. */
 export function answerScene(a: AssistantAnswer, graph: GraphPayload | null = a.graph): { scene: Scene; strings: StringSpec[] } | null {
@@ -55,7 +56,6 @@ export default function Ask() {
   const board = useBoard();
   const [q, setQ] = useState(params.get("q") ?? "");
   const [answer, setAnswer] = useState<AssistantAnswer | null>(null);
-  const [tab, setTab] = useState("links");
   const [copied, setCopied] = useState(false);
   const [pinnedTo, setPinnedTo] = useState<string | null>(null);
   const pin = useMutation({
@@ -69,7 +69,7 @@ export default function Ask() {
     onSuccess: (a) => {
       setAnswer(a);
       setPinnedTo(null);
-      setTab("links");
+      setQ("");
       void history.refetch();
     },
   });
@@ -82,6 +82,7 @@ export default function Ask() {
       setParams({}, { replace: true });
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useTitle("Ask");
 
   const built = useMemo(() => (answer ? answerScene(answer) : null), [answer]);
   useBoardScene(built?.scene ?? null, { unfold: true, strings: built?.strings });
@@ -96,147 +97,150 @@ export default function Ask() {
   };
   const submit = (text: string) => {
     if (!text.trim()) return;
-    setQ(text);
     ask.mutate(text.trim());
   };
   // The client the question is about: named in the question, else the top of the drawn path.
   const clientNodes = built?.scene.nodes.filter((n) => n.client && n.clientId) ?? [];
   const clientNode = clientNodes.find((n) => answer?.question.toLowerCase().includes(n.label.toLowerCase())) ?? [...clientNodes].sort((x, y) => x.level - y.level)[0];
   const earlier = (history.data ?? []).filter((h) => h.id !== answer?.id);
-  const tabs = [
-    { id: "links", label: "Links used", count: answer?.citations.length || undefined },
-    { id: "edges", label: "How it was found", count: answer?.steps.length || undefined },
-    { id: "earlier", label: "Earlier enquiries", count: earlier.length || undefined },
-  ];
-  const earlierList = (
-    <ol className="enquiries">
-      {earlier.slice(0, 8).map((h) => (
-        <li key={h.id}>
-          <button type="button" className="rowbtn" onClick={() => setAnswer(h)}>
-            <b>{h.question}</b>
-          </button>
-          <small>{h.citations.length} links cited</small>
-        </li>
-      ))}
-      {!earlier.length && <li className="muted">Your questions appear here.</li>}
-    </ol>
+
+  const composer = (
+    <form
+      className="composer"
+      onSubmit={(e) => {
+        e.preventDefault();
+        submit(q);
+      }}
+    >
+      <label htmlFor="ask-input" className="sr-only">
+        Ask about a person, company or trust
+      </label>
+      <Input id="ask-input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ask about a person, company or trust" maxLength={500} autoComplete="off" />
+      <Button variant="primary" type="submit" disabled={ask.isPending || !q.trim()} aria-label="Ask">
+        {ask.isPending ? <Loader2 className="animate-spin" /> : <ArrowUp />}
+      </Button>
+    </form>
   );
 
   return (
-    <Page skeleton="chart" label="Ask the board" className="ask-page">
-      <Masthead
-        size={answer ? "name" : "page"}
-        refLine={
-          <>
-            <b>Line of enquiry</b>
-            <span className="sep">/</span>
-            <span>answers come only from traced ownership and control paths</span>
-          </>
+    <Page label="Ask" narrow className="ask-page">
+      <PageHeader
+        title="Ask"
+        actions={
+          earlier.length > 0 && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="line">
+                  <History /> Earlier
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-[340px] p-1">
+                <ul className="menu-list">
+                  {earlier.slice(0, 8).map((h) => (
+                    <li key={h.id}>
+                      <button type="button" onClick={() => setAnswer(h)}>
+                        {h.question}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </PopoverContent>
+            </Popover>
+          )
         }
-        title={answer ? answer.question : "Ask about a person, company or trust"}
       />
-      <div className="ask-form">
-        <form
-          className="ask-field"
-          onSubmit={(e) => {
-            e.preventDefault();
-            submit(q);
-          }}
-        >
-          <label htmlFor="ask-input" className="sr-only">
-            Ask about a person, company or trust
-          </label>
-          <Input id="ask-input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ask about a person, company or trust…" maxLength={500} autoComplete="off" />
-          <Button variant="primary" type="submit" disabled={ask.isPending} aria-label="Ask">
-            {ask.isPending ? "Tracing…" : <CornerDownLeft />}
-          </Button>
-        </form>
-        <div className="ask-try">
-          <span className="micro">Try</span>
-          {(suggestions.data ?? []).slice(0, 3).map((s) => (
-            <button key={s} type="button" className="try-chip" onClick={() => submit(s)}>
-              {s}
-            </button>
-          ))}
-        </div>
-        {ask.isError && <p className="note-error">{errorMessage(ask.error)}</p>}
-      </div>
-      {answer && (
-        <div className="answer-block">
-          <span className="micro">Answer</span>
-          <p className="answer">{renderAnswer(answer.answer, onCite)}</p>
-          {!answer.grounded && <p className="note">Kinroot only answers from traced ownership and control paths.</p>}
-        </div>
-      )}
-      {answer && <ChartBand label="The path the answer used" exhibit="Exhibit" title="The path the answer used" height="mid" legend={["person", "company", "trust", "owns", "controls", "trace"]} />}
-      {answer ? (
-        <SectionTabs label="Answer" tabs={tabs} active={tab} onTab={setTab} className="record">
-          {tab === "links" ? (
-            <ol className="cites">
-              {answer.citations.map((c, i) => (
-                <li key={c.id}>
-                  <button className="anum" onClick={() => onCite(i + 1)} aria-label={`Show link ${i + 1} on the board`}>
-                    {i + 1}
-                  </button>
-                  <span>{c.label}</span>
-                </li>
-              ))}
-              {!answer.citations.length && <li className="muted">No links were needed for this answer.</li>}
-            </ol>
-          ) : tab === "edges" ? (
-            <>
-              <ol className="timeline">
-                {answer.steps.map((s, i) => (
-                  <li key={i}>
-                    <span className="mono">Step {i + 1}</span>
-                    <span>
-                      {s.label} <small>· {s.resultCount} found</small>
-                    </span>
-                  </li>
-                ))}
-              </ol>
-              <p className="note">Answers come only from traced ownership and control paths. If no path exists within 6 steps, Kinroot says so.</p>
-            </>
-          ) : (
-            earlierList
-          )}
-        </SectionTabs>
-      ) : (
-        <PageBody>
-          <h2 className="title">Earlier enquiries</h2>
-          {earlierList}
-        </PageBody>
-      )}
-      {answer && (
-        <DecisionBar label="File this answer">
-          <div className="row">
-            {clientNode?.clientId && answer.grounded && (
-              <Button variant="primary" disabled={pin.isPending || pinnedTo === clientNode.label} onClick={() => pin.mutate({ answerId: answer.id, clientId: clientNode.clientId!, name: clientNode.label })}>
-                <Pin /> {pinnedTo === clientNode.label ? "Pinned" : `Pin to ${possessive(clientNode.label.replace(/ Pty Ltd$/, ""))} dossier`}
-              </Button>
-            )}
-            {clientNode?.clientId && (
-              <Button variant="ink" onClick={() => nav(`/clients/${clientNode.clientId}/timeline`)}>
-                Open the dossier
-              </Button>
-            )}
-            <Button
-              onClick={() => {
-                void navigator.clipboard?.writeText(`${answer.question}\n\n${answer.answer}\n\n${answer.citations.map((c, i) => `[${i + 1}] ${c.label}`).join("\n")}`);
-                setCopied(true);
-                setTimeout(() => setCopied(false), 2000);
-              }}
-            >
-              <Copy /> {copied ? "Copied" : "Copy"}
-            </Button>
-            {pinnedTo && (
-              <p role="status" className="note">
-                Pinned to {possessive(pinnedTo)} dossier. It sits in the Timeline with the links it cites.
-              </p>
-            )}
-            {pin.isError && <p className="note-error">{errorMessage(pin.error)}</p>}
+      {!answer && !ask.isPending ? (
+        <div className="ask-empty">
+          {composer}
+          <div className="ask-try" aria-label="Suggestions">
+            {(suggestions.data ?? []).slice(0, 3).map((s) => (
+              <button key={s} type="button" className="chip" onClick={() => submit(s)}>
+                {s}
+              </button>
+            ))}
           </div>
-        </DecisionBar>
+          {ask.isError && <p className="note-error">{errorMessage(ask.error)}</p>}
+        </div>
+      ) : (
+        <>
+          <div className="thread">
+            <div className="bubble q">{answer && !ask.isPending ? answer.question : (ask.variables ?? "")}</div>
+            {ask.isPending ? (
+              <div className="bubble a muted">Tracing…</div>
+            ) : (
+              answer && (
+                <div className="bubble a">
+                  <p className="answer">{renderAnswer(answer.answer, onCite)}</p>
+                  {answer.citations.length > 0 && (
+                    <ol className="cites">
+                      {answer.citations.map((c, i) => (
+                        <li key={c.id}>
+                          <button className="anum" onClick={() => onCite(i + 1)} aria-label={`Show link ${i + 1} on the board`}>
+                            {i + 1}
+                          </button>
+                          <span>{c.label}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                  <div className="answer-actions">
+                    {clientNode?.clientId && answer.grounded && (
+                      <Button variant="line" size="sm" disabled={pin.isPending || pinnedTo === clientNode.label} onClick={() => pin.mutate({ answerId: answer.id, clientId: clientNode.clientId!, name: clientNode.label })}>
+                        <Pin /> {pinnedTo === clientNode.label ? "Pinned" : "Pin to dossier"}
+                      </Button>
+                    )}
+                    {clientNode?.clientId && (
+                      <Button variant="quiet" size="sm" onClick={() => nav(`/clients/${clientNode.clientId}/timeline`)}>
+                        Open client
+                      </Button>
+                    )}
+                    <Button
+                      variant="quiet"
+                      size="sm"
+                      onClick={() => {
+                        void navigator.clipboard?.writeText(`${answer.question}\n\n${answer.answer}\n\n${answer.citations.map((c, i) => `[${i + 1}] ${c.label}`).join("\n")}`);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }}
+                    >
+                      <Copy /> {copied ? "Copied" : "Copy"}
+                    </Button>
+                    {answer.steps.length > 0 && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="quiet" size="sm">
+                            How it was found
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent align="start" className="w-[340px] p-4">
+                          <ol className="timeline compact">
+                            {answer.steps.map((s, i) => (
+                              <li key={i}>
+                                <time>Step {i + 1}</time>
+                                <span>
+                                  {s.label} <small>· {s.resultCount} found</small>
+                                </span>
+                              </li>
+                            ))}
+                          </ol>
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                  </div>
+                  {pinnedTo && (
+                    <p role="status" className="note">
+                      Pinned to {possessive(pinnedTo)} timeline.
+                    </p>
+                  )}
+                  {pin.isError && <p className="note-error">{errorMessage(pin.error)}</p>}
+                </div>
+              )
+            )}
+          </div>
+          {answer && built && !ask.isPending && <ChartBand label="The path the answer used" height="mid" legend={["person", "company", "trust", "owns", "controls", "trace"]} />}
+          <div className="composer-dock">{composer}</div>
+          {ask.isError && <p className="note-error">{errorMessage(ask.error)}</p>}
+        </>
       )}
     </Page>
   );
