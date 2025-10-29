@@ -37,10 +37,25 @@ function mergePayloads(ps: GraphPayload[]): GraphPayload {
   return { attributes: { ...ps[0]!.attributes, focusId: null }, nodes: [...nodes.values()], edges: [...edges.values()] };
 }
 
+/** Many companies hanging off one record (a nominee's directorships) fold into one "N companies" plate. */
+export function collapseLeaves(m: { nodes: BNode[]; edges: BEdge[] }, around: string[], min = 7): { nodes: BNode[]; edges: BEdge[] } {
+  let { nodes, edges } = m;
+  for (const id of around) {
+    const degree = (x: string) => edges.filter((e) => e.s === x || e.t === x).length;
+    const leaves = edges.filter((e) => e.s === id && nodes.find((n) => n.id === e.t)?.kind === "company" && degree(e.t) === 1).map((e) => e.t);
+    if (leaves.length < min) continue;
+    const gone = new Set(leaves);
+    const stack: BNode = { id: `stack-${id}`, kind: "stack", label: `${leaves.length} companies`, glyph: String(leaves.length), level: 0, flags: [], aria: `${leaves.length} companies`, x: 0, y: 0 };
+    nodes = [...nodes.filter((n) => !gone.has(n.id)), stack];
+    edges = [...edges.filter((e) => !gone.has(e.t)), { id: `e-stack-${id}`, s: id, t: stack.id, kind: "ctrl", label: "Director" }];
+  }
+  return { nodes, edges };
+}
+
 /** Both records side by side, what each one is linked to above, and anything linked to both below. */
 export function fuseScene(c: MatchCandidate, a: GraphPayload, b: GraphPayload, _clientNames?: Map<string, string>): Scene {
   const merged = mergePayloads([a, b]);
-  const model = fromPayload(merged);
+  const model = collapseLeaves(fromPayload(merged), [c.left.id, c.right.id]);
   const A = c.left.id;
   const B = c.right.id;
   const linked = (id: string, x: string) => model.edges.some((e) => (e.s === id && e.t === x) || (e.t === id && e.s === x));
@@ -266,7 +281,7 @@ export default function Fuse() {
                       <span className="item-title">
                         {c.left.name} and {c.right.name}
                       </span>
-                      <span className="item-sub">{c.decidedBy === "System" ? "Kinroot" : (c.decidedBy ?? "")}</span>
+                      <span className="item-sub">{c.clientIds.map((x) => names.get(x)).filter(Boolean).slice(0, 2).join(" · ") || (c.left.kind === "person" ? "Person" : "Company")}</span>
                     </span>
                     <span className="item-end">
                       {c.status === "auto_merged" ? "Merged automatically" : c.status === "merged" ? "Merged" : c.status === "deferred" ? "Deferred" : "Kept apart"}

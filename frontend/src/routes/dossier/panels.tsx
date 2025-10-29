@@ -136,7 +136,7 @@ export function MethodLine({ risk }: { risk: RiskAssessment }) {
   const ch = risk.challenger;
   return (
     <p className="note method">
-      {risk.override ? `Set by ${risk.override.byName}` : `Firm rules ${risk.methodologyVersion.replace("KR-RM-", "v")}`}
+      {risk.override ? `Set by ${risk.override.byName}` : "Rated by the firm’s rules"}
       {ch && ` · second opinion ${ch.agreement === "agree" ? "agrees" : `says ${ratingLook(ch.rating).word.toLowerCase()}`}`}
     </p>
   );
@@ -527,7 +527,7 @@ export function TimelinePanel(p: PanelProps & { audit: AuditEntry[]; pins?: Pinn
     events.push({ date: e.validFrom, text: `${structure!.names(e.s)} ${verb} ${structure!.names(e.t)}`, edgeId: e.id });
   }
   for (const h of hits) events.push({ date: h.createdAt.slice(0, 10), text: `Screening found a possible ${h.entry.listKind === "pep" ? "PEP" : "sanctions"} match for ${h.partyName}${h.status !== "pending" ? `; reviewed as ${h.status.replace("_", " ")}` : ""}` });
-  for (const a of audit) events.push({ date: a.createdAt, text: a.label, who: a.actorName });
+  for (const a of audit) events.push({ date: a.createdAt, text: a.label, who: a.actorType === "system" || a.actorName === "System" ? "Kinroot" : a.actorName });
   if (client.onboardedOn) events.push({ date: client.onboardedOn, text: `${client.name} onboarded` });
   events.sort((a, b) => b.date.localeCompare(a.date));
   return (

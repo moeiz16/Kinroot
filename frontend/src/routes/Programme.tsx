@@ -1,5 +1,5 @@
 // Compliance programme: the partners' brief in one card, the obligations as rows with a status and one number
-// (open a row to see the clients it refers to), the client book's rating mix as one bar, and patterns worth knowing.
+// (open a row to see the clients it refers to), and patterns worth knowing behind one fold.
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, Printer } from "lucide-react";
 import { useState } from "react";
@@ -54,11 +54,9 @@ export default function Programme() {
         { id: "reporting", title: "Reporting", value: can("smr:read") ? `${c.smrDrafts ?? 0} in draft` : "Compliance officer", tone: can("smr:read") && c.smrDrafts ? "review" : "neutral", owner: "Compliance officer", clients: () => false },
         { id: "records", title: "Record keeping", value: "Kept 7 years", tone: "clear", owner: "Firm administrator", clients: (x) => x.status === "exited" },
         { id: "training", title: "Training", value: `${trained} of ${t.length} trained`, tone: trained < t.length ? "review" : "clear", owner: "Firm administrator", clients: () => false },
-        { id: "method", title: "Risk method", value: "3 differences", tone: "review", owner: "Compliance officer", clients: (x) => ["Tasman Ridge Pty Ltd", "Coralline Logistics Pty Ltd", "Ironbark Ventures Pty Ltd"].includes(x.name) },
+        { id: "method", title: "Risk method", value: "3 to settle", tone: "review", owner: "Compliance officer", clients: (x) => ["Tasman Ridge Pty Ltd", "Coralline Logistics Pty Ltd", "Ironbark Ventures Pty Ltd"].includes(x.name) },
       ]
     : [];
-  const mix = d?.ratingMix ?? { low: 0, medium: 0, high: 0 };
-  const total = mix.low + mix.medium + mix.high || 1;
   return (
     <Page label="Compliance programme" narrow>
       <PageHeader
@@ -71,14 +69,6 @@ export default function Programme() {
       />
       <section className="card card-pad brief-card" aria-label="Partners’ brief">
         <p className="brief">{d ? partnersBrief(d, can("smr:read")) : "…"}</p>
-        <div className="mix" role="img" aria-label={`${mix.low} clear, ${mix.medium} review, ${mix.high} high`}>
-          <span className="mix-bar">
-            <i className="clear" style={{ width: `${(mix.low / total) * 100}%` }} />
-            <i className="review" style={{ width: `${(mix.medium / total) * 100}%` }} />
-            <i className="high" style={{ width: `${(mix.high / total) * 100}%` }} />
-          </span>
-
-        </div>
       </section>
       <Section>
         <ol className="items obligations-list" aria-label="Obligations">
@@ -116,7 +106,8 @@ export default function Programme() {
         </ol>
       </Section>
       {insights.data && insights.data.length > 0 && (
-        <Section title="Patterns">
+        <details className="patterns">
+          <summary>Patterns worth knowing · {insights.data.length}</summary>
           <ul className="items">
             {insights.data.map((i) => (
               <li key={i.id} className="item" title={i.body}>
@@ -134,7 +125,7 @@ export default function Programme() {
               </li>
             ))}
           </ul>
-        </Section>
+        </details>
       )}
       <p className="note brief-foot">
         {d?.regime.name} · {tranche2Line()} · Designed to support your AML/CTF programme · {fmtDate(today())}

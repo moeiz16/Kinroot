@@ -19,6 +19,7 @@ import { useBoard, useBoardScene } from "../shell/board";
 import { ChartBand, Status } from "../shell/chart";
 import { DecisionBar, Page, PageHeader, QueuePager, Section, useTitle } from "../shell/page";
 import { ReviewsHeader } from "./ReviewTabs";
+import { ReasonList } from "./dossier/panels";
 import { useStructure } from "./dossier/structure";
 
 const SEV = { critical: { tone: "high", word: "Act now" }, warning: { tone: "review", word: "This week" }, info: { tone: "neutral", word: "FYI" } } as const;
@@ -47,6 +48,7 @@ export default function Alerts() {
   const current = items.find((a) => a.id === id) ?? items[0];
   const client = useQuery({ queryKey: ["client", current?.clientId], queryFn: () => api.clients.get(current!.clientId), enabled: !!current });
   const from = showDiff ? (client.data?.onboardedOn ?? null) : null;
+  const risk = useQuery({ queryKey: ["risk", current?.clientId], queryFn: () => api.clients.risk(current!.clientId), enabled: current?.kind === "risk_change" });
   const { structure } = useStructure(current?.clientId, from);
   useBoardScene(structure?.scene ?? null, { unfold: false });
 
@@ -117,7 +119,8 @@ export default function Alerts() {
         </ul>
       </Page>
     );
-  const evidence = current?.evidence ?? [];
+  // Names the chart already shows are not listed again; links and matches are.
+  const evidence = (current?.evidence ?? []).filter((ev) => ev.type !== "node");
   return (
     <Page label="Alert">
       <PageHeader
@@ -138,10 +141,16 @@ export default function Alerts() {
       {current && (
         <div className="alert-grid">
           <div className="alert-main">
-            <p className="alert-body">{current.body}</p>
+            <p className="alert-body">{current.body.replace(/^The rules methodology/, "The firm’s rules")}</p>
             {client.data && <ChartBand label={`${client.data.name}: structure`} height="mid" compare={{ asAt: today(), compare: from, compareLabel: "onboarding", onToggle: () => setShowDiff(!showDiff) }} legend={["person", "company", "trust", "owns", "controls"]} />}
           </div>
           <aside className="alert-side">
+            {current.kind === "risk_change" && risk.data && (
+              <Section title={`Now ${risk.data.rating === "high" ? "high" : risk.data.rating === "medium" ? "review" : "clear"} · ${risk.data.score} / 100`}>
+                <ReasonList risk={risk.data} structure={structure} onCite={onCite} limit={3} />
+              </Section>
+            )}
+            {(evidence.length > 0 || current.kind === "review_due") && (
             <Section title="Evidence">
               <ul className="evidence">
                 {evidence.map((ev) => {
@@ -180,6 +189,7 @@ export default function Alerts() {
                 {!evidence.length && <li>Review was due {fmtDate(client.data?.nextReviewOn)}</li>}
               </ul>
             </Section>
+            )}
           </aside>
         </div>
       )}

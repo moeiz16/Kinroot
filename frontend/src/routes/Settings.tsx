@@ -272,7 +272,7 @@ function RiskMethod() {
             <tr key={x.id}>
               <td className="who">
                 <b>{x.version.replace("KR-RM-", "Rules v")}</b>
-                <small>{x.status === "published" ? `In use since ${fmtDate(x.publishedAt?.slice(0, 10))}, approved by ${x.publishedBy === "System" ? "Kinroot" : x.publishedBy}` : x.status === "draft" ? "Draft" : "Retired"}</small>
+                <small>{x.status === "published" ? `In use since ${fmtDate(x.publishedAt?.slice(0, 10))}, ${x.publishedBy && x.publishedBy !== "System" ? `approved by ${x.publishedBy}` : "set up with the firm"}` : x.status === "draft" ? "Draft" : "Retired"}</small>
               </td>
               <td>
                 <Status tone={x.status === "published" ? "clear" : x.status === "draft" ? "review" : "neutral"}>{x.status === "published" ? "Current" : x.status === "draft" ? "Draft" : "Retired"}</Status>
@@ -487,7 +487,7 @@ function Lists() {
           <tr>
             <td className="who">
               <b>Adverse media</b>
-              <small>Not connected</small>
+              <small>Checked by hand during enhanced checks</small>
             </td>
             <td className="muted">—</td>
             <td className="num">—</td>

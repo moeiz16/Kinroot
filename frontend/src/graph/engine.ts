@@ -474,7 +474,7 @@ export class BoardEngine {
     const vw = Math.max(80, W - this.insets.left - this.insets.right);
     const vh = Math.max(80, H - this.insets.top - this.insets.bottom);
     // Plates stay legible: below this the structure overflows the frame and the depth gauge pans it.
-    const s = clamp(Math.min(vw / Math.max(1, this.content.w), vh / Math.max(1, this.content.h)), this.pins ? (W < 640 ? 0.3 : 0.4) : W < 640 ? 0.5 : 0.56, 1.05);
+    const s = clamp(Math.min(vw / Math.max(1, this.content.w), vh / Math.max(1, this.content.h)), this.pins ? (W < 640 ? 0.3 : 0.4) : W < 640 ? 0.36 : 0.56, 1.05);
     this.base = s;
     const vcx = this.insets.left + vw / 2;
     const vcy = this.insets.top + vh / 2;

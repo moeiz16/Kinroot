@@ -79,7 +79,7 @@ function MainNav() {
       <ul>
         {main.map((it) => (
           <li key={it.label}>
-            <Link to={it.to} aria-current={isOn(it, pathname) ? "page" : undefined} aria-label={it.count ? `${it.label}, ${it.count} waiting` : undefined}>
+            <Link to={it.to} aria-current={isOn(it, pathname) ? "page" : undefined} aria-label={it.count ? `${it.label}, ${it.count} waiting` : undefined} title={it.label === "Reviews" ? "Open screening matches, duplicates and alerts" : undefined}>
               {it.locked && <Lock aria-hidden />}
               {it.label}
               {!!it.count && <span className="count" aria-hidden>{it.count}</span>}

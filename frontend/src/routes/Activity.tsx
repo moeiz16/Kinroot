@@ -126,9 +126,11 @@ export default function Activity() {
                 Who
               </TableHead>
               <TableHead scope="col">What</TableHead>
-              <TableHead scope="col" className="w-seal hide-sm">
-                Verified
-              </TableHead>
+              {checked > 0 && (
+                <TableHead scope="col" className="w-seal hide-sm">
+                  Verified
+                </TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -147,6 +149,7 @@ export default function Activity() {
                       </>
                     )}
                   </td>
+                  {checked > 0 && (
                   <td className="hide-sm">
                     <span className={`seal${i < checked ? " closed" : ""}`} title={`Seal ${r.hash}`}>
                       {i < checked ? (
@@ -158,6 +161,7 @@ export default function Activity() {
                       )}
                     </span>
                   </td>
+                  )}
                 </tr>
               );
             })}
