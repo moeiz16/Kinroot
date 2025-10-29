@@ -495,6 +495,12 @@ on("POST", "/clients/:id/documents", (ctx) => {
   audit(ctx.world, actorName(ctx), "document.uploaded", `Uploaded ${d.fileName} for ${c.name}`, "client", c.id);
   return d;
 });
+on("GET", "/clients/:id/verification", (ctx) => {
+  need(ctx, "clients:read");
+  const c = clientById(ctx.world, ctx.params[0]!);
+  const ids = c.status === "onboarding" ? [...verifiedParties] : [...structure(ctx.world, c.partyId, today()).levels.keys()];
+  return ids.map((partyId, i) => ({ id: `vc-${c.id}-${i}`, partyId, method: "electronic", result: "verified", sources: [{ name: "Document check (demo)", matched: ["name", "date of birth"] }], reference: `MOCK-DVS-${i}`, checkedAt: `${c.onboardedOn ?? today()}T10:00:00Z` }) satisfies T.VerificationCheck);
+});
 on("POST", "/clients/:id/verification", (ctx) => {
   need(ctx, "identity:verify");
   clientById(ctx.world, ctx.params[0]!);

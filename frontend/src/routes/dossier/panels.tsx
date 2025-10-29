@@ -1,6 +1,6 @@
 // Dossier tabs. Each is one table or one short list; detail about a party lives in the drawer.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileText, Lock, RefreshCcw, Upload } from "lucide-react";
+import { Crosshair, FileText, Lock, RefreshCcw, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { errorMessage } from "../../api/client";
 import { api } from "../../api/endpoints";
-import type { AuditEntry, Case, Client, DocType, DocumentRec, Edd, PinnedAnswer, RiskAssessment, ScreeningHit } from "../../api/types";
+import type { VerificationCheck, AuditEntry, Case, Client, DocType, DocumentRec, Edd, PinnedAnswer, RiskAssessment, ScreeningHit } from "../../api/types";
 import { dueIn, fmtDate, fmtDateTime, relativeDays } from "../../lib/dates";
 import { bytes, likelihood, ratingLook } from "../../lib/format";
 import { Section } from "../../shell/page";
@@ -28,6 +28,7 @@ export interface PanelProps {
   risk: RiskAssessment | null | undefined;
   edd: Edd | undefined;
   docs: DocumentRec[];
+  checks: VerificationCheck[];
   hits: ScreeningHit[];
   onCite: (edgeId: string) => void;
   onParty: (partyId: string) => void;
@@ -36,11 +37,12 @@ export interface PanelProps {
   onOpen?: (partyId: string) => void;
 }
 
+/** A small "show on the chart" control for a link the text rests on. Internal link codes are never shown. */
 export function Cite({ id, label, onCite }: { id: string; label: string | undefined; onCite: (id: string) => void }) {
   if (!label) return null;
   return (
-    <button className="cite" onClick={() => onCite(id)} aria-label={`Show link ${label} on the board`} title="Show on the chart">
-      {label}
+    <button className="cite" onClick={() => onCite(id)} aria-label="Show on the chart" title="Show on the chart">
+      <Crosshair aria-hidden />
     </button>
   );
 }
@@ -68,10 +70,10 @@ export function SummaryPanel(p: PanelProps) {
                       <button className="rowbtn" onClick={(e) => (e.stopPropagation(), open(o.partyId))} aria-label={`${o.name}: show on the chart`}>
                         <b>{o.name}</b>
                       </button>
-                      <small>{o.via === "control" || o.effectivePct == null ? "Control" : "Ownership"}</small>
+                      {(o.via === "control" || o.effectivePct == null) && <small>Through control</small>}
                     </td>
                     <td className="num">{o.effectivePct ? `${o.effectivePct}%` : "—"}</td>
-                    <td className="st num">{hasId(docs, o.partyId) ? <Status tone="clear">ID verified</Status> : <Status tone="review">Ask client</Status>}</td>
+                    <td className="st num">{hasId(docs, o.partyId, p.checks) ? <Status tone="clear">ID verified</Status> : <Status tone="review">Ask client</Status>}</td>
                   </tr>
                 ))}
                 {unexplained > 0 && (
@@ -98,8 +100,13 @@ export function SummaryPanel(p: PanelProps) {
           </div>
         </Section>
         {risk && (
-          <Section title={`Why ${look.word.toLowerCase()}`} aside={`${risk.score} / 100`}>
+          <Section title={`Why ${look.word.toLowerCase()}`}>
             <ReasonList risk={risk} structure={structure} onCite={p.onCite} limit={3} />
+            {risk.reasons.length > 3 && (
+              <Link className="link more-link" to={`/clients/${client.id}/risk`}>
+                All {risk.reasons.length} reasons
+              </Link>
+            )}
           </Section>
         )}
       </div>
@@ -139,19 +146,21 @@ export function ReasonList({ risk, structure, onCite, limit }: { risk: RiskAsses
   const reasons = limit ? risk.reasons.slice(0, limit) : risk.reasons;
   return (
     <ol className="reasons">
-      {reasons.map((r) => (
+      {reasons.map((r) => {
+        const edge = r.evidence.find((e) => e.type === "edge" && structure?.cites.has(e.id));
+        return (
         <li key={r.code + r.message}>
-          <span>
-            {r.message}{" "}
-            {r.evidence
-              .filter((e) => e.type === "edge")
-              .map((e) => (
-                <Cite key={e.id} id={e.id} label={structure?.cites.get(e.id)} onCite={onCite} />
-              ))}
-          </span>
+          {edge ? (
+            <button type="button" className="reason-btn" onClick={() => onCite(edge.id)} title="Show on the chart">
+              {r.message}
+            </button>
+          ) : (
+            <span>{r.message}</span>
+          )}
           <span className={`w${r.points > 0 ? " up" : ""}`} aria-label={`${r.points > 0 ? "plus" : "minus"} ${Math.abs(r.points)} points`}>{r.points > 0 ? `+${r.points}` : `−${Math.abs(r.points)}`}</span>
         </li>
-      ))}
+        );
+      })}
     </ol>
   );
 }
@@ -193,7 +202,7 @@ export function OwnersPanel(p: PanelProps) {
                 <td className="hide-sm">
                   {links.slice(0, 2).map((e) => (
                     <div key={e.id} className="link-line">
-                      {e.kind === "own" ? `Owns ${e.label}` : e.kind === "unknown" ? `Holds ${e.label}` : (e.label ?? "")} of {structure.names(e.t)} {e.citation && <Cite id={e.id} label={e.citation} onCite={p.onCite} />}
+                      {e.kind === "own" ? `Owns ${e.label}` : e.kind === "unknown" ? `Holds ${e.label}` : (e.label ?? "")} of {structure.names(e.t)}
                     </div>
                   ))}
                 </td>
@@ -202,7 +211,7 @@ export function OwnersPanel(p: PanelProps) {
                   {hit ? (
                     <Status tone={hit.status === "true_match" ? "high" : "review"}>{hit.status === "pending" ? "Possible match" : hit.status === "true_match" ? "Confirmed match" : "Escalated"}</Status>
                   ) : n.kind === "person" || n.kind === "company" || n.kind === "trust" ? (
-                    hasId(docs, n.id) ? (
+                    hasId(docs, n.id, p.checks) ? (
                       <Status tone="clear">ID verified</Status>
                     ) : (
                       <Status tone="review">Ask client</Status>
@@ -271,10 +280,8 @@ export function ScreeningPanel(p: PanelProps) {
             <TableRow>
               <TableHead scope="col">Party</TableHead>
               <TableHead scope="col">Sanctions</TableHead>
-              <TableHead scope="col">PEP</TableHead>
-              <TableHead scope="col" className="hide-sm">
-                Adverse media
-              </TableHead>
+              <TableHead scope="col">Politically exposed</TableHead>
+
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -285,11 +292,7 @@ export function ScreeningPanel(p: PanelProps) {
                 </td>
                 <td>{cell(n.id, "sanctions")}</td>
                 <td>{cell(n.id, "pep")}</td>
-                <td className="hide-sm">
-                  <span className="muted" title="No source connected">
-                    Not connected
-                  </span>
-                </td>
+
               </tr>
             ))}
           </TableBody>
@@ -535,23 +538,10 @@ export function TimelinePanel(p: PanelProps & { audit: AuditEntry[]; pins?: Pinn
             <time>{e.date.length > 10 ? fmtDateTime(e.date) : fmtDate(e.date)}</time>
             <span>
               {e.text}
-              {e.edgeId && structure?.cites.get(e.edgeId) && (
-                <>
-                  {" "}
-                  <Cite id={e.edgeId} label={structure.cites.get(e.edgeId)} onCite={p.onCite} />
-                </>
-              )}
+
               {e.who && <small> · {e.who}</small>}
               {e.note && <span className="pin-note">{e.note}</span>}
-              {e.cites && structure && e.cites.some((id) => structure.cites.get(id)) && (
-                <span className="pin-cites">
-                  {e.cites
-                    .filter((id) => structure.cites.get(id))
-                    .map((id) => (
-                      <Cite key={id} id={id} label={structure.cites.get(id)} onCite={p.onCite} />
-                    ))}
-                </span>
-              )}
+
             </span>
           </li>
         ))}

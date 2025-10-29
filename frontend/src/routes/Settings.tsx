@@ -225,8 +225,8 @@ function Members() {
                 )}
               </td>
               <td>{m.role === "compliance_officer" ? <Status tone="restricted">Yes</Status> : <span className="muted">—</span>}</td>
-              <td className="mono" style={{ fontSize: 13 }} title={m.trainingDueOn ? fmtDate(m.trainingDueOn) : undefined}>
-                {m.trainingDueOn ? dueIn(m.trainingDueOn) : "—"}
+              <td title={m.trainingDueOn ? fmtDate(m.trainingDueOn) : undefined}>
+                {m.trainingDueOn ? dueIn(m.trainingDueOn).replace(/^./, (x) => x.toUpperCase()) : "—"}
               </td>
             </tr>
           ))}
@@ -271,8 +271,8 @@ function RiskMethod() {
           {(m.data ?? []).map((x) => (
             <tr key={x.id}>
               <td className="who">
-                <b className="mono">{x.version}</b>
-                <small>{x.status === "published" ? `In use since ${fmtDate(x.publishedAt?.slice(0, 10))}, approved by ${x.publishedBy}` : x.status === "draft" ? "Draft" : "Retired"}</small>
+                <b>{x.version.replace("KR-RM-", "Rules v")}</b>
+                <small>{x.status === "published" ? `In use since ${fmtDate(x.publishedAt?.slice(0, 10))}, approved by ${x.publishedBy === "System" ? "Kinroot" : x.publishedBy}` : x.status === "draft" ? "Draft" : "Retired"}</small>
               </td>
               <td>
                 <Status tone={x.status === "published" ? "clear" : x.status === "draft" ? "review" : "neutral"}>{x.status === "published" ? "Current" : x.status === "draft" ? "Draft" : "Retired"}</Status>
@@ -303,7 +303,7 @@ function RiskMethod() {
       {current && (
         <section className="section">
           <h2>
-            Rules in {current.version} <span className="aside">Clear &lt; {current.bands.medium} ≤ Review &lt; {current.bands.high} ≤ High</span>
+            Rules <span className="aside">Review from {current.bands.medium}, high from {current.bands.high}</span>
           </h2>
           <ol className="reasons">
             {current.rules.map((r) => (
@@ -363,7 +363,7 @@ function Differences() {
 
 const CHECK_NAME: Record<string, { title: string; lede: string }> = {
   "risk-challenger": { title: "Second-opinion risk check", lede: "Reads each client’s structure and services and says whether it looks high risk. It never changes a rating on its own." },
-  "er-matcher": { title: "Duplicate matching", lede: "Scores how likely two records are the same person or company. Below the lower line they stay apart; above the upper line they are fused, unless anything conflicts." },
+  "er-matcher": { title: "Duplicate matching", lede: "Scores how likely two records are the same person or company. Below the lower line they stay apart; above the upper line they are merged, unless anything conflicts." },
 };
 const pct100 = (v: number | undefined) => (v == null ? "—" : `${Math.round(v * 100)} in 100`);
 function checkFacts(name: string, m: Record<string, number>): string {
@@ -462,10 +462,10 @@ function Lists() {
   const lists = useQuery({ queryKey: ["lists"], queryFn: api.screening.lists });
   const settings = useQuery({ queryKey: ["settings"], queryFn: api.settings.get });
   const [msg, setMsg] = useState<string | null>(null);
-  const rescreen = useMutation({ mutationFn: api.screening.rescreen, onSuccess: () => setMsg("Every client is being screened again. Alerts appear for anything new."), onError: (e) => setMsg(errorMessage(e)) });
+  const rescreen = useMutation({ mutationFn: api.screening.rescreen, onSuccess: () => setMsg("Screening every client again."), onError: (e) => setMsg(errorMessage(e)) });
   return (
     <>
-      <Table style={{ marginTop: 14 }}>
+      <Table>
         <TableHeader>
           <tr>
             <TableHead scope="col">List</TableHead>
@@ -478,9 +478,7 @@ function Lists() {
             <tr key={l.list}>
               <td className="who">
                 <b>{l.title ?? (l.list === "pep" ? "PEP list" : "Sanctions list")}</b>
-                <small>
-                  {listSourceLabel(l.source)} · loaded {fmtDate(l.loadedAt.slice(0, 10))}
-                </small>
+                <small>Loaded {fmtDate(l.loadedAt.slice(0, 10))}</small>
               </td>
               <td className="mono">{l.version}</td>
               <td className="num">{l.entries.toLocaleString("en-AU")}</td>
@@ -496,23 +494,18 @@ function Lists() {
           </tr>
         </TableBody>
       </Table>
-      <section className="section" style={{ marginTop: 22 }}>
-        <h2>Sources</h2>
-        <ul className="sources">
-          {[...new Map((lists.data ?? []).map((l) => [l.attribution ?? l.source, l])).values()].map((l) => (
-            <li key={l.attribution ?? l.source}>
-              <b>{listSourceLabel(l.source)}</b>
-              {l.licence && l.licence !== "sample" ? <span className="mono"> · {l.licence}</span> : null}
-              <p>{l.attribution ?? "Supplied with Kinroot."}</p>
-            </li>
-          ))}
-        </ul>
-      </section>
-      <p style={{ marginTop: 16 }}>
-        {settings.data?.screening.autoRescreenOnListUpdate ? "Every client is screened again automatically when a list changes." : "Clients are screened when they are onboarded and at each review."} Names count as a possible match from {Math.round((settings.data?.screening.fuzzyThreshold ?? 0.82) * 100)} in 100.
-      </p>
+      <dl className="facts card card-pad mt-4">
+        <dt>Re-screening</dt>
+        <dd>{settings.data?.screening.autoRescreenOnListUpdate ? "Automatic when a list changes" : "At onboarding and each review"}</dd>
+        <dt>Possible match from</dt>
+        <dd>{Math.round((settings.data?.screening.fuzzyThreshold ?? 0.82) * 100)} in 100</dd>
+        <dt>Sources</dt>
+        <dd>{[...new Set((lists.data ?? []).map((l) => listSourceLabel(l.source)))].join(", ")}</dd>
+      </dl>
       {can("monitoring:manage") && (
-        <Button onClick={() => rescreen.mutate()}>Screen every client now</Button>
+        <Button variant="line" className="mt-4" onClick={() => rescreen.mutate()}>
+          Screen every client now
+        </Button>
       )}
       {msg && <p role="status">{msg}</p>}
     </>

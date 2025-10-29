@@ -20,10 +20,10 @@ import { Page, PageHeader } from "../shell/page";
 
 export type Lens = "risk" | "review" | "shared" | "screening";
 const LENSES: { id: Lens; label: string }[] = [
-  { id: "risk", label: "Risk" },
-  { id: "review", label: "Due" },
-  { id: "shared", label: "Shared" },
-  { id: "screening", label: "Screening" },
+  { id: "risk", label: "By risk" },
+  { id: "review", label: "Reviews due" },
+  { id: "shared", label: "Shared people" },
+  { id: "screening", label: "Matches" },
 ];
 const clientKind: Record<Client["kind"], BKind> = { individual: "person", company: "company", trust: "trust", partnership: "partnership" };
 
@@ -152,7 +152,13 @@ export function docketRows(tray: TrayItem[], cases: { id: string; title: string;
 }
 
 /** What waits on you, earliest due first: one row per decision (title, kind and when it is due). */
-export function Tickets({ rows, caption, onHover }: { rows: DocketRow[]; caption: string; onHover?: (r: DocketRow | null) => void; vertical?: boolean }) {
+/** "Sign-off needed: Lumen Trade Pty Ltd" → "Lumen Trade Pty Ltd": the kind is said once, underneath. */
+export function rowTitle(r: DocketRow, clientName?: string): string {
+  const bare = r.title.replace(/^[^:]{3,40}:\s*/, "");
+  return clientName && !r.title.includes(clientName) ? `${bare} · ${clientName}` : bare;
+}
+
+export function Tickets({ rows, caption, onHover, clientNames }: { rows: DocketRow[]; caption: string; onHover?: (r: DocketRow | null) => void; vertical?: boolean; clientNames?: Map<string, string> }) {
   return (
     <ol className="items" aria-label={caption}>
       {rows.map((r) => (
@@ -162,7 +168,7 @@ export function Tickets({ rows, caption, onHover }: { rows: DocketRow[]; caption
               {TRAY_ICON[r.kind]}
             </span>
             <span className="item-main">
-              <span className="item-title">{r.title}</span>
+              <span className="item-title">{rowTitle(r, r.clientId ? clientNames?.get(r.clientId) : undefined)}</span>
               <span className="item-sub">{r.word}</span>
             </span>
             <span className="item-end">{r.dueOn ? <span className={r.due.late ? "late" : undefined}>{r.due.text}</span> : null}</span>
@@ -219,6 +225,7 @@ export default function BoardHome() {
 
   const rows = useMemo(() => docketRows(dash.data?.fileTray ?? [], cases.data?.items ?? []), [dash.data, cases.data]);
   const caption = rows.length ? `${rows.length} waiting for you` : "Nothing waiting";
+  const names = useMemo(() => new Map((clients.data?.items ?? []).map((c) => [c.id, c.name])), [clients.data]);
   const hover = (r: DocketRow | null) => {
     const partyId = r?.clientId ? clients.data?.items.find((c) => c.id === r.clientId)?.partyId : undefined;
     board.engine()?.setSelected(partyId ?? null);
@@ -228,7 +235,7 @@ export default function BoardHome() {
       <PageHeader title="Waiting for you" count={rows.length} />
       <div className="home">
         <div className="home-list">
-          <Tickets rows={rows} caption={caption} onHover={hover} />
+          <Tickets rows={rows} caption={caption} onHover={hover} clientNames={names} />
         </div>
         <ChartBand
           label="The client book"

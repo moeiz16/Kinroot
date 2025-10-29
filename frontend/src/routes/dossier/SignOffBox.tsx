@@ -49,7 +49,7 @@ export function SignOffBox({ client, edd }: { client: Client; edd: Edd | undefin
   const stage: "compliance" | "senior" | null = edd.status === "awaiting_compliance" ? "compliance" : edd.status === "awaiting_senior" ? "senior" : null;
   const canSign = stage === "compliance" ? can("signoff:compliance") : stage === "senior" ? can("signoff:senior") && client.assignedTo?.id !== me?.user.id : false;
   const title = stage === "senior" ? "Partner approval" : "Sign off";
-  const who = stage === "senior" ? "A partner who doesn’t act for this client approves." : "The compliance officer signs off once the checks are in.";
+  const who = stage === "senior" ? (canSign ? "Approve as a partner who doesn’t act for this client." : "A partner who doesn’t act for this client approves.") : canSign ? "Sign off once the checks are in." : "The compliance officer signs off.";
   return (
     <Dialog
       open={open}

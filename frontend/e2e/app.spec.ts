@@ -83,6 +83,17 @@ test("reviews: a screening decision asks for a reason in a dialog", async ({ pag
   await dialog.getByRole("button", { name: "Cancel" }).click();
 });
 
+test("duplicates: merging asks first and can be cancelled", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/fuse");
+  await page.locator(".items .item").first().click();
+  await page.getByRole("button", { name: "Merge" }).click();
+  const confirm = page.getByRole("alertdialog");
+  await expect(confirm).toContainText("Both original records are kept");
+  await confirm.getByRole("button", { name: "Cancel" }).click();
+  await expect(page.getByRole("button", { name: "Merge" })).toBeVisible();
+});
+
 test("roles: a fee earner never sees reports or the duplicates queue", async ({ page }) => {
   await signIn(page, "tom@harbourline.example");
   const nav = page.getByRole("navigation", { name: "Main" });

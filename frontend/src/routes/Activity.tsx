@@ -17,7 +17,8 @@ import { Page, PageHeader, useTitle } from "../shell/page";
 import { NotAvailable } from "./NotFound";
 
 const ACTIONS = [
-  { v: "all", label: "Every action" },
+  { v: "decisions", label: "Decisions and changes" },
+  { v: "all", label: "Everything" },
   { v: "client", label: "Client files" },
   { v: "screening", label: "Screening" },
   { v: "resolution", label: "Duplicates" },
@@ -33,20 +34,21 @@ export function toCsv(rows: AuditEntry[]): string {
 
 export default function Activity() {
   const { can } = useAuth();
-  const [action, setAction] = useState("all");
+  const [action, setAction] = useState("decisions");
   const [from, setFrom] = useState("");
   const [checked, setChecked] = useState(0);
   const [result, setResult] = useState<AuditVerify | null>(null);
   const [verifying, setVerifying] = useState(false);
   const q = useInfiniteQuery({
     queryKey: ["audit", action, from],
-    queryFn: ({ pageParam }) => api.audit.list({ action: action === "all" ? undefined : action, from: from || undefined, page: pageParam, pageSize: 40 }),
+    queryFn: ({ pageParam }) => api.audit.list({ action: action === "all" || action === "decisions" ? undefined : action, from: from || undefined, page: pageParam, pageSize: 40 }),
     initialPageParam: 1,
     getNextPageParam: (last) => (last.page < last.totalPages ? last.page + 1 : undefined),
     enabled: can("audit:read"),
   });
   const total = q.data?.pages[0]?.total ?? 0;
-  const rows = useMemo(() => q.data?.pages.flatMap((p) => p.items) ?? [], [q.data]);
+  // Sign-ins are routine: they stay in the chain but only show under "Everything" or "Sign-ins".
+  const rows = useMemo(() => (q.data?.pages.flatMap((p) => p.items) ?? []).filter((r) => action !== "decisions" || !r.action.startsWith("auth.")), [q.data, action]);
   useTitle("Activity log");
   if (!can("audit:read")) return <NotAvailable />;
 
@@ -125,7 +127,7 @@ export default function Activity() {
               </TableHead>
               <TableHead scope="col">What</TableHead>
               <TableHead scope="col" className="w-seal hide-sm">
-                Seal
+                Verified
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -135,7 +137,7 @@ export default function Activity() {
               return (
                 <tr key={r.id}>
                   <td className="when">{fmtDateTime(r.createdAt)}</td>
-                  <td>{r.actorName}</td>
+                  <td>{r.actorType === "system" || r.actorName === "System" ? "Kinroot" : r.actorName}</td>
                   <td>
                     {r.label}
                     {restricted && (
@@ -146,9 +148,14 @@ export default function Activity() {
                     )}
                   </td>
                   <td className="hide-sm">
-                    <span className={`seal mono${i < checked ? " closed" : ""}`} aria-label={`Seal ${r.hash.slice(0, 4)}${i < checked ? ", verified" : ""}`} title={r.hash}>
-                      {i < checked ? <Check size={12} aria-hidden /> : null}
-                      {r.hash.slice(0, 6)}
+                    <span className={`seal${i < checked ? " closed" : ""}`} title={`Seal ${r.hash}`}>
+                      {i < checked ? (
+                        <>
+                          <Check size={13} aria-hidden /> Verified
+                        </>
+                      ) : (
+                        <span className="muted">—</span>
+                      )}
                     </span>
                   </td>
                 </tr>

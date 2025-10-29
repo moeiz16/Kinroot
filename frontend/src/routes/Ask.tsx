@@ -190,12 +190,12 @@ export default function Ask() {
                       </Button>
                     )}
                     {clientNode?.clientId && (
-                      <Button variant="quiet" size="sm" onClick={() => nav(`/clients/${clientNode.clientId}/timeline`)}>
+                      <Button variant="line" size="sm" onClick={() => nav(`/clients/${clientNode.clientId}/timeline`)}>
                         Open client
                       </Button>
                     )}
                     <Button
-                      variant="quiet"
+                      variant="line"
                       size="sm"
                       onClick={() => {
                         void navigator.clipboard?.writeText(`${answer.question}\n\n${answer.answer}\n\n${answer.citations.map((c, i) => `[${i + 1}] ${c.label}`).join("\n")}`);
@@ -208,7 +208,7 @@ export default function Ask() {
                     {answer.steps.length > 0 && (
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button variant="quiet" size="sm">
+                          <Button variant="line" size="sm">
                             How it was found
                           </Button>
                         </PopoverTrigger>

@@ -118,6 +118,31 @@ const KEY_ITEMS: Record<string, ReactNode> = {
       Path to the owner
     </span>
   ),
+  owner: (
+    <span key="ow">
+      <svg width="14" height="14" aria-hidden>
+        <circle cx="7" cy="7" r="6" fill="var(--accent)" />
+      </svg>
+      Beneficial owner
+    </span>
+  ),
+  flag: (
+    <span key="fl">
+      <svg width="14" height="14" aria-hidden>
+        <circle cx="4" cy="7" r="3" fill="var(--high)" />
+        <circle cx="11" cy="7" r="3" fill="var(--review)" />
+      </svg>
+      Risk flag (details on click)
+    </span>
+  ),
+  added: (
+    <span key="ad">
+      <svg width="22" height="8" aria-hidden>
+        <path d="M1 4 H21" stroke="var(--clear)" strokeWidth="2" />
+      </svg>
+      New since the compare date
+    </span>
+  ),
   shared: (
     <span key="sh">
       <svg width="22" height="8" aria-hidden>
@@ -128,7 +153,7 @@ const KEY_ITEMS: Record<string, ReactNode> = {
   ),
 };
 
-export function Legend({ items = ["person", "company", "trust", "owns", "controls", "trace"] }: { items?: string[] }) {
+export function Legend({ items = ["person", "company", "trust", "owns", "controls", "trace", "owner", "flag"] }: { items?: string[] }) {
   return (
     <div className="legend" aria-label="Key">
       {items.map((k) => KEY_ITEMS[k])}

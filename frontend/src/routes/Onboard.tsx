@@ -116,7 +116,7 @@ export default function Onboard() {
   const nav = useNavigate();
   const qc = useQueryClient();
   const [step, setStep] = useState("client");
-  const [c, setC] = useState<DraftClient>({ kind: "trust", name: "", state: "NSW", identifier: "", services: ["property_transaction"], channel: "face_to_face", matterReference: "", birthDate: "", street: "", suburb: "", postcode: "" });
+  const [c, setC] = useState<DraftClient>({ kind: "company", name: "", state: "NSW", identifier: "", services: ["property_transaction"], channel: "face_to_face", matterReference: "", birthDate: "", street: "", suburb: "", postcode: "" });
   const [parties, setParties] = useState<DraftParty[]>([]);
   const [client, setClient] = useState<Client | null>(null);
   const [err, setErr] = useState<string | null>(null);

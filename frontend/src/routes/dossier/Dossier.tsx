@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { api } from "../../api/endpoints";
 import { stringsForOwner } from "../../graph/transforms";
 import type { StringSpec } from "../../graph/model";
-import { today } from "../../lib/dates";
+import { fmtDate, today } from "../../lib/dates";
 import { useAuth } from "../../lib/auth";
 import { useBoard, useBoardHandlers, useBoardScene } from "../../shell/board";
 import { ChartBand, RatingTag, Status } from "../../shell/chart";
@@ -33,6 +33,7 @@ export default function Dossier() {
   const risk = useQuery({ queryKey: ["risk", id], queryFn: () => api.clients.risk(id), enabled: !!client.data });
   const edd = useQuery({ queryKey: ["edd", id], queryFn: () => api.clients.edd(id), enabled: !!client.data });
   const docs = useQuery({ queryKey: ["documents", id], queryFn: () => api.clients.documents(id), enabled: !!client.data });
+  const checks = useQuery({ queryKey: ["verifications", id], queryFn: () => api.clients.verifications(id), enabled: !!client.data });
   const hits = useQuery({ queryKey: ["hits", "client", id], queryFn: () => api.screening.hits({ clientId: id, status: "all" }), enabled: !!client.data });
   const audit = useQuery({ queryKey: ["timeline", id], queryFn: () => api.audit.list({ resourceId: id, pageSize: 40 }), enabled: !!client.data && can("audit:read") });
   const pins = useQuery({ queryKey: ["pins", id], queryFn: () => api.clients.pins(id), enabled: !!client.data });
@@ -110,7 +111,7 @@ export default function Dossier() {
     { id: "timeline", label: "Timeline" },
     ...(caseRec ? [{ id: "restricted", label: "Restricted", locked: true }] : []),
   ];
-  const props: PanelProps = { client: c, structure, risk: risk.data, edd: edd.data, docs: docs.data ?? [], hits: hits.data?.items ?? [], onCite, onParty: (pid) => board.engine()?.focusNode(pid), onThread: (pid) => void pullThread(pid), onOpen: (pid) => { setParty(pid); void pullThread(pid); } };
+  const props: PanelProps = { client: c, structure, risk: risk.data, edd: edd.data, docs: docs.data ?? [], checks: checks.data ?? [], hits: hits.data?.items ?? [], onCite, onParty: (pid) => board.engine()?.focusNode(pid), onThread: (pid) => void pullThread(pid), onOpen: (pid) => { setParty(pid); void pullThread(pid); } };
   const panel =
     tab === "owners" ? <OwnersPanel {...props} /> : tab === "screening" ? <ScreeningPanel {...props} /> : tab === "risk" ? <RiskPanel {...props} /> : tab === "documents" ? <DocumentsPanel {...props} /> : tab === "timeline" ? <TimelinePanel {...props} audit={audit.data?.items ?? []} pins={pins.data ?? []} /> : tab === "restricted" && caseRec ? <RestrictedPanel caseRec={caseRec} /> : <SummaryPanel {...props} />;
   const trailHops = pulled ? pulled.ids.map((x) => structure?.names(x) ?? "") : [];
@@ -128,11 +129,13 @@ export default function Dossier() {
         compare={{ asAt: today(), compare: compareFrom, compareLabel: compareFrom === c.onboardedOn ? "onboarding" : undefined, onToggle: () => setCompare(compareFrom ? null : (c.onboardedOn ?? null)), onPick: (d) => setCompare(d) }}
         trace={trailHops.length > 1 ? { hops: trailHops, end: pulled?.tag ? pulled.tag.value : undefined } : null}
         onTrace={() => pulled && setParty(pulled.ids[0] ?? null)}
+        legend={compareFrom ? ["person", "company", "trust", "owns", "controls", "trace", "owner", "flag", "added"] : undefined}
+        foot={compareFrom && structure?.diff && !structure.diff.summary.length ? <span className="chip">No changes since {fmtDate(compareFrom)}</span> : null}
       />
       <SectionTabs label={`Client dossier: ${c.name}`} tabs={tabs} active={tab} onTab={(t) => nav(`/clients/${id}/${t}`)} className="record">
         {panel}
       </SectionTabs>
-      <PartyDrawer partyId={party} structure={structure} clientId={id} docs={docs.data ?? []} hits={hits.data?.items ?? []} onClose={() => setParty(null)} />
+      <PartyDrawer partyId={party} structure={structure} clientId={id} docs={docs.data ?? []} checks={checks.data ?? []} hits={hits.data?.items ?? []} onClose={() => setParty(null)} />
     </Page>
   );
 }

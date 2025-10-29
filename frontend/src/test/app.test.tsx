@@ -78,13 +78,15 @@ describe("charts and the dossier", () => {
     const twin = await screen.findByRole("region", { name: "Text version of the chart" }, T);
     expect(within(twin).getByText(/Harbour Quay Developments Pty Ltd, client, rated High/)).toBeInTheDocument();
   });
-  it("dossier: owners with compounded % and reasons with cited links", async () => {
+  it("dossier: owners with compounded % and reasons that point at the chart", async () => {
     renderApp("/clients/c-harbour-quay/summary");
     expect(await screen.findByRole("heading", { name: "Harbour Quay Developments Pty Ltd" }, T)).toBeInTheDocument();
     expect((await screen.findAllByText("49.6%", {}, T)).length).toBeGreaterThan(0);
     expect(screen.getByText("30.4%")).toBeInTheDocument();
     expect(await screen.findByText(/Why high/, {}, T)).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: /Show link E-\d\d on the board/ }).length).toBeGreaterThan(0);
+    // Reasons point at the chart themselves; internal link codes are never shown.
+    expect(screen.getAllByTitle("Show on the chart").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/^E-\d\d$/)).toBeNull();
   });
   it("dossier: a beneficial owner opens the drawer with their path to the client", async () => {
     renderApp("/clients/c-harbour-quay/summary");

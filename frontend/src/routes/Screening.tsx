@@ -20,7 +20,7 @@ import { COUNTRY, likelihood, listSourceLabel } from "../lib/format";
 import { useAuth } from "../lib/auth";
 import { useBoard, useBoardScene } from "../shell/board";
 import { ChartBand, Status } from "../shell/chart";
-import { DecisionBar, Page, PageHeader, QueuePager, SectionTabs, useTitle } from "../shell/page";
+import { DecisionBar, Page, PageHeader, QueuePager, Section, SectionTabs, useTitle } from "../shell/page";
 import { Compare, type CompareRow } from "./Compare";
 import { effectOf } from "./Fuse";
 import { ReviewsHeader } from "./ReviewTabs";
@@ -104,6 +104,7 @@ export default function Screening() {
     const eff = effectOf(h?.reasons.find((r) => feature.test(r.feature)), scale);
     return { field, a: ours, b: theirs, mark: eff.glyph, word: eff.word };
   };
+  const decidedAll = (all.data?.items ?? []).filter((x) => x.status !== "pending");
   if (!id)
     return (
       <Page label="Screening">
@@ -127,10 +128,28 @@ export default function Screening() {
           ))}
           {!items.length && <li className="empty">No matches to review</li>}
         </ul>
+        {decidedAll.length > 0 && (
+          <Section title="Decided">
+            <ul className="items">
+              {decidedAll.slice(0, 12).map((x) => (
+                <li key={x.id}>
+                  <Link to={`/screening/${x.id}`} className="item">
+                    <span className="item-main">
+                      <span className="item-title">{x.partyName}</span>
+                      <span className="item-sub">“{x.entry.name}”</span>
+                    </span>
+                    <span className="item-end">
+                      <Status tone={x.status === "true_match" ? "high" : x.status === "escalated" ? "review" : "clear"}>{x.status === "true_match" ? "True match" : x.status === "escalated" ? "Escalated" : "Not a match"}</Status>
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </Section>
+        )}
       </Page>
     );
   const listWord = h?.entry.listKind === "pep" ? "PEP list" : "Sanctions list";
-  const decided = (all.data?.items ?? []).filter((x) => x.status !== "pending");
   return (
     <Page label="Screening match">
       <PageHeader
@@ -154,29 +173,11 @@ export default function Screening() {
           tabs={[
             { id: "match", label: "Comparison" },
             { id: "entry", label: "List entry" },
-            { id: "history", label: "Decided", count: decided.length || undefined },
           ]}
           active={tab}
           onTab={setTab}
         >
-          {tab === "history" ? (
-            <ul className="items">
-              {decided.map((x) => (
-                <li key={x.id} className="item">
-                  <span className="item-main">
-                    <span className="item-title">
-                      {x.partyName} · “{x.entry.name}”
-                    </span>
-                    <span className="item-sub">{x.reviewReason ?? "Reason recorded"}</span>
-                  </span>
-                  <span className="item-end">
-                    <Status tone={x.status === "true_match" ? "high" : x.status === "escalated" ? "review" : "clear"}>{x.status === "true_match" ? "True match" : x.status === "escalated" ? "Escalated" : "Not a match"}</Status>
-                  </span>
-                </li>
-              ))}
-              {!decided.length && <li className="empty">Nothing decided yet</li>}
-            </ul>
-          ) : tab === "entry" ? (
+          {tab === "entry" ? (
             <div className="card card-pad">
               <dl className="facts">
                 <dt>Name</dt>
@@ -197,23 +198,13 @@ export default function Screening() {
             </div>
           ) : (
             <Compare
-              a={
-                <>
-                  <span className="cmp-k">Our record</span>
-                  <b>{h.partyName}</b>
-                </>
-              }
-              b={
-                <>
-                  <span className="cmp-k">{listWord}</span>
-                  <b>“{h.entry.name}”</b>
-                </>
-              }
+              a={<span className="cmp-k">Our record</span>}
+              b={<span className="cmp-k">{listWord}</span>}
               score={Math.round(h.score * 100)}
               scoreWord="likely the same"
               rows={[
                 rowOf("Name", h.partyName, h.entry.name, /name/),
-                rowOf("Born", party?.sub?.startsWith("Born") ? party.sub.slice(5) : null, h.entry.birthDate ? fmtDate(h.entry.birthDate) : null, /dob/),
+                ...(party?.kind === "person" ? [rowOf("Born", party.sub?.startsWith("Born") ? party.sub.slice(5) : null, h.entry.birthDate ? fmtDate(h.entry.birthDate) : null, /dob/)] : []),
                 rowOf("Country", party?.glyph && party.kind !== "person" ? (COUNTRY[party.glyph] ?? party.glyph) : null, h.entry.countries.map((c) => COUNTRY[c] ?? c).join(", "), /country|nationality/),
                 ...(h.reasons.some((r) => /officer/.test(r.feature)) ? [rowOf("Officers", "Shared surname", "Shared surname", /officer/)] : []),
               ]}
@@ -238,7 +229,7 @@ export default function Screening() {
                 </Button>
               </div>
             ) : (
-              <p className="note-info">Waiting for the compliance officer</p>
+              <p className="note-info">The compliance officer decides this match</p>
             )
           ) : (
             <p className="note-info">

@@ -54,7 +54,7 @@ export default function Programme() {
         { id: "reporting", title: "Reporting", value: can("smr:read") ? `${c.smrDrafts ?? 0} in draft` : "Compliance officer", tone: can("smr:read") && c.smrDrafts ? "review" : "neutral", owner: "Compliance officer", clients: () => false },
         { id: "records", title: "Record keeping", value: "Kept 7 years", tone: "clear", owner: "Firm administrator", clients: (x) => x.status === "exited" },
         { id: "training", title: "Training", value: `${trained} of ${t.length} trained`, tone: trained < t.length ? "review" : "clear", owner: "Firm administrator", clients: () => false },
-        { id: "method", title: "Risk method", value: "Rules v1.0 · 90% agree", tone: "review", owner: "Compliance officer", clients: (x) => ["Tasman Ridge Pty Ltd", "Coralline Logistics Pty Ltd", "Ironbark Ventures Pty Ltd"].includes(x.name) },
+        { id: "method", title: "Risk method", value: "3 differences", tone: "review", owner: "Compliance officer", clients: (x) => ["Tasman Ridge Pty Ltd", "Coralline Logistics Pty Ltd", "Ironbark Ventures Pty Ltd"].includes(x.name) },
       ]
     : [];
   const mix = d?.ratingMix ?? { low: 0, medium: 0, high: 0 };
@@ -77,20 +77,10 @@ export default function Programme() {
             <i className="review" style={{ width: `${(mix.medium / total) * 100}%` }} />
             <i className="high" style={{ width: `${(mix.high / total) * 100}%` }} />
           </span>
-          <span className="mix-key" aria-hidden>
-            <span>
-              <i className="clear" /> {mix.low} clear
-            </span>
-            <span>
-              <i className="review" /> {mix.medium} review
-            </span>
-            <span>
-              <i className="high" /> {mix.high} high
-            </span>
-          </span>
+
         </div>
       </section>
-      <Section title="Obligations">
+      <Section>
         <ol className="items obligations-list" aria-label="Obligations">
           {rows.map((r) => {
             const lit = all.filter(r.clients);

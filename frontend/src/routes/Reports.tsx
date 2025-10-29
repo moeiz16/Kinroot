@@ -96,7 +96,7 @@ export default function Reports() {
                   </td>
                   <td className="hide-sm">{c.smrStatus === "draft" ? "Draft" : c.smrStatus === "submitted" ? "Filed" : "None"}</td>
                   <td className="num">
-                    <Status tone={d.tone}>{d.text.replace(" (3-day limit)", "")}</Status>
+                    <Status tone={d.tone}>{d.text.replace(" (3-day limit)", "").replace(/^Due in /, "")}</Status>
                   </td>
                 </tr>
               );
@@ -155,9 +155,23 @@ function Concerns() {
                   Open case
                 </Link>
               ) : c.clientId && can("smr:write") ? (
-                <Button size="sm" variant="line" disabled={open.isPending} onClick={() => open.mutate(c)}>
-                  Open a case
-                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button size="sm" variant="line" disabled={open.isPending}>
+                      Open a case
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Open a restricted case?</AlertDialogTitle>
+                      <AlertDialogDescription>Client-facing steps for {c.clientName ?? "the client"} pause with the usual neutral wording.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => open.mutate(c)}>Open case</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               ) : null}
             </span>
           </li>
@@ -187,7 +201,7 @@ function CaseFile({ c, canList }: { c: Case; canList: boolean }) {
     if (!full || !subjects.size) return structure.scene;
     const nodes = structure.nodes.filter((n) => subjects.has(n.id));
     const ids = new Set(nodes.map((n) => n.id));
-    return { key: `case-${c.id}`, nodes, edges: structure.edges.filter((e) => ids.has(e.s) && ids.has(e.t)).map((e, i) => ({ ...e, cite: i + 1 })) };
+    return { key: `case-${c.id}`, nodes, edges: structure.edges.filter((e) => ids.has(e.s) && ids.has(e.t)) };
   }, [structure, subjects, full, c.id]);
   useBoardScene(scene, { unfold: false });
   const save = useMutation({
@@ -248,6 +262,7 @@ function CaseFile({ c, canList }: { c: Case; canList: boolean }) {
                   </span>
                 </li>
               ))}
+              {!smr.data?.attachments.length && <li className="empty">Nothing pinned yet</li>}
             </ul>
           ) : (
             <div className="card card-pad">

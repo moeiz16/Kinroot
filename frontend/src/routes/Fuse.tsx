@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { errorMessage } from "../api/client";
@@ -56,8 +57,10 @@ export function fuseScene(c: MatchCandidate, a: GraphPayload, b: GraphPayload, _
   const nodes = model.nodes.map((n) => ({ ...n, level: levelOf(n), client: !!n.clientId, sub: n.clientId ? "Client" : n.sub }));
   const pos = layered(nodes, model.edges, { rankSep: 170, nodeSep: 230 });
   let out = applyPositions(nodes, pos);
-  const pa = out.find((n) => n.id === A)!;
-  const pb = out.find((n) => n.id === B)!;
+  const pa = out.find((n) => n.id === A);
+  const pb = out.find((n) => n.id === B);
+  // After a merge one record is folded into the other: draw what is there, without the pair layout.
+  if (!pa || !pb) return { key: `fuse-${c.id}`, nodes: out, edges: model.edges.filter((e) => out.some((n) => n.id === e.s) && out.some((n) => n.id === e.t)) };
   const mid = (pa.x + pb.x) / 2;
   const gap = 170;
   out = out.map((n) => {
@@ -124,6 +127,7 @@ export default function Fuse() {
   const [note, setNote] = useState("");
   const [noteError, setNoteError] = useState(false);
   const [apart, setApart] = useState(false);
+  const [merging, setMerging] = useState(false);
   const noteRef = useRef<HTMLTextAreaElement>(null);
   const allowed = can("resolution:read");
   const list = useQuery({ queryKey: ["candidates", "pending"], queryFn: () => api.resolution.candidates({ pageSize: 50 }), enabled: allowed });
@@ -149,15 +153,18 @@ export default function Fuse() {
   const decide = useMutation({
     mutationFn: (d: "merge" | "not_match") => api.resolution.decide(current!.id, d, note),
     onSuccess: (out) => {
-      toast(out.status === "merged" ? "Fused. You can split them again." : "Kept apart.");
+      toast(out.status === "merged" ? "Merged. You can split them again." : "Kept apart.");
       setApart(false);
+      setMerging(false);
       void qc.invalidateQueries({ queryKey: ["candidates"] });
       void qc.invalidateQueries({ queryKey: ["dashboard"] });
       next();
     },
     onError: (e) => toast(errorMessage(e)),
   });
+  const [splitting, setSplitting] = useState<MatchCandidate | null>(null);
   const fuse = useCallback(async () => {
+    setMerging(false);
     if (!current || !can("resolution:decide") || current.status !== "pending") return;
     await board.engine()?.playFuse();
     decide.mutate("merge");
@@ -178,11 +185,11 @@ export default function Fuse() {
 
   // The stitched seam with drag-to-fuse, once the scene is on the board.
   useEffect(() => {
-    if (!scene || !current) return;
+    if (!scene || !current || !scene.nodes.some((n) => n.id === current.left.id) || !scene.nodes.some((n) => n.id === current.right.id)) return;
     const t = setTimeout(() => {
       board
         .engine()
-        ?.setSeam(current.left.id, current.right.id, "", current.status === "pending" && can("resolution:decide") ? () => void fuse() : undefined);
+        ?.setSeam(current.left.id, current.right.id, "", current.status === "pending" && can("resolution:decide") ? () => setMerging(true) : undefined);
     }, 120);
     return () => clearTimeout(t);
   }, [scene, current, board.version > 0]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -191,7 +198,7 @@ export default function Fuse() {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
       if (["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName) || document.querySelector("[role=dialog]")) return;
-      if (e.key === "f" || e.key === "F") void fuse();
+      if (e.key === "f" || e.key === "F") setMerging(true);
       else if (e.key === "k" || e.key === "K") keepApart();
       else if (e.key === "j" || e.key === "J") next();
     };
@@ -206,6 +213,7 @@ export default function Fuse() {
     },
     onSuccess: () => {
       toast("Split into two records.");
+      setSplitting(null);
       void qc.invalidateQueries({ queryKey: ["candidates"] });
     },
     onError: (e) => toast(errorMessage(e)),
@@ -258,9 +266,23 @@ export default function Fuse() {
                       <span className="item-title">
                         {c.left.name} and {c.right.name}
                       </span>
-                      <span className="item-sub">{c.decidedBy ?? ""}</span>
+                      <span className="item-sub">{c.decidedBy === "System" ? "Kinroot" : (c.decidedBy ?? "")}</span>
                     </span>
-                    <span className="item-end">{c.status === "auto_merged" ? "Fused automatically" : c.status === "merged" ? "Fused" : c.status === "deferred" ? "Deferred" : "Kept apart"}</span>
+                    <span className="item-end">
+                      {c.status === "auto_merged" ? "Merged automatically" : c.status === "merged" ? "Merged" : c.status === "deferred" ? "Deferred" : "Kept apart"}
+                      {(c.status === "merged" || c.status === "auto_merged") && can("resolution:decide") && (
+                        <Button
+                          size="sm"
+                          variant="line"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setSplitting(c);
+                          }}
+                        >
+                          <Split /> Split
+                        </Button>
+                      )}
+                    </span>
                   </Link>
                 </li>
               ))}
@@ -298,10 +320,10 @@ export default function Fuse() {
               <Status tone="review">Same {kindWord}?</Status>
             </span>
           ) : (
-            <Status tone="neutral">{current.status === "auto_merged" ? "Fused automatically" : current.status === "merged" ? "Fused" : current.status === "deferred" ? "Deferred" : "Kept apart"}</Status>
+            <Status tone="neutral">{current.status === "auto_merged" ? "Merged automatically" : current.status === "merged" ? "Merged" : current.status === "deferred" ? "Deferred" : "Kept apart"}</Status>
           ))
         }
-        actions={<QueuePager label="Possible duplicates" items={items.map((c) => ({ id: c.id, title: `${c.left.name} · ${c.right.name}`, detail: `${likelihood(c.score.probability)} · ${c.left.kind === "person" ? "person" : "company"}` }))} current={current?.id} onPick={(x) => nav(`/fuse/${x}`)} />}
+        actions={pending && <QueuePager label="Possible duplicates" items={items.map((c) => ({ id: c.id, title: `${c.left.name} · ${c.right.name}`, detail: `${likelihood(c.score.probability)} · ${c.left.kind === "person" ? "person" : "company"}` }))} current={current?.id} onPick={(x) => nav(`/fuse/${x}`)} />}
       />
       {current && (
         <SectionTabs
@@ -310,54 +332,18 @@ export default function Fuse() {
             { id: "match", label: "Comparison" },
             { id: "a", label: "Record A" },
             { id: "b", label: "Record B" },
-            { id: "past", label: "Decided", count: decided.length || undefined },
           ]}
           active={tab}
           onTab={setTab}
         >
           {tab === "a" || tab === "b" ? (
             <RecordView r={tab === "a" ? current.left : current.right} />
-          ) : tab === "past" ? (
-            <ul className="items">
-              {decided.map((c) => (
-                <li key={c.id} className="item">
-                  <span className="item-main">
-                    <span className="item-title">
-                      {c.left.name} · {c.right.name}
-                    </span>
-                    <span className="item-sub">
-                      {c.status === "auto_merged" ? "Fused automatically" : c.status === "merged" ? "Fused" : c.status === "deferred" ? "Deferred" : "Kept apart"}
-                      {c.decidedBy ? ` · ${c.decidedBy}` : ""}
-                    </span>
-                  </span>
-                  <span className="item-end">
-                    {(c.status === "merged" || c.status === "auto_merged") && can("resolution:decide") && (
-                      <Button size="sm" variant="line" onClick={() => split.mutate(c)} disabled={split.isPending}>
-                        <Split /> Split
-                      </Button>
-                    )}
-                  </span>
-                </li>
-              ))}
-            </ul>
           ) : (
             <Compare
-              a={
-                <>
-                  <span className="cmp-k">Record A</span>
-                  <b>{current.left.name}</b>
-                </>
-              }
-              b={
-                <>
-                  <span className="cmp-k">Record B</span>
-                  <b>{current.right.name}</b>
-                </>
-              }
+              a={<span className="cmp-k">Record A</span>}
+              b={<span className="cmp-k">Record B</span>}
               score={p}
               scoreWord={`likely the same ${kindWord}`}
-              missingA="Not provided"
-              missingB="Not provided"
               rows={rows}
               extra={
                 <div className="scale" role="img" aria-label={`Match likelihood ${p} in 100. Below ${review} kept apart, ${auto} and above fused automatically, in between you decide.`}>
@@ -367,20 +353,21 @@ export default function Fuse() {
                     <span className="z3">Auto</span>
                     <i className="marker" style={{ left: `calc(${p}% - 1px)` }} />
                   </div>
+                  {held && <p className="note held">Held for you: {held}</p>}
                 </div>
               }
             />
           )}
         </SectionTabs>
       )}
-      {current && tab === "match" && <ChartBand label="Both records and what they are linked to" height="mid" legend={["person", "company", "owns", "controls"]} className="mt-5" foot={pending && can("resolution:decide") ? <span className="chip">Drag one onto the other to fuse</span> : null} />}
+      {current && tab === "match" && <ChartBand label="Both records and what they are linked to" height="mid" legend={["person", "company", "owns", "controls"]} className="mt-5" foot={pending && can("resolution:decide") ? <span className="chip">Drag one onto the other to merge</span> : null} />}
       {current && (
         <DecisionBar label="Decision">
           {pending ? (
             can("resolution:decide") ? (
               <div className="row">
-                <Button variant="primary" onClick={() => void fuse()} disabled={decide.isPending} title="F">
-                  <Merge /> Fuse
+                <Button variant="primary" onClick={() => setMerging(true)} disabled={decide.isPending} title="F">
+                  <Merge /> Merge
                 </Button>
                 <Button variant="line" onClick={keepApart} disabled={decide.isPending} title="K">
                   <Split /> Keep apart
@@ -393,10 +380,43 @@ export default function Fuse() {
               <p className="note-info">The compliance officer decides</p>
             )
           ) : (
-            <p className="note-info">{current.decidedBy ? `Decided by ${current.decidedBy}` : "Decided"}</p>
+            <>
+              <p className="note-info">{current.decidedBy ? `Decided by ${current.decidedBy === "System" ? "Kinroot" : current.decidedBy}` : "Decided"}</p>
+              {(current.status === "merged" || current.status === "auto_merged") && can("resolution:decide") && (
+                <Button variant="line" onClick={() => setSplitting(current)}>
+                  <Split /> Split
+                </Button>
+              )}
+            </>
           )}
         </DecisionBar>
       )}
+      <AlertDialog open={merging} onOpenChange={setMerging}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Merge into one {kindWord}?</AlertDialogTitle>
+            <AlertDialogDescription>Both original records are kept. You can split them again.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void fuse()}>Merge</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={!!splitting} onOpenChange={(o) => !o && setSplitting(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Split into two records?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {splitting?.left.name} and {splitting?.right.name} become separate again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => splitting && split.mutate(splitting)}>Split</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <Dialog open={apart} onOpenChange={(o) => (setApart(o), setNoteError(false))}>
         <DialogContent className="sm:max-w-[440px]">
           <DialogHeader>

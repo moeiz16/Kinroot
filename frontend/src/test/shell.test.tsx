@@ -5,7 +5,8 @@ import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { TrayItem } from "../api/types";
 import { daysFromToday } from "../lib/dates";
-import { docketRows, dueText } from "../routes/BoardHome";
+import { docketRows, dueText, rowTitle } from "../routes/BoardHome";
+import { honestMark } from "../routes/Compare";
 import { QueuePager, SectionTabs } from "../shell/page";
 import { rounded } from "../graph/engine";
 import { renderApp } from "./render";
@@ -123,5 +124,19 @@ describe("search", () => {
     await userEvent.type(input, "activity");
     await userEvent.click(await screen.findByRole("option", { name: "Activity log" }));
     expect(await screen.findByRole("heading", { name: /^Activity log/ }, { timeout: 4000 })).toBeInTheDocument();
+  });
+});
+
+describe("comparisons and lists say each fact once, honestly", () => {
+  it("never marks a field the same when a side is missing or the words differ", () => {
+    expect(honestMark({ field: "Born", a: null, b: "1 Jan 1970", mark: "=", word: "Same" }).mark).toBe("—");
+    expect(honestMark({ field: "Name", a: "Aurelian Maritime FZE", b: "Aurelian Maritime FZCO", mark: "=", word: "Close" }).mark).toBe("≈");
+    expect(honestMark({ field: "Name", a: "Ben Okafor", b: "ben okafor", mark: "=", word: "Same" }).mark).toBe("=");
+    expect(honestMark({ field: "Address", a: "1 St", b: "2 St", mark: "≠", word: "Different" }).mark).toBe("≠");
+  });
+  it("drops the kind from a waiting item's title and names the client when the title doesn't", () => {
+    const [row] = docketRows([slip("a", null, "signoff")], []);
+    expect(rowTitle({ ...row!, title: "Sign-off needed: Lumen Trade Pty Ltd" })).toBe("Lumen Trade Pty Ltd");
+    expect(rowTitle({ ...row!, title: "Risk rating changed from low to high" }, "Ironbark Ventures Pty Ltd")).toBe("Risk rating changed from low to high · Ironbark Ventures Pty Ltd");
   });
 });

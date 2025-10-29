@@ -3,19 +3,20 @@
 import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import type { DocumentRec, ScreeningHit } from "../../api/types";
+import type { DocumentRec, ScreeningHit, VerificationCheck } from "../../api/types";
 import { KindGlyph, Status } from "../../shell/chart";
 import type { Structure } from "./structure";
 
 const KIND_WORD: Record<string, string> = { person: "Person", company: "Company", trust: "Trust", partnership: "Partnership", unknown: "Not yet known", stack: "Group of companies", list: "List entry", address: "Address" };
 
-export function hasId(docs: DocumentRec[], partyId: string): boolean {
-  return docs.some((d) => d.partyId === partyId && ["passport", "drivers_licence", "birth_certificate", "company_extract", "trust_deed"].includes(d.docType));
+/** Identity is verified by an electronic or document check, or by an identity document on file. */
+export function hasId(docs: DocumentRec[], partyId: string, checks: VerificationCheck[] = []): boolean {
+  return checks.some((c) => c.partyId === partyId && c.result === "verified") || docs.some((d) => d.partyId === partyId && ["passport", "drivers_licence", "birth_certificate", "company_extract", "trust_deed"].includes(d.docType));
 }
 
 const fmtPct = (n: number) => `${Math.round(n * 10) / 10}%`;
 
-export function PartyDrawer({ partyId, structure, clientId, docs, hits, onClose }: { partyId: string | null; structure: Structure | null; clientId: string; docs: DocumentRec[]; hits: ScreeningHit[]; onClose: () => void }) {
+export function PartyDrawer({ partyId, structure, clientId, docs, checks, hits, onClose }: { partyId: string | null; structure: Structure | null; clientId: string; docs: DocumentRec[]; checks: VerificationCheck[]; hits: ScreeningHit[]; onClose: () => void }) {
   const n = partyId ? structure?.nodes.find((x) => x.id === partyId) : undefined;
   const owner = partyId ? structure?.ubo?.owners.find((o) => o.partyId === partyId) : undefined;
   const path = owner?.paths.find((p) => p.effectivePct != null) ?? owner?.paths[0];
@@ -45,13 +46,13 @@ export function PartyDrawer({ partyId, structure, clientId, docs, hits, onClose 
               {(owner?.isUbo || hit || checkable) && (
                 <div className="flex flex-wrap gap-2">
                   {owner?.isUbo && <Status tone="neutral">Beneficial owner</Status>}
-                  {checkable && (hasId(docs, n.id) ? <Status tone="clear">ID verified</Status> : <Status tone="review">Ask client for ID</Status>)}
+                  {checkable && (hasId(docs, n.id, checks) ? <Status tone="clear">ID verified</Status> : <Status tone="review">Ask client for ID</Status>)}
                   {hit && <Status tone={hit.status === "true_match" ? "high" : "review"}>{hit.status === "pending" ? "Possible match" : hit.status === "true_match" ? "Confirmed match" : "Escalated"}</Status>}
-                  {n.pep && <Status tone="review">PEP</Status>}
+                  {n.pep && <Status tone="review">Politically exposed</Status>}
                 </div>
               )}
               <dl className="facts">
-                {n.sub && !owner && (
+                {n.sub && !owner && !links.length && (
                   <>
                     <dt>Details</dt>
                     <dd>{n.sub}</dd>
