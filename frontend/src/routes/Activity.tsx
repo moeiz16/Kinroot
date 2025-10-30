@@ -102,7 +102,7 @@ export default function Activity() {
       />
       <div className="filters">
         <Select value={action} onValueChange={setAction}>
-          <SelectTrigger aria-label="Action" className="w-[180px]">
+          <SelectTrigger aria-label="Action" className="w-[220px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
