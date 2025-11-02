@@ -1,5 +1,5 @@
 // Kinroot web app entry. Fonts are bundled offline (@fontsource); the API is /api/v1 via the dev proxy.
-import "@fontsource-variable/plus-jakarta-sans";
+import "@fontsource-variable/albert-sans";
 import "@fontsource/roboto-mono/400.css";
 import "@fontsource/roboto-mono/500.css";
 import "./styles/index.css";
