@@ -172,7 +172,7 @@ flowchart LR
 | Matching and screening | rapidfuzz, jellyfish (Jaro-Winkler, Double Metaphone, NYSIIS), custom normalisation and blocking |
 | Classical ML | scikit-learn, LightGBM, Optuna, SHAP (exact TreeSHAP), isotonic calibration, MLflow (local tracking and registry) |
 | Assistant | Six permission-checked tools over the graph, screening and risk records; a deterministic offline planner; optional LiteLLM (Groq, Gemini) |
-| Web | React 19, Vite, React Router, TanStack Query and TanStack Table, shadcn/ui on Radix primitives (re-themed: warm neutrals with a plum accent, light and dark), Sigma.js 3 + graphology (camera and ForceAtlas2) under Kinroot's own ownership-chart drawing, Motion, Tailwind CSS 4.1; type set in Plus Jakarta Sans and Roboto Mono; Vitest and Playwright |
+| Web | React 19, Vite, React Router, TanStack Query and TanStack Table, shadcn/ui on Radix primitives (re-themed: warm neutrals with a plum accent, light and dark), Sigma.js 3 + graphology (camera and ForceAtlas2) under Kinroot's own ownership-chart drawing, Motion, Tailwind CSS 4.1; type set in Albert Sans and Roboto Mono; Vitest and Playwright |
 | Quality | pytest, Ruff, mypy (Django and DRF plugins), ESLint, Vitest, an evaluation harness with gates, GitHub Actions CI |
 
 ## Machine learning

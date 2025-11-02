@@ -18,7 +18,7 @@ The owner called v3 "pathetic". Looking at its screens as a first-time viewer:
 | Puzzle chrome | Trail bar of shape glyphs, full-screen "Index", depth gauge, "Exhibit A", layer labels | Plain top navigation with five words; a chart toolbar with three icons |
 | Noisy chart | Layer rules, register numbers inside plates, role words on every line, a long equation tag | Names and percentages only; everything else opens on click |
 
-The target calm is Vortex v2 (neutral, one title, labels of one to three words) without copying its identity: Vortex has a left sidebar, Inter and zinc; Kinroot has a top bar, Plus Jakarta Sans and plum.
+The target calm is Vortex v2 (neutral, one title, labels of one to three words) without copying its identity: Vortex has a left sidebar, Inter and zinc; Kinroot has a top bar, Albert Sans and plum.
 
 ## 2. Information architecture
 
@@ -97,11 +97,11 @@ Radius 8 px for controls, 12 px for cards and dialogs, full for chips. Borders o
 
 | Role | Face | Use |
 |---|---|---|
-| Headings | **Plus Jakarta Sans** (variable) 500 | One title per screen, 24 px (20 on phones), sentence case, normal tracking; section labels 15 px 600 |
-| UI / body | **Plus Jakarta Sans** 400–600 | Body 14 px/1.55, labels 13 px 500 |
-| Numbers / IDs | **Roboto Mono** 400–500 | ACN/ABN, case references, seals; percentages use Plus Jakarta tabular figures |
+| Headings | **Albert Sans** (variable) 500 | One title per screen, 24 px (20 on phones), sentence case, normal tracking; section labels 15 px 600 |
+| UI / body | **Albert Sans** 400–600 | Body 14 px/1.55, labels 13 px 500 |
+| Numbers / IDs | **Roboto Mono** 400–500 | ACN/ABN, case references, seals; percentages use Albert Sans tabular figures |
 
-Heading style category: **soft geometric-humanist sans, sentence case, medium weight, no tracking tricks**. Syne, Onest and Martian Mono are retired.
+Heading style category: **grotesk-humanist sans (Albert Sans), sentence case, medium weight, no tracking tricks**. Syne, Onest and Martian Mono are retired.
 
 ## 7. Status language
 
