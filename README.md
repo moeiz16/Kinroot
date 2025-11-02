@@ -57,15 +57,14 @@ The seeded roles match how a small firm runs its AML/CTF program.
 
 Across all of them:
 
-- **The structure chart.** Each client is drawn the way a lawyer draws a structure chart: the client at the foot,
-  owners in rows above it, companies as boxes, trusts as ovals and people as circles, joined by elbowed lines with
-  the percentage on each owner's line. Following a person to the client is a trace that climbs from the client to
-  the owner and multiplies as it goes ("100% × 80% × 62% = 49.6%"). Every chart has a depth gauge (one tick per
-  layer of ownership) and a text register of the same data for keyboard and screen-reader users.
-- **Screens shaped by the work.** A trail bar on top records your path through the files and tallies what is
-  waiting; a full-screen Index holds every destination. The desk is a ticket rail over the whole client book;
-  registers are full-width; dossiers put the chart above the record; matches are a face-off between two records;
-  restricted cases are sealed on an ink ground.
+- **The ownership chart.** Each client is drawn the way a lawyer draws a structure chart: the client at the foot,
+  owners above it, companies as boxes, trusts as pills and people as circles, joined by elbowed lines with the
+  percentage on each owner's line. The path to the beneficial owner is traced and their effective share shown in one
+  chip; click anyone for a drawer with their roles, the path and the working ("100% × 80% × 62% = 49.6%"). Every
+  chart has a text version of the same data for keyboard and screen-reader users.
+- **Calm, in layers.** One title per screen, short labels, detail in drawers and dialogs. A plain top bar (Home,
+  Clients, Reviews, Reports, Programme), Search and Ask; every decision asks for confirmation or a reason in a
+  dialog; records are compared field by field; restricted cases are visible only to the people on the case.
 - **Point in time.** Any structure can be shown "as at" a date, or compared with another date to show what changed
   since onboarding.
 - **Investigation assistant.** Ask "how is this person connected to that company?" or "what changed since
@@ -173,7 +172,7 @@ flowchart LR
 | Matching and screening | rapidfuzz, jellyfish (Jaro-Winkler, Double Metaphone, NYSIIS), custom normalisation and blocking |
 | Classical ML | scikit-learn, LightGBM, Optuna, SHAP (exact TreeSHAP), isotonic calibration, MLflow (local tracking and registry) |
 | Assistant | Six permission-checked tools over the graph, screening and risk records; a deterministic offline planner; optional LiteLLM (Groq, Gemini) |
-| Web | React 19, Vite, React Router, TanStack Query and TanStack Table, shadcn/ui on Radix primitives (re-skinned: leaf corners, moss tokens), Sigma.js 3 + graphology (camera and ForceAtlas2) under Kinroot's own structure-chart drawing, Motion, Tailwind CSS 4.1; type set in Syne, Onest and Martian Mono |
+| Web | React 19, Vite, React Router, TanStack Query and TanStack Table, shadcn/ui on Radix primitives (re-themed: warm neutrals with a plum accent, light and dark), Sigma.js 3 + graphology (camera and ForceAtlas2) under Kinroot's own ownership-chart drawing, Motion, Tailwind CSS 4.1; type set in Plus Jakarta Sans and Roboto Mono; Vitest and Playwright |
 | Quality | pytest, Ruff, mypy (Django and DRF plugins), ESLint, Vitest, an evaluation harness with gates, GitHub Actions CI |
 
 ## Machine learning
@@ -287,11 +286,12 @@ Snapshot with every table: [eval/RESULTS.md](eval/RESULTS.md).
 ### Tests and performance
 
 - **Tests:** 434 backend tests (pytest: platform, API, RBAC matrix, tenant isolation, tipping-off, graph, entity
-  resolution, screening, risk, monitoring, assistant, models) and 112 web tests (Vitest: API client, fixture
-  contract, graph transforms and layout, the docket, folder tabs, the queue pager, Find, key journeys). Ruff, mypy (Django/DRF plugins), ESLint and `tsc` are clean.
-- **End-to-end:** every main journey driven in a real browser against the production web build, the API and the
-  worker, signed in as each demo role, with motion on and with reduced motion: no console errors, no failed
-  requests, no horizontal overflow at 390 px.
+  resolution, screening, risk, monitoring, assistant, models) and 122 web tests (Vitest: API client, fixture
+  contract, graph transforms and layout, the waiting list, tabs, the queue pager, search, field-by-field comparisons,
+  key journeys by role). Ruff, mypy (Django/DRF plugins), ESLint and `tsc` are clean.
+- **End-to-end:** a Playwright suite (`npm --prefix frontend run e2e`, 8 checks) drives the landing page, home, a
+  client's ownership chart and drawer, a screening decision, a merge confirmation, role limits, the account menu and
+  390 px phone layouts against the running API, with the demo clock set to October 2025.
 - **Speed** (one laptop, SQLite + embedded graph, warm API, signed in as the compliance officer, 40 calls each):
 
 | Request | p50 | p95 |
@@ -318,14 +318,14 @@ All screens use the synthetic Harbourline sample firm. Images live in [`docs/scr
 
 | | |
 |---|---|
-| ![Landing page: the headline asks who really owns your client, and a sample structure chart traces the answer, 100% × 80% × 62% = 49.6%](docs/screenshots/01-landing-hero.jpg) | ![The desk: a giant count of decisions waiting, each one a ticket with the restricted report deadline first, over the whole client book drawn as one network](docs/screenshots/04-constellation.jpg) |
-| **The answer is the headline.** Pick a sample structure, watch the owners rise above the client and the trace climb to the beneficial owner. | **The desk and the client book.** Every decision waiting as a ticket, earliest due first, over every client clustered by shared directors, owners and addresses. |
-| ![Client dossier: a structure chart with the owners above the client, companies as boxes, the trust as an oval and people as circles, and the trace climbing to the beneficial owner](docs/screenshots/06-dossier-ubo-path.jpg) | ![Before/after: a new 40% holder through a Cayman company, with new and changed links tagged on the chart against the onboarding date](docs/screenshots/10-before-after.jpg) |
-| **Who really owns this client.** Each reason for the rating cites the link it rests on (`E-04`, `E-01`). | **What changed since onboarding.** New, ended and changed links are tagged on the chart. |
-| ![Fuse or split: Record A and Record B face each other across a 100 in 100 likelihood, each field zipped across with a same, close or different mark](docs/screenshots/12-fuse-or-split.jpg) | ![Screening review: our record faces the sanctions list entry field by field before a decision](docs/screenshots/13-screening-review.jpg) |
-| **Fuse or split.** Likely duplicates with plain reasons; anything that conflicts waits for a person. | **Screening review.** A possible sanctions match compared field by field; every decision needs a reason. |
-| ![Restricted case: the page turns to ink behind a hatched restriction band, with a count of business days left to report](docs/screenshots/15-smr-case.jpg) | ![Ask the board: "How is Gregory Pell linked to our clients?" answered with three cited links, the same path drawn as a structure chart](docs/screenshots/16-ask-the-board.jpg) |
-| **Suspicious-matter reports.** Restricted to the people on the case, so nobody tips off the client. | **Ask the board.** Answers come only from traced paths, and every link they use is numbered and drawn. |
+| ![Landing page: one question, one button, and a live sample chart that traces a client to its owner, who holds 49.6%](docs/screenshots/01-landing-hero.jpg) | ![Home: the decisions waiting for you beside the whole client book drawn as one network](docs/screenshots/04-constellation.jpg) |
+| **Who really owns your client?** Pick a sample structure and watch the path climb to the beneficial owner. | **What is waiting, and the client book.** Every decision earliest due first, beside every client clustered by shared directors, owners and addresses. |
+| ![Client ownership: the chart with owners above the client, companies as boxes, the trust as a pill and people as circles, and the path to the beneficial owner](docs/screenshots/06-dossier-ubo-path.jpg) | ![An ownership-change alert: new links tagged on the chart, with the evidence beside it](docs/screenshots/10-before-after.jpg) |
+| **Who really owns this client.** Click anyone on the chart for their roles, path and share. | **What changed since onboarding.** New and ended links are marked on the chart. |
+| ![Possible duplicate: two records side by side, field by field, with the likelihood and why the pair waits for a person](docs/screenshots/12-fuse-or-split.jpg) | ![Screening review: our record beside the sanctions list entry, field by field](docs/screenshots/13-screening-review.jpg) |
+| **Duplicates.** Likely duplicates with plain reasons; anything that conflicts waits for a person, and merges can be split again. | **Screening review.** A possible sanctions match compared field by field; every decision needs a reason. |
+| ![Restricted case: visible only to the people on the case, with the business days left to report](docs/screenshots/15-smr-case.jpg) | ![Ask: "Who controls Aurelian Shipping Pty Ltd?" answered with numbered links and the same path drawn](docs/screenshots/16-ask-the-board.jpg) |
+| **Suspicious-matter reports.** Restricted to the people on the case, so nobody tips off the client. | **Ask.** Answers come only from traced paths, and every link they use is numbered and drawn. |
 
 ## Compliance alignment
 
@@ -398,7 +398,7 @@ backend/         Django project
   assistant/       graph tools, offline planner, optional LiteLLM adapter
   artifacts/models/  committed matcher and risk models, thresholds, calibrators, model cards
   tests/           platform, API, graph, domain and ML tests
-frontend/        React + Vite web app: the structure chart and its screens (see frontend/DESIGN.md)
+frontend/        React + Vite web app: the ownership chart and its screens (see frontend/DESIGN.md)
 eval/            evaluation harness (run.py), gates, held-out fixtures and RESULTS.md
 scripts/         OpenSanctions, Companies House and ABN downloaders, graph smoke test, clean
 docs/            problem statement, architecture, API contract, data sources, ADRs
