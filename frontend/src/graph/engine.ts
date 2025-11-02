@@ -62,6 +62,9 @@ interface REdge extends BEdge {
   onString?: boolean;
   exitOff: number;
   entryOff: number;
+  /** where the label was put this frame (screen px, centre) and its scale */
+  lblAt?: Pt;
+  lblScale?: number;
   labelRow: number;
   pts: Pt[];
 }
@@ -247,7 +250,7 @@ export class BoardEngine {
     this.buildRows();
     const ext = extents(scene.nodes);
     this.center = { x: (ext.minX + ext.maxX) / 2, y: (ext.minY + ext.maxY) / 2 };
-    const pad = this.opts.pad ?? (this.pins ? { x: 220, y: 60 } : { x: PLATE_W + 40, y: 116 });
+    const pad = this.opts.pad ?? (this.pins ? { x: 220, y: 60 } : { x: PLATE_W + 24, y: 76 });
     this.content = { w: ext.maxX - ext.minX + pad.x, h: ext.maxY - ext.minY + pad.y };
     this.sigma.getCamera().setState({ x: 0.5, y: 0.5, ratio: 1, angle: 0 });
     this.applyBBox();
@@ -474,7 +477,7 @@ export class BoardEngine {
     const vw = Math.max(80, W - this.insets.left - this.insets.right);
     const vh = Math.max(80, H - this.insets.top - this.insets.bottom);
     // Plates stay legible: below this the structure overflows the frame and the depth gauge pans it.
-    const s = clamp(Math.min(vw / Math.max(1, this.content.w), vh / Math.max(1, this.content.h)), this.pins ? (W < 640 ? 0.3 : 0.4) : W < 640 ? 0.36 : 0.56, 1.05);
+    const s = clamp(Math.min(vw / Math.max(1, this.content.w), vh / Math.max(1, this.content.h)), this.pins ? (W < 640 ? 0.3 : 0.4) : W < 640 ? 0.36 : 0.56, 1);
     this.base = s;
     const vcx = this.insets.left + vw / 2;
     const vcy = this.insets.top + vh / 2;
@@ -563,6 +566,7 @@ export class BoardEngine {
       text.setAttribute("y", String(y - 7));
     });
     for (const e of this.edges.values()) this.syncEdge(e, k);
+    this.separateLabels();
     this.drawTraces();
     this.drawSeam();
     this.opts.onSync?.();
@@ -638,7 +642,9 @@ export class BoardEngine {
     else if (Math.abs(p0.y - p1.y) < 1) at = { x: (p0.x + p1.x) / 2, y: p0.y - 12 * k };
     else at = { x: p0.x, y: p0.y + (Math.min(e.labelRow ? 16 : 26, Math.abs(p1.y - p0.y) * 0.5) + e.labelRow * 21) * k * Math.sign(p1.y - p0.y || 1) };
     if (e.lbl) {
-      const ls = clamp(k, 0.6, 1);
+      const ls = clamp(k, 0.45, 1);
+      e.lblAt = at;
+      e.lblScale = ls;
       e.lbl.style.transform = `translate(${at.x}px, ${at.y}px) translate(-50%, -50%)${ls < 1 ? ` scale(${ls.toFixed(3)})` : ""}`;
       e.lbl.style.opacity = vis ? (e.removed ? "0.55" : this.isDimmed(e.s) && this.isDimmed(e.t) ? "0.3" : "1") : "0";
       e.lbl.classList.toggle("on-trace", !!e.onString);
@@ -652,6 +658,31 @@ export class BoardEngine {
     if (e.citeEl) {
       e.citeEl.style.transform = `translate(${at.x + (e.lbl ? e.lbl.offsetWidth / 2 + 12 : 0)}px, ${at.y}px) translate(-50%, -50%)`;
       e.citeEl.style.opacity = vis ? "1" : "0";
+    }
+  }
+
+  /** Labels never sit on top of each other: one owner's identical shares merge into one chip; others step down. */
+  private separateLabels() {
+    const placed: { x: number; y: number; w: number; h: number; s: string; text: string }[] = [];
+    for (const e of this.edges.values()) {
+      const l = e.lbl;
+      if (!l || !e.lblAt || l.style.opacity === "0" || l.classList.contains("ctrl")) continue;
+      const sc = e.lblScale ?? 1;
+      const w = l.offsetWidth * sc;
+      const h = l.offsetHeight * sc;
+      const at = { ...e.lblAt };
+      const hit = () => placed.find((p) => Math.abs(p.x - at.x) < (p.w + w) / 2 + 2 && Math.abs(p.y - at.y) < (p.h + h) / 2 + 2);
+      let other = hit();
+      if (other && other.s === e.s && other.text === l.textContent) {
+        l.style.opacity = "0";
+        continue;
+      }
+      for (let i = 0; other && i < 4; i++) {
+        at.y = other.y + (other.h + h) / 2 + 3;
+        other = hit();
+      }
+      if (at.y !== e.lblAt.y) l.style.transform = `translate(${at.x}px, ${at.y}px) translate(-50%, -50%)${sc < 1 ? ` scale(${sc.toFixed(3)})` : ""}`;
+      placed.push({ x: at.x, y: at.y, w, h, s: e.s, text: l.textContent ?? "" });
     }
   }
 

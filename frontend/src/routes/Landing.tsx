@@ -39,7 +39,7 @@ export default function Landing() {
 
   useEffect(() => {
     if (!host.current || !canDraw) return;
-    const e = new BoardEngine(host.current, { reduced, pad: { x: 220, y: 150 }, ariaLabel: "Sample ownership structure" });
+    const e = new BoardEngine(host.current, { reduced, pad: { x: 180, y: 80 }, ariaLabel: "Sample ownership structure" });
     engine.current = e;
     const ro = new ResizeObserver(() => e.resize());
     ro.observe(host.current);
@@ -51,7 +51,7 @@ export default function Landing() {
   }, [canDraw, reduced]);
 
   useEffect(() => {
-    engine.current?.setInsets(phone ? { top: 70, left: 8, right: 8, bottom: 70 } : { top: 70, left: 40, right: 40, bottom: 70 });
+    engine.current?.setInsets(phone ? { top: 70, left: 8, right: 8, bottom: 70 } : { top: 62, left: 32, right: 32, bottom: 62 });
   }, [phone, canDraw]);
 
   /** Count the figure up while the trace climbs. */
@@ -93,7 +93,7 @@ export default function Landing() {
       setFigure(reduced ? s.answer.figure : "0%");
       setPhase(reduced ? "done" : "rising");
       // The scenarios are drawn client-on-top; the chart puts owners above, so flip them.
-      await e.setScene({ key: `${s.id}-${id}`, nodes: s.nodes.map((n) => ({ ...n, label: n.client ? s.name : n.label, y: -n.y })), edges: s.edges }, { hold: true });
+      await e.setScene({ key: `${s.id}-${id}`, nodes: s.nodes.map((n) => ({ ...n, label: n.client ? s.name : n.label, y: -n.y * 0.72 })), edges: s.edges }, { hold: true });
       await e.unfoldAll();
       await wait(reduced ? 0 : 200);
       if (runId.current !== id) return;

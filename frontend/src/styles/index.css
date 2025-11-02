@@ -498,3 +498,4 @@ button.chip:hover { border-color: var(--border-strong); }
 }
 .h-tall .chart-frame { height: clamp(360px, calc(100vh - 380px), 600px); }
 .h-tall .chart-frame { height: clamp(360px, calc(100vh - 380px), 600px); }
+.h-tall .chart-frame { height: clamp(400px, calc(100vh - 340px), 640px); }

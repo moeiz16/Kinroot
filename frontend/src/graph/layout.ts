@@ -16,7 +16,7 @@ export interface LayeredOptions {
  * Returns positions in layout px, client at x = 0.
  */
 export function layered(nodes: BNode[], edges: BEdge[], opts: LayeredOptions = {}): Map<string, { x: number; y: number }> {
-  const rankSep = opts.rankSep ?? 142;
+  const rankSep = opts.rankSep ?? 108;
   const nodeSep = opts.nodeSep ?? 212;
   const pos = new Map<string, { x: number; y: number }>();
   const lv = new Map(nodes.map((n) => [n.id, n.level]));
